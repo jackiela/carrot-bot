@@ -1,6 +1,7 @@
 import discord
 import random
 import os
+import json
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -107,14 +108,76 @@ carrot_tips = [
     "定期間苗，避免胡蘿蔔擠在一起。"
 ]
 
-# ===== 小遊戲：拔蘿蔔 =====
-carrot_game = [
-    "你拔到了一根巨大的金胡蘿蔔！✨",
+# ===== 拔蘿蔔遊戲（60 種，含稀有度） =====
+common_carrots = [
     "你拔到了一根普通的紅蘿蔔 🍠",
     "你拔到了一根小小的白蘿蔔 🥕",
     "你拔到了一根壞掉的黑蘿蔔 😱",
-    "你拔到了一根可愛的迷你胡蘿蔔 🐇"
+    "你拔到了一根可愛的迷你胡蘿蔔 🐇",
+    "你拔到了一根搞笑蘿蔔 🤡",
+    "你拔到了一根逃跑蘿蔔 🏃‍♂️",
+    "你拔到了一根老爺爺蘿蔔 👴",
+    "你拔到了一根發霉的蘿蔔 🦠",
+    "你拔到了一根彎曲的蘿蔔 🌀",
+    "你拔到了一根泥巴蘿蔔 🪱",
+    "你拔到了一根半截蘿蔔 ✂️",
+    "你拔到了一根空心蘿蔔 🕳️",
+    "你拔到了一根皺巴巴蘿蔔 🧻",
+    "你拔到了一根發芽蘿蔔 🌱",
+    "你拔到了一根乾掉的蘿蔔 ☀️",
+    "你拔到了一根笑臉蘿蔔 😀",
+    "你拔到了一根哭泣蘿蔔 😭",
+    "你拔到了一根打瞌睡的蘿蔔 😴",
+    "你拔到了一根打結蘿蔔 🔗",
+    "你拔到了一根兩頭蘿蔔 🔀",
+    "你拔到了一根長腳蘿蔔 🦵",
+    "你拔到了一根長手蘿蔔 ✋",
+    "你拔到了一根長耳朵蘿蔔 🐰",
+    "你拔到了一根長尾巴蘿蔔 🦊",
+    "你拔到了一根長鼻子蘿蔔 🤥",
+    "你拔到了一根長眼睛蘿蔔 👀",
+    "你拔到了一根長舌頭蘿蔔 👅",
+    "你拔到了一根翻滾的蘿蔔 🔄",
+    "你拔到了一根卡住的蘿蔔 🪤",
 ]
+
+rare_carrots = [
+    "你拔到了一根會發光的螢光蘿蔔 💡",
+    "你拔到了一根會唱歌的音樂蘿蔔 🎶",
+    "你拔到了一根彩虹蘿蔔 🌈",
+    "你拔到了一根冰雪蘿蔔 ❄️",
+    "你拔到了一根火山蘿蔔 🌋",
+    "你拔到了一根懸浮蘿蔔 🪄",
+    "你拔到了一根武士蘿蔔 ⚔️",
+    "你拔到了一根雷神蘿蔔 🔨",
+    "你拔到了一根雷電蘿蔔 ⚡",
+    "你拔到了一根海洋蘿蔔 🌊",
+    "你拔到了一根天使蘿蔔 😇",
+    "你拔到了一根惡魔蘿蔔 😈",
+    "你拔到了一根機械蘿蔔 🤖",
+    "你拔到了一根智慧蘿蔔 🧠",
+    "你拔到了一根占卜蘿蔔 🔮",
+    "你拔到了一根戀愛蘿蔔 💘",
+    "你拔到了一根香氣蘿蔔 🌸",
+    "你拔到了一根遊戲蘿蔔 🎮",
+    "你拔到了一根火箭蘿蔔 🚀",
+    "你拔到了一根變異蘿蔔 🌀",
+]
+
+legendary_carrots = [
+    "你拔到了一根巨大的金胡蘿蔔！✨",
+    "你拔到了一根鑽石蘿蔔 💎",
+    "你拔到了一根會噴火的龍蘿蔔 🐉",
+    "你拔到了一根王者蘿蔔 👑",
+    "你拔到了一根星辰蘿蔔 🌟",
+    "你拔到了一根宇宙蘿蔔 🌌",
+    "你拔到了一根神聖蘿蔔 🕊️",
+    "你拔到了一根幻影蘿蔔 👻",
+    "你拔到了一根永恆蘿蔔 ⏳",
+    "你拔到了一根幸運蘿蔔 🍀",
+]
+
+all_carrots = common_carrots + rare_carrots + legendary_carrots
 
 # ===== Bot 指令 =====
 @client.event
@@ -129,7 +192,11 @@ async def on_message(message):
         return
 
     content = message.content.strip()
+    user_id = str(message.author.id)
+    username = str(message.author.display_name)
+    data = load_data()
 
+    
     if content == "!運勢":
         print("DEBUG: 這應該是第一次")   # ✅ 要縮排 4 個空格
         fortune = random.choice(list(fortunes.keys()))
@@ -158,6 +225,14 @@ async def on_message(message):
     elif content == "!拔蘿蔔":
         result = random.choice(carrot_game)
         await message.channel.send(f"💪 {result}")
+
+        if user_id not in data:
+            data[user_id] = {"name": username, "carrots": []}
+        if result not in data[user_id]["carrots"]:
+            data[user_id]["carrots"].append(result)
+            await message.channel.send("📖 新發現！你的圖鑑新增了一種蘿蔔！")
+
+        save_data(data
         return
 
 # ===== 啟動 Bot =====
