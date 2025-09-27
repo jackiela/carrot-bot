@@ -150,6 +150,8 @@ async def on_message(message):
         await message.channel.send(f"💪 {result}")
 
 # ===== 啟動 Bot =====
-keep_alive()   # ✅ 先啟動 Flask 假伺服器
+from keep_alive import keep_alive   # ← 確保有這行
+keep_alive()                        # ← 啟動 Flask 假伺服器
+
 TOKEN = os.getenv("DISCORD_TOKEN")
 client.run(TOKEN)
