@@ -257,6 +257,47 @@ async def on_message(message):
 
         save_data(data)
         return
+  elif content == "!蘿蔔圖鑑":
+        if user_id not in data or not data[user_id]["carrots"]:
+            await message.channel.send("📖 你的圖鑑還是空的，快去拔蘿蔔吧！")
+            return
+
+        collected = data[user_id]["carrots"]
+        total = len(all_carrots)
+        progress = len(collected)
+
+        common_count = len([c for c in collected if c in common_carrots])
+        rare_count = len([c for c in collected if c in rare_carrots])
+        legendary_count = len([c for c in collected if c in legendary_carrots])
+
+        reply = f"📖 你的蘿蔔圖鑑：{progress}/{total} 種\n"
+        reply += f"🔹 普通：{common_count}/{len(common_carrots)} 種\n"
+        reply += f"🔸 稀有：{rare_count}/{len(rare_carrots)} 種\n"
+        reply += f"🌟 傳說：{legendary_count}/{len(legendary_carrots)} 種\n\n"
+        reply += "你已收集到的蘿蔔：\n" + "\n".join(collected)
+
+        await message.channel.send(reply)
+        return
+
+    elif content == "!蘿蔔排行":
+        if not data:
+            await message.channel.send("📊 目前還沒有任何玩家收集蘿蔔！")
+            return
+
+        ranking = sorted(
+            data.items(),
+            key=lambda x: len(x[1]["carrots"]),
+            reverse=True
+        )
+
+        reply = "🏆 蘿蔔收集排行榜 🥕\n"
+        for i, (uid, info) in enumerate(ranking[:5], start=1):
+            count = len(info["carrots"])
+            reply += f"{i}. {info['name']} — {count}/{len(all_carrots)} 種\n"
+
+        await message.channel.send(reply)
+        return
+
 
 # ===== 啟動 Bot =====
 from keep_alive import keep_alive   # ← 確保有這行
