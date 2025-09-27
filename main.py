@@ -149,7 +149,7 @@ async def on_message(message):
         result = random.choice(carrot_game)
         await message.channel.send(f"💪 {result}")
 
-===== 啟動 Bot =====
+# ===== 啟動 Bot =====
 keep_alive()   # ✅ 先啟動 Flask 假伺服器
 TOKEN = os.getenv("DISCORD_TOKEN")
 client.run(TOKEN)
