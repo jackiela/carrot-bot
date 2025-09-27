@@ -179,6 +179,29 @@ legendary_carrots = [
 
 all_carrots = common_carrots + rare_carrots + legendary_carrots
 
+# ===== JSON 存檔函式 =====
+DATA_FILE = "carrot_data.json"
+
+def load_data():
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+def save_data(data):
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+# ===== 抽卡函式 =====
+def pull_carrot():
+    roll = random.randint(1, 100)
+    if roll <= 70:
+        return random.choice(common_carrots)
+    elif roll <= 95:
+        return random.choice(rare_carrots)
+    else:
+        return random.choice(legendary_carrots)
+
 # ===== Bot 指令 =====
 @client.event
 async def on_ready():
