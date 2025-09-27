@@ -249,18 +249,18 @@ async def on_message(message):
         result = pull_carrot()
         await message.channel.send(f"💪 {result}")
  
-        if user_id not in data:
+    if user_id not in data:
             data[user_id] = {"name": username, "carrots": []}
-        if result not in data[user_id]["carrots"]:
+    if result not in data[user_id]["carrots"]:
             data[user_id]["carrots"].append(result)
-            await message.channel.send("📖 新發現！你的圖鑑新增了一種蘿蔔！")
+        await message.channel.send("📖 新發現！你的圖鑑新增了一種蘿蔔！")
 
         save_data(data)
         return
-  elif content == "!蘿蔔圖鑑":
-        if user_id not in data or not data[user_id]["carrots"]:
-            await message.channel.send("📖 你的圖鑑還是空的，快去拔蘿蔔吧！")
-            return
+    elif content == "!蘿蔔圖鑑":
+    if user_id not in data or not data[user_id]["carrots"]:
+        await message.channel.send("📖 你的圖鑑還是空的，快去拔蘿蔔吧！")
+        return
 
         collected = data[user_id]["carrots"]
         total = len(all_carrots)
@@ -280,9 +280,9 @@ async def on_message(message):
         return
 
     elif content == "!蘿蔔排行":
-        if not data:
-            await message.channel.send("📊 目前還沒有任何玩家收集蘿蔔！")
-            return
+    if not data:
+        await message.channel.send("📊 目前還沒有任何玩家收集蘿蔔！")
+        return
 
         ranking = sorted(
             data.items(),
