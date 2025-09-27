@@ -119,7 +119,9 @@ carrot_game = [
 # ===== Bot 指令 =====
 @client.event
 async def on_ready():
-    print(f'已登入為 {client.user}')
+    if not hasattr(client, 'already_ready'):
+        print(f"✅ 已登入為 {client.user}")
+        client.already_ready = True
 
 @client.event
 async def on_message(message):
