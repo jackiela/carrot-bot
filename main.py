@@ -232,7 +232,7 @@ async def on_message(message):
             data[user_id]["carrots"].append(result)
             await message.channel.send("📖 新發現！你的圖鑑新增了一種蘿蔔！")
 
-        save_data(data
+        save_data(data)
         return
 
 # ===== 啟動 Bot =====
