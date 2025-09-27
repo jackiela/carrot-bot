@@ -131,25 +131,31 @@ async def on_message(message):
     content = message.content.strip()
 
     if content == "!運勢":
-        fortune = random.choice(list(fortunes.keys()))
-        advice = random.choice(fortunes[fortune])
-        await message.channel.send(f"🎯 你的今日運勢是：**{fortune}**\n💡 建議：{advice}")
+    print("DEBUG: 運勢觸發一次")
+    fortune = random.choice(list(fortunes.keys()))
+    advice = random.choice(fortunes[fortune])
+    await message.channel.send(f"🎯 你的今日運勢是：**{fortune}**\n💡 建議：{advice}")
+    return
 
     elif content == "!胡蘿蔔":
         fact = random.choice(carrot_facts)
         await message.channel.send(f"🥕 胡蘿蔔小知識：{fact}")
+    return
 
     elif content == "!食譜":
         recipe = random.choice(recipes)
         await message.channel.send(f"🍴 今日推薦胡蘿蔔料理：{recipe}")
+    return
 
     elif content == "!種植":
         tip = random.choice(carrot_tips)
         await message.channel.send(f"🌱 胡蘿蔔種植小貼士：{tip}")
+    return
 
     elif content == "!拔蘿蔔":
         result = random.choice(carrot_game)
         await message.channel.send(f"💪 {result}")
+    return
 
 # ===== 啟動 Bot =====
 from keep_alive import keep_alive   # ← 確保有這行
