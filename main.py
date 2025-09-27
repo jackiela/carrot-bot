@@ -246,9 +246,9 @@ async def on_message(message):
         return
 
     elif content == "!拔蘿蔔":
-        result = random.choice(carrot_game)
+        result = pull_carrot()
         await message.channel.send(f"💪 {result}")
-
+ 
         if user_id not in data:
             data[user_id] = {"name": username, "carrots": []}
         if result not in data[user_id]["carrots"]:
