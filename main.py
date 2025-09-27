@@ -143,10 +143,13 @@ async def on_message(message):
         return
 
     elif content == "!食譜":
-        recipe = random.choice(recipes)
-        await message.channel.send(f"🍴 今日推薦胡蘿蔔料理：{recipe}")
+        recipe_name = random.choice(list(recipes.keys()))   # 隨機挑一個食譜名稱
+        detail = recipes[recipe_name]                       # 取出對應的做法
+        await message.channel.send(
+            f"🍴 今日推薦胡蘿蔔料理：**{recipe_name}**\n📖 做法：\n{detail}"
+        )
         return
-
+   
     elif content == "!種植":
         tip = random.choice(carrot_tips)
         await message.channel.send(f"🌱 胡蘿蔔種植小貼士：{tip}")
