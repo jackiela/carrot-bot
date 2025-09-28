@@ -231,7 +231,7 @@ COMMAND_CHANNELS = {
 if content in COMMAND_CHANNELS:
     allowed_channel = COMMAND_CHANNELS[content]
     if message.channel.id != allowed_channel:
-        return   # 頻道不對就忽略   
+  
         
     if content == "!運勢":
         print("DEBUG: 這應該是第一次")   # ✅ 要縮排 4 個空格
