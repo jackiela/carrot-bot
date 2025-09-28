@@ -218,8 +218,21 @@ async def on_message(message):
     user_id = str(message.author.id)
     username = str(message.author.display_name)
     data = load_data()
-
     
+# ===== 指令對應頻道 =====
+COMMAND_CHANNELS = {
+    "!運勢": 1421065753595084800,       # 運勢頻道 ID
+    "!拔蘿蔔": 1421518540598411344,     # 遊戲頻道 ID
+    "!蘿蔔圖鑑": 1421518540598411344,   # 同遊戲頻道
+    "!蘿蔔排行": 1421518540598411344    # 同遊戲頻道
+}
+
+# ===== 頻道限制 =====
+if content in COMMAND_CHANNELS:
+    allowed_channel = COMMAND_CHANNELS[content]
+    if message.channel.id != allowed_channel:
+        return   # 頻道不對就忽略   
+        
     if content == "!運勢":
         print("DEBUG: 這應該是第一次")   # ✅ 要縮排 4 個空格
         fortune = random.choice(list(fortunes.keys()))
