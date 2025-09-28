@@ -209,6 +209,14 @@ async def on_ready():
         print(f"✅ 已登入為 {client.user}")
         client.already_ready = True
 
+# ===== 指令對應頻道 =====
+COMMAND_CHANNELS = {
+    "!運勢": 1421065753595084800,       # 運勢頻道 ID
+    "!拔蘿蔔": 1421518540598411344,     # 遊戲頻道 ID
+    "!蘿蔔圖鑑": 1421518540598411344,   # 同遊戲頻道
+    "!蘿蔔排行": 1421518540598411344    # 同遊戲頻道
+}
+
 @client.event
 async def on_message(message):
     if message.author == client.user:
@@ -219,18 +227,12 @@ async def on_message(message):
     username = str(message.author.display_name)
     data = load_data()
     
-# ===== 指令對應頻道 =====
-COMMAND_CHANNELS = {
-    "!運勢": 1421065753595084800,       # 運勢頻道 ID
-    "!拔蘿蔔": 1421518540598411344,     # 遊戲頻道 ID
-    "!蘿蔔圖鑑": 1421518540598411344,   # 同遊戲頻道
-    "!蘿蔔排行": 1421518540598411344    # 同遊戲頻道
-}
-
-# ===== 頻道限制 =====
-if content in COMMAND_CHANNELS:
-    allowed_channel = COMMAND_CHANNELS[content]
-    if message.channel.id != allowed_channel:
+# ==== 頻道限制 ====
+    if content in COMMAND_CHANNELS:
+        allowed_channel = COMMAND_CHANNELS[content]
+        if message.channel.id != allowed_channel:
+            await message.channel.send(f"⚠️ 這個指令只能在 <#{allowed_channel}> 使用")
+            return
   
         
     if content == "!運勢":
