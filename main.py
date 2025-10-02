@@ -331,7 +331,38 @@ async def on_message(message):
     user_id = str(message.author.id)
     username = str(message.author.display_name)
     data = load_data()
+    
+# ✅ 使用者資料初始化
+    user_data = data.setdefault(user_id, {
+        "name": username,
+        "carrots": [],
+        "last_fortune": "",
+        "carrot_pulls": {},
+        "coins": 50,
+        "fertilizers": {
+            "普通肥料": 1,
+            "高級肥料": 0,
+            "神奇肥料": 0
+        },
+        "farm": {
+            "land_level": 1,
+            "pull_count": 0,
+            "status": "未種植"
+        }
+    })
 
+    # ✅ 歡迎訊息（只顯示一次）
+    if "welcome_shown" not in user_data:
+        await message.channel.send(
+            f"👋 歡迎加入胡蘿蔔農場，{user_data['name']}！\n"
+            f"你目前擁有：\n"
+            f"💰 金幣：{user_data['coins']}\n"
+            f"🧪 普通肥料：{user_data['fertilizers']['普通肥料']} 個\n"
+            f"🌱 使用 !種蘿蔔 普通肥料 開始種植吧！"
+        )
+        user_data["welcome_shown"] = True
+        user_data["last_fortune"] = today
+        
     # 頻道限制
     if content in COMMAND_CHANNELS:
         allowed_channel = COMMAND_CHANNELS[content]
@@ -403,36 +434,6 @@ async def handle_fortune(message, user_id, username, data):
     fortune = random.choice(list(fortunes.keys()))
     advice = random.choice(fortunes[fortune])
     await message.channel.send(f"🎯 你的今日運勢是：**{fortune}**\n💡 建議：{advice}")
-
-user_data = data.setdefault(user_id, {
-    "name": str(message.author.display_name),
-    "carrots": [],
-    "last_fortune": "",
-    "carrot_pulls": {},
-    "coins": 50,
-    "fertilizers": {
-        "普通肥料": 1,
-        "高級肥料": 0,
-        "神奇肥料": 0
-    },
-    "farm": {
-        "land_level": 1,
-        "pull_count": 0,
-        "status": "未種植"
-    }
-})
-
-# 如果是第一次建立資料，顯示歡迎訊息
-if "welcome_shown" not in user_data:
-    await message.channel.send(
-        f"👋 歡迎加入胡蘿蔔農場，{user_data['name']}！\n"
-        f"你目前擁有：\n"
-        f"💰 金幣：{user_data['coins']}\n"
-        f"🧪 普通肥料：{user_data['fertilizers']['普通肥料']} 個\n"
-        f"🌱 使用 !種蘿蔔 普通肥料 開始種植吧！"
-    )
-    user_data["welcome_shown"] = True
-    data[user_id]["last_fortune"] = today
 
 async def handle_pull_carrot(message, user_id, username, data):
     today = str(datetime.date.today())
