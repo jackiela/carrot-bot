@@ -534,11 +534,11 @@ async def handle_plant_carrot(message, user_id, data, fertilizer="普通肥料")
         await message.channel.send("🌱 你已經種了一根蘿蔔，請先收成再種新的一根！")
         return
 
-    if fertilizers.get(fertilizer, 0) <= 0:
-       await message.channel.send(
-    f"❌ 你沒有 {fertilizer}，請先購買！\n💰 你目前金幣：{user_data.get('coins', 0)}\n🛒 使用 !購買肥料 普通肥料 來購買"
-)
-        return
+if fertilizers.get(fertilizer, 0) <= 0:
+    await message.channel.send(
+        f"❌ 你沒有 {fertilizer}，請先購買！\n💰 你目前金幣：{user_data.get('coins', 0)}\n🛒 使用 !購買肥料 普通肥料 來購買"
+    )
+    return
 
     harvest_time = now + datetime.timedelta(days=1)
     if fertilizer == "神奇肥料":
