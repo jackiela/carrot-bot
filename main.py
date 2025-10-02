@@ -255,7 +255,15 @@ legendary_carrots = [
 
 all_carrots = common_carrots + rare_carrots + legendary_carrots
 
-# ===== JSON 存檔函式 =====
+# ===== 指令頻道限制 =====
+COMMAND_CHANNELS = {
+    "!運勢": 1421065753595084800,
+    "!拔蘿蔔": 1421518540598411344,
+    "!蘿蔔圖鑑": 1421518540598411344,
+    "!蘿蔔排行": 1421518540598411344
+}
+
+# ===== 資料存取 =====
 DATA_FILE = "carrot_data.json"
 
 def load_data():
@@ -268,7 +276,7 @@ def save_data(data):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-# ===== 抽卡函式 =====
+# ===== 抽卡邏輯 =====
 def pull_carrot():
     roll = random.randint(1, 100)
     if roll <= 70:
@@ -278,21 +286,14 @@ def pull_carrot():
     else:
         return random.choice(legendary_carrots)
 
-# ===== Bot 指令 =====
+# ===== Bot 啟動 =====
 @client.event
 async def on_ready():
     if not hasattr(client, 'already_ready'):
         print(f"✅ 已登入為 {client.user}")
         client.already_ready = True
 
-# ===== 指令對應頻道 =====
-COMMAND_CHANNELS = {
-    "!運勢": 1421065753595084800,       # 運勢頻道 ID
-    "!拔蘿蔔": 1421518540598411344,     # 遊戲頻道 ID
-    "!蘿蔔圖鑑": 1421518540598411344,   # 同遊戲頻道
-    "!蘿蔔排行": 1421518540598411344    # 同遊戲頻道
-}
-
+# ===== 主事件處理器 =====
 @client.event
 async def on_message(message):
     if message.author == client.user:
@@ -302,137 +303,140 @@ async def on_message(message):
     user_id = str(message.author.id)
     username = str(message.author.display_name)
     data = load_data()
-    
-# ==== 頻道限制 ====
+
+    # 頻道限制
     if content in COMMAND_CHANNELS:
         allowed_channel = COMMAND_CHANNELS[content]
         if message.channel.id != allowed_channel:
             await message.channel.send(f"⚠️ 這個指令只能在 <#{allowed_channel}> 使用")
             return
-  
-        
-elif content == "!運勢":
-        today = str(datetime.date.today())
-        user_data = data.get(user_id, {})
-        last_fortune = user_data.get("last_fortune")
 
-        if last_fortune == today:
-            await message.channel.send("🔒 你今天已抽過運勢囉，明天再來吧！")
-            return
+    # 指令分派
+    if content == "!運勢":
+        await handle_fortune(message, user_id, username, data)
 
-        fortune = random.choice(list(fortunes.keys()))
-        advice = random.choice(fortunes[fortune])
-        await message.channel.send(f"🎯 你的今日運勢是：**{fortune}**\n💡 建議：{advice}")
-
-        # 初始化使用者資料
-        if user_id not in data:
-            data[user_id] = {
-                "name": username,
-                "carrots": [],
-                "last_fortune": today,
-                "carrot_pulls": {}
-            }
-        else:
-            data[user_id]["last_fortune"] = today
-
-        save_data(data)
-        return
-
-    elif content == "!胡蘿蔔":
-        fact = random.choice(carrot_facts)
-        await message.channel.send(f"🥕 胡蘿蔔小知識：{fact}")
-        return
-
-    elif content == "!食譜":
-        recipe_name = random.choice(list(recipes.keys()))   # 隨機挑一個食譜名稱
-        detail = recipes[recipe_name]                       # 取出對應的做法
-        await message.channel.send(
-            f"🍴 今日推薦胡蘿蔔料理：**{recipe_name}**\n📖 做法：\n{detail}"
-        )
-        return
-   
-    elif content == "!種植":
-        tip = random.choice(carrot_tips)
-        await message.channel.send(f"🌱 胡蘿蔔種植小貼士：{tip}")
-        return
-
-elif content == "!拔蘿蔔":
-        today = str(datetime.date.today())
-        user_data = data.get(user_id, {})
-        pulls = user_data.get("carrot_pulls", {})
-        today_pulls = pulls.get(today, 0)
-
-        if today_pulls >= 3:
-            await message.channel.send("🔒 今天已拔過三次蘿蔔囉，明天再來吧！")
-            return
-
-        result = pull_carrot()
-        await message.channel.send(f"💪 {result}")
-
-        # 初始化使用者資料
-        if user_id not in data:
-            data[user_id] = {
-                "name": username,
-                "carrots": [],
-                "last_fortune": "",
-                "carrot_pulls": {today: 1}
-            }
-        else:
-            # 圖鑑更新
-            if result not in data[user_id]["carrots"]:
-                data[user_id]["carrots"].append(result)
-                await message.channel.send("📖 新發現！你的圖鑑新增了一種蘿蔔！")
-
-            # 更新拔蘿蔔次數
-            if today not in data[user_id]["carrot_pulls"]:
-                data[user_id]["carrot_pulls"][today] = 1
-            else:
-                data[user_id]["carrot_pulls"][today] += 1
-
-        save_data(data)
-        return
+    elif content == "!拔蘿蔔":
+        await handle_pull_carrot(message, user_id, username, data)
 
     elif content == "!蘿蔔圖鑑":
-        if user_id not in data or not data[user_id]["carrots"]:
-            await message.channel.send("📖 你的圖鑑還是空的，快去拔蘿蔔吧！")
-            return
-
-        collected = data[user_id]["carrots"]
-        total = len(all_carrots)
-        progress = len(collected)
-
-        common_count = len([c for c in collected if c in common_carrots])
-        rare_count = len([c for c in collected if c in rare_carrots])
-        legendary_count = len([c for c in collected if c in legendary_carrots])
-
-        reply = f"📖 你的蘿蔔圖鑑：{progress}/{total} 種\n"
-        reply += f"🔹 普通：{common_count}/{len(common_carrots)} 種\n"
-        reply += f"🔸 稀有：{rare_count}/{len(rare_carrots)} 種\n"
-        reply += f"🌟 傳說：{legendary_count}/{len(legendary_carrots)} 種\n\n"
-        reply += "你已收集到的蘿蔔：\n" + "\n".join(collected)
-
-        await message.channel.send(reply)
-        return
+        await handle_carrot_encyclopedia(message, user_id, data)
 
     elif content == "!蘿蔔排行":
-        if not data:
-            await message.channel.send("📊 目前還沒有任何玩家收集蘿蔔！")
-            return
+        await handle_carrot_ranking(message, data)
 
-        ranking = sorted(
-            data.items(),
-            key=lambda x: len(x[1]["carrots"]),
-            reverse=True
-        )
+    elif content == "!胡蘿蔔":
+        await handle_carrot_fact(message)
 
-        reply = "🏆 蘿蔔收集排行榜 🥕\n"
-        for i, (uid, info) in enumerate(ranking[:5], start=1):
-            count = len(info["carrots"])
-            reply += f"{i}. {info['name']} — {count}/{len(all_carrots)} 種\n"
+    elif content == "!食譜":
+        await handle_carrot_recipe(message)
 
-        await message.channel.send(reply)
+    elif content == "!種植":
+        await handle_carrot_tip(message)
+
+    save_data(data)
+
+# ===== 指令模組 =====
+async def handle_fortune(message, user_id, username, data):
+    today = str(datetime.date.today())
+    user_data = data.get(user_id, {})
+    last_fortune = user_data.get("last_fortune")
+
+    if last_fortune == today:
+        await message.channel.send("🔒 你今天已抽過運勢囉，明天再來吧！")
         return
 
+    fortune = random.choice(list(fortunes.keys()))
+    advice = random.choice(fortunes[fortune])
+    await message.channel.send(f"🎯 你的今日運勢是：**{fortune}**\n💡 建議：{advice}")
+
+    data.setdefault(user_id, {
+        "name": username,
+        "carrots": [],
+        "last_fortune": "",
+        "carrot_pulls": {}
+    })
+    data[user_id]["last_fortune"] = today
+
+async def handle_pull_carrot(message, user_id, username, data):
+    today = str(datetime.date.today())
+    user_data = data.get(user_id, {})
+    pulls = user_data.get("carrot_pulls", {})
+    today_pulls = pulls.get(today, 0)
+
+    if today_pulls >= 3:
+        await message.channel.send("🔒 今天已拔過三次蘿蔔囉，明天再來吧！")
+        return
+
+    result = pull_carrot()
+    await message.channel.send(f"💪 {result}")
+
+    data.setdefault(user_id, {
+        "name": username,
+        "carrots": [],
+        "last_fortune": "",
+        "carrot_pulls": {}
+    })
+
+    if result not in data[user_id]["carrots"]:
+        data[user_id]["carrots"].append(result)
+        await message.channel.send("📖 新發現！你的圖鑑新增了一種蘿蔔！")
+
+    data[user_id]["carrot_pulls"][today] = today_pulls + 1
+
+async def handle_carrot_encyclopedia(message, user_id, data):
+    if user_id not in data or not data[user_id]["carrots"]:
+        await message.channel.send("📖 你的圖鑑還是空的，快去拔蘿蔔吧！")
+        return
+
+    collected = data[user_id]["carrots"]
+    total = len(all_carrots)
+    progress = len(collected)
+
+    common_count = len([c for c in collected if c in common_carrots])
+    rare_count = len([c for c in collected if c in rare_carrots])
+    legendary_count = len([c for c in collected if c in legendary_carrots])
+
+    reply = f"📖 你的蘿蔔圖鑑：{progress}/{total} 種\n"
+    reply += f"🔹 普通：{common_count}/{len(common_carrots)} 種\n"
+    reply += f"🔸 稀有：{rare_count}/{len(rare_carrots)} 種\n"
+    reply += f"🌟 傳說：{legendary_count}/{len(legendary_carrots)} 種\n\n"
+    reply += "你已收集到的蘿蔔：\n" + "\n".join(collected)
+
+    await message.channel.send(reply)
+
+async def handle_carrot_ranking(message, data):
+    if not data:
+        await message.channel.send("📊 目前還沒有任何玩家收集蘿蔔！")
+        return
+
+    ranking = sorted(
+        data.items(),
+        key=lambda x: len(x[1]["carrots"]),
+        reverse=True
+    )
+
+    reply = "🏆 蘿蔔收集排行榜 🥕\n"
+    for i, (uid, info) in enumerate(ranking[:5], start=1):
+        count = len(info["carrots"])
+        reply += f"{i}. {info['name']} — {count}/{len(all_carrots)} 種\n"
+
+    await message.channel.send(reply)
+
+async def handle_carrot_fact(message):
+    fact = random.choice(carrot_facts)
+    await message.channel.send(f"🥕 胡蘿蔔小知識：{fact}")
+
+async def handle_carrot_recipe(message):
+    recipe_name = random.choice(list(recipes.keys()))
+    detail = recipes[recipe_name]
+    await message.channel.send(
+        f"🍴 今日推薦胡蘿蔔料理：**{recipe_name}**\n📖 做法：\n{detail}"
+    )
+
+async def handle_carrot_tip(message):
+    tip = random.choice(carrot_tips)
+    await message.channel.send(f"🌱 胡蘿蔔種植小貼士：{tip}")
+    
 # ===== 啟動 Bot =====
 from keep_alive import keep_alive   # ← 確保有這行
 keep_alive()                        # ← 啟動 Flask 假伺服器
