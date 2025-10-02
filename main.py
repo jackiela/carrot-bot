@@ -351,17 +351,19 @@ async def on_message(message):
         }
     })
 
-    # ✅ 歡迎訊息（只顯示一次）
-    if "welcome_shown" not in user_data:
-        await message.channel.send(
-            f"👋 歡迎加入胡蘿蔔農場，{user_data['name']}！\n"
-            f"你目前擁有：\n"
-            f"💰 金幣：{user_data['coins']}\n"
-            f"🧪 普通肥料：{user_data['fertilizers']['普通肥料']} 個\n"
-            f"🌱 使用 !種蘿蔔 普通肥料 開始種植吧！"
-        )
-        user_data["welcome_shown"] = True
-        user_data["last_fortune"] = today
+   # ✅ 歡迎訊息只在指定頻道顯示
+    CARROT_CHANNEL_ID = 1423335407105343589  # ← 換成你的胡蘿蔔農場頻道 ID
+    if message.channel.id == CARROT_CHANNEL_ID:
+        if "welcome_shown" not in user_data:
+            await message.channel.send(
+                f"👋 歡迎加入胡蘿蔔農場，{user_data['name']}！\n"
+                f"你目前擁有：\n"
+                f"💰 金幣：{user_data['coins']}\n"
+                f"🧪 普通肥料：{user_data['fertilizers']['普通肥料']} 個\n"
+                f"🌱 使用 !種蘿蔔 普通肥料 開始種植吧！"
+            )
+            user_data["welcome_shown"] = True
+            user_data["last_fortune"] = today
         
     # 頻道限制
     if content in COMMAND_CHANNELS:
@@ -535,11 +537,11 @@ async def handle_plant_carrot(message, user_id, data, fertilizer="普通肥料")
         await message.channel.send("🌱 你已經種了一根蘿蔔，請先收成再種新的一根！")
         return
 
-if fertilizers.get(fertilizer, 0) <= 0:
-    await message.channel.send(
+    if fertilizers.get(fertilizer, 0) <= 0:
+        await message.channel.send(
         f"❌ 你沒有 {fertilizer}，請先購買！\n💰 你目前金幣：{user_data.get('coins', 0)}\n🛒 使用 !購買肥料 普通肥料 來購買"
     )
-    return
+        return
 
     harvest_time = now + datetime.timedelta(days=1)
     if fertilizer == "神奇肥料":
