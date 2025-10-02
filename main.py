@@ -382,7 +382,7 @@ async def on_message(message):
     elif content == "!升級土地":
         await handle_upgrade_land(message, user_id, data)
 
-elif content == "!土地進度":
+    elif content == "!土地進度":
         await handle_land_progress(message, user_id, data)
 
     save_data(data)
