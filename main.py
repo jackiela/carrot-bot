@@ -385,6 +385,9 @@ async def on_message(message):
     elif content == "!土地進度":
         await handle_land_progress(message, user_id, data)
 
+    elif content == "!資源狀態":
+        await handle_resource_status(message, user_id, data)
+    
     save_data(data)
 
 # ===== 指令模組 =====
@@ -401,12 +404,34 @@ async def handle_fortune(message, user_id, username, data):
     advice = random.choice(fortunes[fortune])
     await message.channel.send(f"🎯 你的今日運勢是：**{fortune}**\n💡 建議：{advice}")
 
-    data.setdefault(user_id, {
-        "name": username,
-        "carrots": [],
-        "last_fortune": "",
-        "carrot_pulls": {}
-    })
+user_data = data.setdefault(user_id, {
+    "name": str(message.author.display_name),
+    "carrots": [],
+    "last_fortune": "",
+    "carrot_pulls": {},
+    "coins": 50,
+    "fertilizers": {
+        "普通肥料": 1,
+        "高級肥料": 0,
+        "神奇肥料": 0
+    },
+    "farm": {
+        "land_level": 1,
+        "pull_count": 0,
+        "status": "未種植"
+    }
+})
+
+# 如果是第一次建立資料，顯示歡迎訊息
+if "welcome_shown" not in user_data:
+    await message.channel.send(
+        f"👋 歡迎加入胡蘿蔔農場，{user_data['name']}！\n"
+        f"你目前擁有：\n"
+        f"💰 金幣：{user_data['coins']}\n"
+        f"🧪 普通肥料：{user_data['fertilizers']['普通肥料']} 個\n"
+        f"🌱 使用 !種蘿蔔 普通肥料 開始種植吧！"
+    )
+    user_data["welcome_shown"] = True
     data[user_id]["last_fortune"] = today
 
 async def handle_pull_carrot(message, user_id, username, data):
@@ -510,7 +535,9 @@ async def handle_plant_carrot(message, user_id, data, fertilizer="普通肥料")
         return
 
     if fertilizers.get(fertilizer, 0) <= 0:
-        await message.channel.send(f"❌ 你沒有 {fertilizer}，請先購買！")
+       await message.channel.send(
+    f"❌ 你沒有 {fertilizer}，請先購買！\n💰 你目前金幣：{user_data.get('coins', 0)}\n🛒 使用 !購買肥料 普通肥料 來購買"
+)
         return
 
     harvest_time = now + datetime.timedelta(days=1)
@@ -665,6 +692,17 @@ async def handle_land_progress(message, user_id, data):
         reply += "解鎖特殊蘿蔔池"
     elif next_level == 5:
         reply += "蘿蔔事件機率提升"
+
+    await message.channel.send(reply)
+
+async def handle_resource_status(message, user_id, data):
+    user_data = data.get(user_id, {})
+    coins = user_data.get("coins", 0)
+    fertilizers = user_data.get("fertilizers", {})
+
+    reply = f"📦 你的資源狀態：\n💰 金幣：{coins}\n🧪 肥料庫存：\n"
+    for k, v in fertilizers.items():
+        reply += f" - {k}：{v} 個\n"
 
     await message.channel.send(reply)
 
