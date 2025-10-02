@@ -361,7 +361,7 @@ async def on_message(message):
     elif content == "!種植":
         await handle_carrot_tip(message)
 
-elif content.startswith("!種蘿蔔"):
+    elif content.startswith("!種蘿蔔"):
         args = content.split()
         fertilizer = args[1] if len(args) > 1 else "普通肥料"
         await handle_plant_carrot(message, user_id, data, fertilizer)
