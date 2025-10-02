@@ -260,7 +260,14 @@ COMMAND_CHANNELS = {
     "!運勢": 1421065753595084800,
     "!拔蘿蔔": 1421518540598411344,
     "!蘿蔔圖鑑": 1421518540598411344,
-    "!蘿蔔排行": 1421518540598411344
+    "!蘿蔔排行": 1421518540598411344,
+    "!種蘿蔔": 1423335407105343589,
+    "!收成": 1423335407105343589,
+    "!農場狀態": 1423335407105343589,
+    "!購買肥料": 1423335407105343589,
+    "!升級土地": 1423335407105343589,
+    "!土地進度": 1423335407105343589,
+    
 }
 
 # ===== 資料存取 =====
@@ -285,6 +292,27 @@ def pull_carrot():
         return random.choice(rare_carrots)
     else:
         return random.choice(legendary_carrots)
+        
+def pull_carrot_by_farm(fertilizer="普通肥料", land_level=1):
+    base_roll = random.randint(1, 100)
+    bonus = 0
+
+    if fertilizer == "高級肥料":
+        bonus += 5
+    elif fertilizer == "神奇肥料":
+        bonus += 15
+
+    if land_level >= 3:
+        bonus += (land_level - 2) * 5
+
+    roll = base_roll + bonus
+
+    if roll <= 70:
+        return random.choice(common_carrots), random.randint(5, 10)
+    elif roll <= 95:
+        return random.choice(rare_carrots), random.randint(20, 40)
+    else:
+        return random.choice(legendary_carrots), random.randint(100, 200)
 
 # ===== Bot 啟動 =====
 @client.event
@@ -332,6 +360,30 @@ async def on_message(message):
 
     elif content == "!種植":
         await handle_carrot_tip(message)
+
+elif content.startswith("!種蘿蔔"):
+        args = content.split()
+        fertilizer = args[1] if len(args) > 1 else "普通肥料"
+        await handle_plant_carrot(message, user_id, data, fertilizer)
+
+    elif content == "!收成":
+        await handle_harvest_carrot(message, user_id, data)
+
+    elif content == "!農場狀態":
+        await handle_farm_status(message, user_id, data)
+
+    elif content.startswith("!購買肥料"):
+        args = content.split()
+        if len(args) < 2:
+            await message.channel.send("🧪 請輸入肥料種類，例如 `!購買肥料 高級肥料`")
+        else:
+            await handle_buy_fertilizer(message, user_id, data, args[1])
+
+    elif content == "!升級土地":
+        await handle_upgrade_land(message, user_id, data)
+
+elif content == "!土地進度":
+        await handle_land_progress(message, user_id, data)
 
     save_data(data)
 
@@ -437,6 +489,185 @@ async def handle_carrot_tip(message):
     tip = random.choice(carrot_tips)
     await message.channel.send(f"🌱 胡蘿蔔種植小貼士：{tip}")
     
+async def handle_plant_carrot(message, user_id, data, fertilizer="普通肥料"):
+    now = datetime.datetime.now()
+    user_data = data.setdefault(user_id, {
+        "name": str(message.author.display_name),
+        "carrots": [],
+        "last_fortune": "",
+        "carrot_pulls": {},
+        "farm": {},
+        "coins": 0,
+        "fertilizers": {}
+    })
+
+    farm = user_data.get("farm", {})
+    fertilizers = user_data.get("fertilizers", {})
+    land_level = farm.get("land_level", 1)
+
+    if farm.get("status") == "planted":
+        await message.channel.send("🌱 你已經種了一根蘿蔔，請先收成再種新的一根！")
+        return
+
+    if fertilizers.get(fertilizer, 0) <= 0:
+        await message.channel.send(f"❌ 你沒有 {fertilizer}，請先購買！")
+        return
+
+    harvest_time = now + datetime.timedelta(days=1)
+    if fertilizer == "神奇肥料":
+        harvest_time -= datetime.timedelta(hours=6)
+    elif fertilizer == "高級肥料":
+        harvest_time -= datetime.timedelta(hours=2)
+
+    fertilizers[fertilizer] -= 1
+    user_data["farm"] = {
+        "plant_time": now.isoformat(),
+        "harvest_time": harvest_time.isoformat(),
+        "status": "planted",
+        "fertilizer": fertilizer,
+        "land_level": land_level
+    }
+
+    await message.channel.send(f"🌱 你使用了 {fertilizer} 種下蘿蔔，明天可以收成！")
+
+async def handle_harvest_carrot(message, user_id, data):
+    now = datetime.datetime.now()
+    user_data = data.get(user_id, {})
+    farm = user_data.get("farm", {})
+
+    if farm.get("status") != "planted":
+        await message.channel.send("🪴 你還沒種蘿蔔喔，請先使用 `!種蘿蔔`！")
+        return
+
+    harvest_time = datetime.datetime.fromisoformat(farm["harvest_time"])
+    if now < harvest_time:
+        remaining = harvest_time - now
+        hours = remaining.seconds // 3600
+        await message.channel.send(f"⏳ 蘿蔔還沒熟，再等 {remaining.days} 天 {hours} 小時！")
+        return
+
+    fertilizer = farm.get("fertilizer", "普通肥料")
+    land_level = farm.get("land_level", 1)
+    result, price = pull_carrot_by_farm(fertilizer, land_level)
+
+    await message.channel.send(f"🌾 收成成功！你獲得：{result}\n💰 已自動販售，獲得 {price} 金幣！")
+
+    if result not in user_data["carrots"]:
+        user_data["carrots"].append(result)
+        await message.channel.send("📖 新發現！你的圖鑑新增了一種蘿蔔！")
+
+    user_data["coins"] = user_data.get("coins", 0) + price
+    user_data["farm"]["status"] = "harvested"
+
+async def handle_farm_status(message, user_id, data):
+    user_data = data.get(user_id, {})
+    farm = user_data.get("farm", {})
+    fertilizers = user_data.get("fertilizers", {})
+    coins = user_data.get("coins", 0)
+
+    land_level = farm.get("land_level", 1)
+    status = farm.get("status", "未種植")
+    fertilizer = farm.get("fertilizer", "無")
+    harvest_time = farm.get("harvest_time", "未設定")
+
+    reply = f"🏡 農場狀態：\n"
+    reply += f"土地等級：Lv.{land_level}\n"
+    reply += f"目前狀態：{status}\n"
+    reply += f"使用肥料：{fertilizer}\n"
+    reply += f"預計收成時間：{harvest_time}\n"
+    reply += f"💰 金幣餘額：{coins}\n"
+    reply += f"🧪 肥料庫存：\n"
+    for k, v in fertilizers.items():
+        reply += f" - {k}：{v} 個\n"
+
+    await message.channel.send(reply)
+
+async def handle_buy_fertilizer(message, user_id, data, fertilizer):
+    prices = {
+        "普通肥料": 10,
+        "高級肥料": 30,
+        "神奇肥料": 100
+    }
+
+    if fertilizer not in prices:
+        await message.channel.send("❌ 肥料種類錯誤，只能購買：普通、高級、神奇")
+        return
+
+    user_data = data.setdefault(user_id, {
+        "name": str(message.author.display_name),
+        "carrots": [],
+        "last_fortune": "",
+        "carrot_pulls": {},
+        "farm": {},
+        "coins": 0,
+        "fertilizers": {}
+    })
+
+    coins = user_data.get("coins", 0)
+    cost = prices[fertilizer]
+
+    if coins < cost:
+        await message.channel.send(f"💸 你沒有足夠金幣購買 {fertilizer}（需要 {cost} 金幣）")
+        return
+
+    user_data["coins"] -= cost
+    user_data["fertilizers"][fertilizer] = user_data["fertilizers"].get(fertilizer, 0) + 1
+
+    await message.channel.send(f"✅ 成功購買 1 個 {fertilizer}，花費 {cost} 金幣")
+
+async def handle_upgrade_land(message, user_id, data):
+    user_data = data.get(user_id, {})
+    farm = user_data.setdefault("farm", {})
+    coins = user_data.get("coins", 0)
+    level = farm.get("land_level", 1)
+
+    if level >= 5:
+        await message.channel.send("🏔️ 土地已達最高等級 Lv.5！")
+        return
+
+    cost = level * 100
+    if coins < cost:
+        await message.channel.send(f"💸 升級需要 {cost} 金幣，你目前只有 {coins} 金幣")
+        return
+
+    user_data["coins"] -= cost
+    farm["land_level"] = level + 1
+
+    await message.channel.send(f"🛠️ 土地成功升級至 Lv.{level + 1}，花費 {cost} 金幣")
+
+async def handle_land_progress(message, user_id, data):
+    user_data = data.get(user_id, {})
+    farm = user_data.get("farm", {})
+    land_level = farm.get("land_level", 1)
+    pull_count = farm.get("pull_count", 0)
+
+    upgrade_thresholds = {1: 10, 2: 30, 3: 60, 4: 100}
+    next_level = land_level + 1
+
+    if land_level >= 5:
+        await message.channel.send("🏔️ 你的土地已達最高等級 Lv.5，不需再升級！")
+        return
+
+    required = upgrade_thresholds.get(land_level, 999)
+    remaining = required - pull_count
+
+    reply = f"📈 土地升級進度：\n"
+    reply += f"目前等級：Lv.{land_level}\n"
+    reply += f"累積拔蘿蔔次數：{pull_count}/{required}\n"
+    reply += f"距離 Lv.{next_level} 還需拔蘿蔔 {remaining} 次\n"
+    reply += f"升級後獎勵："
+
+    if next_level == 2:
+        reply += "收成時間 -2 小時"
+    elif next_level == 3:
+        reply += "稀有機率 +5%"
+    elif next_level == 4:
+        reply += "解鎖特殊蘿蔔池"
+    elif next_level == 5:
+        reply += "蘿蔔事件機率提升"
+
+    await message.channel.send(reply)
+
 # ===== 啟動 Bot =====
 from keep_alive import keep_alive   # ← 確保有這行
 keep_alive()                        # ← 啟動 Flask 假伺服器
