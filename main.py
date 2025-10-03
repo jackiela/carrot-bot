@@ -598,27 +598,45 @@ async def handle_harvest_carrot(message, user_id, data):
     user_data["farm"]["status"] = "harvested"
 
 async def handle_farm_status(message, user_id, data):
-    user_data = data.get(user_id, {})
-    farm = user_data.get("farm", {})
-    fertilizers = user_data.get("fertilizers", {})
-    coins = user_data.get("coins", 0)
-
-    land_level = farm.get("land_level", 1)
+    user_data = data[user_id]
+    farm = user_data["farm"]
+    fertilizer = farm.get("fertilizer_used", "未使用")
+    harvest_time_str = farm.get("harvest_time")
     status = farm.get("status", "未種植")
-    fertilizer = farm.get("fertilizer", "無")
-    harvest_time = farm.get("harvest_time", "未設定")
 
-    reply = f"🏡 農場狀態：\n"
-    reply += f"土地等級：Lv.{land_level}\n"
-    reply += f"目前狀態：{status}\n"
-    reply += f"使用肥料：{fertilizer}\n"
-    reply += f"預計收成時間：{harvest_time}\n"
-    reply += f"💰 金幣餘額：{coins}\n"
-    reply += f"🧪 肥料庫存：\n"
-    for k, v in fertilizers.items():
-        reply += f" - {k}：{v} 個\n"
+    # 預設時間顯示
+    harvest_display = "未設定"
 
-    await message.channel.send(reply)
+    if harvest_time_str:
+        harvest_time = datetime.datetime.fromisoformat(harvest_time_str)
+        now = datetime.datetime.now()
+        remaining = harvest_time - now
+
+        # 格式化時間
+        formatted_time = harvest_time.strftime("%Y/%m/%d %H:%M")
+
+        if remaining.total_seconds() > 0:
+            hours, remainder = divmod(remaining.total_seconds(), 3600)
+            minutes = remainder // 60
+            harvest_display = f"{formatted_time}（還剩 {int(hours)} 小時 {int(minutes)} 分鐘）"
+        else:
+            harvest_display = f"{formatted_time}（已可收成）"
+
+    # 組合訊息
+    msg = (
+        f"🏡 農場狀態：\n"
+        f"土地等級：Lv.{farm['land_level']}\n"
+        f"目前狀態：{status}\n"
+        f"使用肥料：{fertilizer}\n"
+        f"預計收成時間：{harvest_display}\n"
+        f"💰 金幣餘額：{user_data['coins']}\n"
+        f"🧪 肥料庫存：\n\n"
+        f"普通肥料：{user_data['fertilizers']['普通肥料']} 個\n"
+        f"高級肥料：{user_data['fertilizers']['高級肥料']} 個\n"
+        f"神奇肥料：{user_data['fertilizers']['神奇肥料']} 個"
+    )
+
+    await message.channel.send(msg)
 
 async def handle_buy_fertilizer(message, user_id, data, fertilizer):
     prices = {
