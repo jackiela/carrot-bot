@@ -410,8 +410,8 @@ async def on_message(message):
         else:
             await message.channel.send("❓ 請使用正確格式：`!種蘿蔔 普通肥料`")
 
-    elif content == "!收成":
-        await handle_harvest(message, user_id, data)
+    elif content == "!收成蘿蔔":
+        await handle_harvest_carrot(message, user_id, data)
 
     elif content == "!升級土地":
         await handle_upgrade_land(message, user_id, data)
