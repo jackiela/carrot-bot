@@ -325,12 +325,13 @@ async def handle_pull_carrot(message, user_id, username, user_data, ref):
         return
 
     result = pull_carrot()
-    await message.channel.send(f"💪 {result}")
+    await message.channel.send(f"💪 你拔出了：{result}")
 
     if result not in user_data["carrots"]:
         user_data["carrots"].append(result)
         await message.channel.send("📖 新發現！你的圖鑑新增了一種蘿蔔！")
 
+    # ✅ 更新拔蘿蔔次數
     user_data["carrot_pulls"][today] = today_pulls + 1
     ref.set(user_data)
 
