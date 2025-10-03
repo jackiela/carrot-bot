@@ -580,8 +580,13 @@ async def handle_harvest_carrot(message, user_id, data):
     harvest_time = datetime.datetime.fromisoformat(farm["harvest_time"])
     if now < harvest_time:
         remaining = harvest_time - now
-        hours = remaining.seconds // 3600
-        await message.channel.send(f"⏳ 蘿蔔還沒熟，再等 {remaining.days} 天 {hours} 小時！")
+        total_seconds = int(remaining.total_seconds())
+        hours, remainder = divmod(total_seconds, 3600)
+        minutes = remainder // 60
+
+        await message.channel.send(
+            f"⏳ 蘿蔔還在努力生長中！預計還要 {hours} 小時 {minutes} 分鐘才能收成喔～"
+        )
         return
 
     fertilizer = farm.get("fertilizer", "普通肥料")
