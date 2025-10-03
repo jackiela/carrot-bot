@@ -8,6 +8,17 @@ intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
 
+# 載入使用者資料
+if os.path.exists("data.json"):
+    with open("data.json", "r", encoding="utf-8") as f:
+        data = json.load(f)
+else:
+    data = {}
+
+def save_data(data):
+    with open("data.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
 # ===== 運勢資料 =====
 fortunes = {
     "紅蘿蔔大吉": [
