@@ -358,69 +358,65 @@ async def on_message(message):
         user_data["welcome_shown"] = True
         user_data["last_fortune"] = today
         
-    # 頻道限制
-    if content in COMMAND_CHANNELS:
-        allowed_channel = COMMAND_CHANNELS[content]
-        if message.channel.id != allowed_channel:
-            await message.channel.send(f"⚠️ 這個指令只能在 <#{allowed_channel}> 使用")
-            return
+ # 頻道限制
+content = message.content.strip()
 
-    # 指令分派
-    
-   content = message.content.strip()
+if content in COMMAND_CHANNELS:
+    allowed_channel = COMMAND_CHANNELS[content]
+    if message.channel.id != allowed_channel:
+        await message.channel.send(f"⚠️ 這個指令只能在 <#{allowed_channel}> 使用")
+        return
 
-    if content == "!運勢":
-        await handle_fortune(message, user_id, username, data)
+# 指令分派
+if content == "!運勢":
+    await handle_fortune(message, user_id, username, data)
 
-    elif content == "!拔蘿蔔":
-        await handle_pull_carrot(message, user_id, username, data)
+elif content == "!拔蘿蔔":
+    await handle_pull_carrot(message, user_id, username, data)
 
-    elif content == "!蘿蔔圖鑑":
-        await handle_carrot_encyclopedia(message, user_id, data)
+elif content == "!蘿蔔圖鑑":
+    await handle_carrot_encyclopedia(message, user_id, data)
 
-    elif content == "!蘿蔔排行":
-        await handle_carrot_ranking(message, data)
+elif content == "!蘿蔔排行":
+    await handle_carrot_ranking(message, data)
 
-    elif content == "!胡蘿蔔":
-        await handle_carrot_fact(message)
+elif content == "!胡蘿蔔":
+    await handle_carrot_fact(message)
 
-    elif content == "!食譜":
-        await handle_carrot_recipe(message)
+elif content == "!食譜":
+    await handle_carrot_recipe(message)
 
-    elif content == "!種植":
-        await handle_carrot_tip(message)
+elif content == "!種植":
+    await handle_carrot_tip(message)
 
-    if content.startswith("!種蘿蔔"):
-        parts = content.split()
-        if len(parts) == 2:
-            fertilizer = parts[1]
-            await handle_plant_carrot(message, user_id, data, fertilizer)
-        else:
-            await message.channel.send("❓ 請使用正確格式：`!種蘿蔔 普通肥料`")
+elif content.startswith("!種蘿蔔"):
+    parts = content.split()
+    if len(parts) == 2:
+        fertilizer = parts[1]
+        await handle_plant_carrot(message, user_id, data, fertilizer)
+    else:
+        await message.channel.send("❓ 請使用正確格式：`!種蘿蔔 普通肥料`")
 
-    elif content == "!收成":
-        await handle_harvest(message, user_id, data)
+elif content == "!收成":
+    await handle_harvest(message, user_id, data)
 
-    elif content == "!拔蘿蔔":
-        await handle_pull_carrot(message, user_id, data)
+elif content == "!升級土地":
+    await handle_upgrade_land(message, user_id, data)
 
-    elif content == "!升級土地":
-        await handle_upgrade_land(message, user_id, data)
+elif content == "!資源狀態":
+    await handle_resource_status(message, user_id, data)
 
-    elif content == "!資源狀態":
-        await handle_resource_status(message, user_id, data)
+elif content == "!農場狀態":
+    await handle_farm_status(message, user_id, data)
 
-    elif content == "!農場狀態":
-        await handle_farm_status(message, user_id, data)
+elif content == "!土地進度":
+    await handle_land_progress(message, user_id, data)
 
-    elif content == "!土地進度":
-        await handle_land_progress(message, user_id, data)
+elif content == "!新手教學":
+    await send_tutorial_embed(message)
 
-    elif content == "!新手教學":
-        await send_tutorial_embed(message)
-
-    # ✅ 儲存資料（如果你有 save_data()）
-    save_data(data)
+# ✅ 儲存資料（如果你有 save_data()）
+save_data(data)
 
 # ===== 指令模組 =====
 async def handle_fortune(message, user_id, username, data):
