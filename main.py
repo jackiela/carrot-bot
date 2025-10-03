@@ -316,23 +316,16 @@ def pull_carrot_by_farm(fertilizer="普通肥料", land_level=1):
 
 # ===== Bot 啟動 =====
 @client.event
-async def on_ready():
-    if not hasattr(client, 'already_ready'):
-        print(f"✅ 已登入為 {client.user}")
-        client.already_ready = True
-
-# ===== 主事件處理器 =====
-@client.event
 async def on_message(message):
-    if message.author == client.user:
+    if message.author.bot:
         return
 
-    content = message.content.strip()
+    # 🆔 使用者基本資料
     user_id = str(message.author.id)
     username = str(message.author.display_name)
-    data = load_data()
-    
-# ✅ 使用者資料初始化
+    today = datetime.datetime.now().date().isoformat()
+
+    # 📦 初始化使用者資料（只執行一次）
     user_data = data.setdefault(user_id, {
         "name": username,
         "carrots": [],
@@ -348,22 +341,22 @@ async def on_message(message):
             "land_level": 1,
             "pull_count": 0,
             "status": "未種植"
-        }
+        },
+        "welcome_shown": False
     })
 
-   # ✅ 歡迎訊息只在指定頻道顯示
-    CARROT_CHANNEL_ID = 1423335407105343589  # ← 換成你的胡蘿蔔農場頻道 ID
-    if message.channel.id == CARROT_CHANNEL_ID:
-        if "welcome_shown" not in user_data:
-            await message.channel.send(
-                f"👋 歡迎加入胡蘿蔔農場，{user_data['name']}！\n"
-                f"你目前擁有：\n"
-                f"💰 金幣：{user_data['coins']}\n"
-                f"🧪 普通肥料：{user_data['fertilizers']['普通肥料']} 個\n"
-                f"🌱 使用 !種蘿蔔 普通肥料 開始種植吧！"
-            )
-            user_data["welcome_shown"] = True
-            user_data["last_fortune"] = today
+    # 👋 歡迎訊息（只在指定頻道顯示一次）
+    CARROT_CHANNEL_ID = 123456789012345678  # ← 換成你的頻道 ID
+    if message.channel.id == CARROT_CHANNEL_ID and not user_data["welcome_shown"]:
+        await message.channel.send(
+            f"👋 歡迎加入胡蘿蔔農場，{user_data['name']}！\n"
+            f"你目前擁有：\n"
+            f"💰 金幣：{user_data['coins']}\n"
+            f"🧪 普通肥料：{user_data['fertilizers']['普通肥料']} 個\n"
+            f"🌱 使用 !種蘿蔔 普通肥料 開始種植吧！"
+        )
+        user_data["welcome_shown"] = True
+        user_data["last_fortune"] = today
         
     # 頻道限制
     if content in COMMAND_CHANNELS:
@@ -373,6 +366,9 @@ async def on_message(message):
             return
 
     # 指令分派
+    
+   content = message.content.strip()
+
     if content == "!運勢":
         await handle_fortune(message, user_id, username, data)
 
@@ -394,33 +390,36 @@ async def on_message(message):
     elif content == "!種植":
         await handle_carrot_tip(message)
 
-    elif content.startswith("!種蘿蔔"):
-        args = content.split()
-        fertilizer = args[1] if len(args) > 1 else "普通肥料"
-        await handle_plant_carrot(message, user_id, data, fertilizer)
+    if content.startswith("!種蘿蔔"):
+        parts = content.split()
+        if len(parts) == 2:
+            fertilizer = parts[1]
+            await handle_plant_carrot(message, user_id, data, fertilizer)
+        else:
+            await message.channel.send("❓ 請使用正確格式：`!種蘿蔔 普通肥料`")
 
     elif content == "!收成":
-        await handle_harvest_carrot(message, user_id, data)
+        await handle_harvest(message, user_id, data)
 
-    elif content == "!農場狀態":
-        await handle_farm_status(message, user_id, data)
-
-    elif content.startswith("!購買肥料"):
-        args = content.split()
-        if len(args) < 2:
-            await message.channel.send("🧪 請輸入肥料種類，例如 `!購買肥料 高級肥料`")
-        else:
-            await handle_buy_fertilizer(message, user_id, data, args[1])
+    elif content == "!拔蘿蔔":
+        await handle_pull_carrot(message, user_id, data)
 
     elif content == "!升級土地":
         await handle_upgrade_land(message, user_id, data)
 
+    elif content == "!資源狀態":
+        await handle_resource_status(message, user_id, data)
+
+    elif content == "!農場狀態":
+        await handle_farm_status(message, user_id, data)
+
     elif content == "!土地進度":
         await handle_land_progress(message, user_id, data)
 
-    elif content == "!資源狀態":
-        await handle_resource_status(message, user_id, data)
-    
+    elif content == "!新手教學":
+        await send_tutorial_embed(message)
+
+    # ✅ 儲存資料（如果你有 save_data()）
     save_data(data)
 
 # ===== 指令模組 =====
