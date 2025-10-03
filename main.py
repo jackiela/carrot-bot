@@ -156,6 +156,10 @@ async def on_message(message):
 
     elif content == "!土地進度":
         await handle_land_progress(message, user_id, user_data)
-
+        
 # ===== 啟動 Bot =====
-client.run(os.getenv("DISCORD_TOKEN"))
+from keep_alive import keep_alive   # ← 確保有這行
+keep_alive()                        # ← 啟動 Flask 假伺服器
+
+TOKEN = os.getenv("DISCORD_TOKEN")
+client.run(TOKEN)
