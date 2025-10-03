@@ -167,10 +167,26 @@ async def handle_fortune(message, user_id, username, user_data, ref):
 
     fortune = random.choice(list(fortunes.keys()))
     advice = random.choice(fortunes[fortune])
+
+    # 🎁 根據運勢給予獎勵（平衡版）
+    reward = {
+        "大吉": 20,
+        "中吉": 15,
+        "小吉": 5,
+        "凶": 0
+    }.get(fortune, 0)
+
     user_data["last_fortune"] = today
+    user_data["coins"] += reward
     ref.set(user_data)
 
-    await message.channel.send(f"🎯 你的今日運勢是：**{fortune}**\n💡 建議：{advice}")
+    msg = f"🎯 你的今日運勢是：**{fortune}**\n💡 建議：{advice}"
+    if reward > 0:
+        msg += f"\n💰 你獲得了 {reward} 金幣作為運勢獎勵！"
+    else:
+        msg += f"\n😢 今天沒有金幣獎勵，明天再接再厲！"
+
+    await message.channel.send(msg)
 
 # ===== 拔蘿蔔 =====
 async def handle_pull_carrot(message, user_id, username, user_data, ref):
@@ -331,7 +347,7 @@ async def handle_farm_status(message, user_id, user_data):
     harvest_time_str = farm.get("harvest_time")
     status = farm.get("status", "未種植")
 
-    harvest_display = "未設定"
+    harvest_display = "未種植"
     if harvest_time_str:
         harvest_time = datetime.datetime.fromisoformat(harvest_time_str)
         now = datetime.datetime.now()
