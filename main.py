@@ -97,6 +97,7 @@ COMMAND_CHANNELS = {
 }
 
 # ===== Bot 指令處理 =====
+
 @client.event
 async def on_message(message):
     if message.author.bot:
@@ -125,20 +126,17 @@ async def on_message(message):
 
     content = message.content.strip()
 
-    # 頻道限制
-if content in COMMAND_CHANNELS:
-    allowed_channel = COMMAND_CHANNELS[content]
-
-    # ✅ 支援討論串：判斷父頻道
-    parent_id = getattr(message.channel, "parent_id", None)
-    is_allowed = (
-        message.channel.id == allowed_channel or
-        parent_id == allowed_channel
-    )
-
-    if not is_allowed:
-        await message.channel.send(f"⚠️ 這個指令只能在 <#{allowed_channel}> 或其討論串中使用")
-        return
+    # ✅ 頻道限制（支援討論串）
+    if content in COMMAND_CHANNELS:
+        allowed_channel = COMMAND_CHANNELS[content]
+        parent_id = getattr(message.channel, "parent_id", None)
+        is_allowed = (
+            message.channel.id == allowed_channel or
+            parent_id == allowed_channel
+        )
+        if not is_allowed:
+            await message.channel.send(f"⚠️ 這個指令只能在 <#{allowed_channel}> 或其討論串中使用")
+            return
 
     # 指令分派
     if content == "!運勢":
