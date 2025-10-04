@@ -1,5 +1,6 @@
 import datetime
 import random
+import discord
 from firebase_admin import db
 
 # ===== 拔蘿蔔遊戲（120 種，含稀有度） =====
