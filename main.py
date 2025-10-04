@@ -77,7 +77,10 @@ async def check_daily_login_reward(message, user_id, user_data, ref):
     user_data["last_login"] = today
     ref.set(user_data)
 
-    await message.channel.send(f"🎁 每日登入獎勵：你獲得了 {reward} 金幣！")
+    await message.channel.send(
+        f"🎁 每日登入獎勵：你獲得了 {reward} 金幣！\n"
+        f"🆔 玩家 ID：`{user_id}`"
+    )
 
 # ===== 指令頻道限制（可自訂）=====
 COMMAND_CHANNELS = {
