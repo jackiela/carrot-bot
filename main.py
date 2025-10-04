@@ -127,10 +127,18 @@ async def on_message(message):
 
     # 頻道限制
     if content in COMMAND_CHANNELS:
-        allowed_channel = COMMAND_CHANNELS[content]
-        if message.channel.id != allowed_channel:
-            await message.channel.send(f"⚠️ 這個指令只能在 <#{allowed_channel}> 使用")
-            return
+    allowed_channel = COMMAND_CHANNELS[content]
+
+    # ✅ 支援討論串：判斷父頻道
+    parent_id = getattr(message.channel, "parent_id", None)
+    is_allowed = (
+        message.channel.id == allowed_channel or
+        parent_id == allowed_channel
+    )
+
+    if not is_allowed:
+        await message.channel.send(f"⚠️ 這個指令只能在 <#{allowed_channel}> 或其討論串中使用")
+        return
 
     # 指令分派
     if content == "!運勢":
