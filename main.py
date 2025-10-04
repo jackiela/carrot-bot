@@ -21,7 +21,8 @@ from carrot_commands import (
     handle_buy_fertilizer,
     handle_upgrade_land,
     handle_land_progress,
-    handle_resource_status
+    handle_resource_status,
+    show_land_status
 )
 
 # ===== Discord Bot 初始化 =====
