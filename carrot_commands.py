@@ -607,16 +607,26 @@ async def show_land_status(message, user_id, user_data):
     expected_thread_name = f"{user_id} 的田地"
     current_channel = message.channel
 
-    # ✅ 如果目前頻道不是玩家的田地串
+    print(f"[DEBUG] 進入 show_land_status，channel.name = {current_channel.name}")
+
+    # ✅ 判斷是否在玩家自己的田地串
     if current_channel.name != expected_thread_name:
-        # 嘗試在目前頻道搜尋玩家的田地串
+        # 取得父頻道（主頻道）
+        parent_channel = (
+            message.guild.get_channel(current_channel.parent_id)
+            if current_channel.parent_id else current_channel
+        )
+
+        # 取得所有討論串（async）
+        threads = await parent_channel.active_threads()
+
+        # 嘗試尋找玩家的田地串
         target_thread = None
-        for thread in current_channel.threads:
+        for thread in threads:
             if thread.name == expected_thread_name:
                 target_thread = thread
                 break
 
-        # ✅ 找到 → 引導跳轉
         if target_thread:
             await current_channel.send(
                 f"⚠️ 請在你的田地串中使用此指令：{target_thread.jump_url}"
@@ -624,7 +634,7 @@ async def show_land_status(message, user_id, user_data):
             return
 
         # ❌ 沒找到 → 自動建立串
-        new_thread = await current_channel.create_thread(
+        new_thread = await parent_channel.create_thread(
             name=expected_thread_name,
             type=discord.ChannelType.public_thread,
             auto_archive_duration=1440
