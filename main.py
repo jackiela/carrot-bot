@@ -2,8 +2,10 @@ import discord
 import os
 import json
 import datetime
+import random
 import firebase_admin
 from firebase_admin import credentials, db
+from keep_alive import keep_alive
 
 from carrot_commands import (
     handle_fortune,
@@ -33,34 +35,49 @@ cred_dict = json.loads(firebase_json)
 
 cred = credentials.Certificate(cred_dict)
 firebase_admin.initialize_app(cred, {
-    'databaseURL': 'https://carrotbot-80059-default-rtdb.asia-southeast1.firebasedatabase.app'  # ← 改成你的 Firebase 專案網址
+    'databaseURL': 'https://carrotbot-80059-default-rtdb.asia-southeast1.firebasedatabase.app'
 })
 
-# ===== 使用者資料讀取與初始化 =====
+# ===== 使用者資料讀取與補齊 =====
 def get_user_data(user_id, username):
     ref = db.reference(f"/users/{user_id}")
-    data = ref.get()
-    if not data:
-        data = {
-            "name": username,
-            "carrots": [],
-            "last_fortune": "",
-            "carrot_pulls": {},
-            "coins": 50,
-            "fertilizers": {
-                "普通肥料": 1,
-                "高級肥料": 0,
-                "神奇肥料": 0
-            },
-            "farm": {
-                "land_level": 1,
-                "pull_count": 0,
-                "status": "未種植"
-            },
-            "welcome_shown": False
-        }
-        ref.set(data)
+    data = ref.get() or {}
+
+    data.setdefault("name", username)
+    data.setdefault("carrots", [])
+    data.setdefault("last_fortune", "")
+    data.setdefault("carrot_pulls", {})
+    data.setdefault("coins", 50)
+    data.setdefault("fertilizers", {
+        "普通肥料": 1,
+        "高級肥料": 0,
+        "神奇肥料": 0
+    })
+    data.setdefault("farm", {
+        "land_level": 1,
+        "pull_count": 0,
+        "status": "未種植"
+    })
+    data.setdefault("welcome_shown", False)
+    data.setdefault("last_login", "")  # ✅ 登入獎勵欄位
+
+    ref.set(data)
     return data, ref
+
+# ===== 每日登入獎勵（隨機 1～5 金幣）=====
+async def check_daily_login_reward(message, user_id, user_data, ref):
+    today = str(datetime.date.today())
+    last_login = user_data.get("last_login", "")
+
+    if last_login == today:
+        return
+
+    reward = random.randint(1, 5)
+    user_data["coins"] += reward
+    user_data["last_login"] = today
+    ref.set(user_data)
+
+    await message.channel.send(f"🎁 每日登入獎勵：你獲得了 {reward} 金幣！")
 
 # ===== 指令頻道限制（可自訂）=====
 COMMAND_CHANNELS = {
@@ -74,7 +91,6 @@ COMMAND_CHANNELS = {
     "!購買肥料": 1423335407105343589,
     "!升級土地": 1423335407105343589,
     "!土地進度": 1423335407105343589,
-    
 }
 
 # ===== Bot 指令處理 =====
@@ -88,6 +104,7 @@ async def on_message(message):
     today = datetime.datetime.now().date().isoformat()
 
     user_data, ref = get_user_data(user_id, username)
+    await check_daily_login_reward(message, user_id, user_data, ref)
 
     # 👋 歡迎訊息（只在指定頻道顯示一次）
     CARROT_CHANNEL_ID = 1423335407105343589
@@ -156,10 +173,10 @@ async def on_message(message):
 
     elif content == "!土地進度":
         await handle_land_progress(message, user_id, user_data)
-        
-# ===== 啟動 Bot =====
-from keep_alive import keep_alive   # ← 確保有這行
-keep_alive()                        # ← 啟動 Flask 假伺服器
 
+# ===== 假 Web Server（支援 Render 免費 Web Service）=====
+keep_alive()
+
+# ===== 啟動 Bot =====
 TOKEN = os.getenv("DISCORD_TOKEN")
 client.run(TOKEN)
