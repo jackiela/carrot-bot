@@ -654,7 +654,7 @@ async def show_land_status(message, user_id, user_data):
 
     status_text = (
         f"🧾 土地狀態卡\n"
-        f"🆔 玩家 ID：{user_id}\n"
+        f"🆔 玩家：{message.author.display_name}\n"
         f"🏷️ 土地等級：Lv.{farm.get('land_level', 1)}\n"
         f"🌱 農場狀態：{farm.get('status', '未知')}\n"
         f"🔁 拔蘿蔔次數：{farm.get('pull_count', 0)} / 3\n"
