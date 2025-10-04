@@ -138,57 +138,56 @@ async def on_message(message):
             await message.channel.send(f"⚠️ 這個指令只能在 <#{allowed_channel}> 或其討論串中使用")
             return
 
-# 指令分派
-# 🌱 農場操作類
-elif content.startswith("!種蘿蔔"):
-    parts = content.split()
-    if len(parts) == 2:
-        fertilizer = parts[1]
-        await handle_plant_carrot(message, user_id, user_data, ref, fertilizer)
-    else:
-        await message.channel.send("❓ 請使用正確格式：`!種蘿蔔 普通肥料`")
+    # ✅ 指令分派開始
+    # 🌱 農場操作類
+    if content.startswith("!種蘿蔔"):
+        parts = content.split()
+        if len(parts) == 2:
+            fertilizer = parts[1]
+            await handle_plant_carrot(message, user_id, user_data, ref, fertilizer)
+        else:
+            await message.channel.send("❓ 請使用正確格式：`!種蘿蔔 普通肥料`")
 
-elif content == "!收成蘿蔔":
-    await handle_harvest_carrot(message, user_id, user_data, ref)
+    elif content == "!收成蘿蔔":
+        await handle_harvest_carrot(message, user_id, user_data, ref)
 
-elif content == "!升級土地":
-    await handle_upgrade_land(message, user_id, user_data, ref)
+    elif content == "!升級土地":
+        await handle_upgrade_land(message, user_id, user_data, ref)
 
-# 📦 狀態查詢類
-elif content == "!資源狀態":
-    await handle_resource_status(message, user_id, user_data)
+    # 📦 狀態查詢類
+    elif content == "!資源狀態":
+        await handle_resource_status(message, user_id, user_data)
 
-elif content == "!農場狀態":
-    await handle_farm_status(message, user_id, user_data)
+    elif content == "!農場狀態":
+        await handle_farm_status(message, user_id, user_data)
 
-elif content == "!土地進度":
-    await handle_land_progress(message, user_id, user_data)
+    elif content == "!土地進度":
+        await handle_land_progress(message, user_id, user_data)
 
-elif content == "!土地狀態":
-    await show_land_status(message, user_id, user_data)
+    elif content == "!土地狀態":
+        await show_land_status(message, user_id, user_data)
 
-# 🎲 其他功能類
-elif content == "!運勢":
-    await handle_fortune(message, user_id, username, user_data, ref)
+    # 🎲 其他功能類
+    elif content == "!運勢":
+        await handle_fortune(message, user_id, username, user_data, ref)
 
-elif content == "!拔蘿蔔":
-    await handle_pull_carrot(message, user_id, username, user_data, ref)
+    elif content == "!拔蘿蔔":
+        await handle_pull_carrot(message, user_id, username, user_data, ref)
 
-elif content == "!蘿蔔圖鑑":
-    await handle_carrot_encyclopedia(message, user_id, user_data)
+    elif content == "!蘿蔔圖鑑":
+        await handle_carrot_encyclopedia(message, user_id, user_data)
 
-elif content == "!蘿蔔排行":
-    await handle_carrot_ranking(message)
+    elif content == "!蘿蔔排行":
+        await handle_carrot_ranking(message)
 
-elif content == "!胡蘿蔔":
-    await handle_carrot_fact(message)
+    elif content == "!胡蘿蔔":
+        await handle_carrot_fact(message)
 
-elif content == "!食譜":
-    await handle_carrot_recipe(message)
+    elif content == "!食譜":
+        await handle_carrot_recipe(message)
 
-elif content == "!種植":
-    await handle_carrot_tip(message)
-
+    elif content == "!種植":
+        await handle_carrot_tip(message)
 # ===== 假 Web Server（支援 Render 免費 Web Service）=====
 keep_alive()
 
