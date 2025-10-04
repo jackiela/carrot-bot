@@ -294,13 +294,15 @@ async def handle_fortune(message, user_id, username, user_data, ref):
     fortune = random.choice(list(fortunes.keys()))
     advice = random.choice(fortunes[fortune])
 
-    # 🎁 根據運勢給予獎勵（平衡版）
-    reward = {
-        "大吉": 20,
-        "中吉": 15,
-        "小吉": 5,
-        "凶": 0
-    }.get(fortune, 0)
+    # 🎲 隨機獎勵範圍
+    reward_ranges = {
+        "大吉": (11, 15),
+        "中吉": (6, 10),
+        "小吉": (1, 5),
+        "凶": (0)
+    }
+    min_reward, max_reward = reward_ranges.get(fortune, (0, 0))
+    reward = random.randint(min_reward, max_reward)
 
     user_data["last_fortune"] = today
     user_data["coins"] += reward
