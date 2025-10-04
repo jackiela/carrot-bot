@@ -126,7 +126,7 @@ async def on_message(message):
     content = message.content.strip()
 
     # 頻道限制
-    if content in COMMAND_CHANNELS:
+if content in COMMAND_CHANNELS:
     allowed_channel = COMMAND_CHANNELS[content]
 
     # ✅ 支援討論串：判斷父頻道
