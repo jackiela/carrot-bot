@@ -609,13 +609,15 @@ async def show_land_status(message, user_id, user_data):
 
     print(f"[DEBUG] 進入 show_land_status，channel.name = {current_channel.name}")
 
+    # ✅ 安全取得主頻道（避免 parent_id 錯誤）
+    if isinstance(current_channel, discord.Thread):
+        parent_channel = current_channel.parent
+    else:
+        parent_channel = current_channel
+
     # ✅ 判斷是否在玩家自己的田地串
     if current_channel.name != expected_thread_name:
-        # 取得父頻道（主頻道）
-        parent_channel = (
-            message.guild.get_channel(current_channel.parent_id)
-            if current_channel.parent_id else current_channel
-        )
+        print("[DEBUG] 不在玩家田地串，開始搜尋討論串")
 
         # 取得所有討論串（async）
         threads = await parent_channel.active_threads()
@@ -628,11 +630,13 @@ async def show_land_status(message, user_id, user_data):
                 break
 
         if target_thread:
+            print("[DEBUG] 找到玩家田地串，引導跳轉")
             await current_channel.send(
                 f"⚠️ 請在你的田地串中使用此指令：{target_thread.jump_url}"
             )
             return
 
+        print("[DEBUG] 沒找到玩家田地串，準備建立")
         # ❌ 沒找到 → 自動建立串
         new_thread = await parent_channel.create_thread(
             name=expected_thread_name,
@@ -641,6 +645,8 @@ async def show_land_status(message, user_id, user_data):
         )
         await new_thread.send(f"📌 已為你建立田地串，請在此使用指令！")
         current_channel = new_thread  # 切換到新串
+
+    print("[DEBUG] 準備送出土地狀態卡")
 
     # ✅ 顯示土地狀態卡
     farm = user_data.get("farm", {})
