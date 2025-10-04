@@ -600,3 +600,44 @@ async def handle_resource_status(message, user_id, user_data):
         reply += f" - {k}：{v} 個\n"
 
     await message.channel.send(reply)
+
+# ===== 土地狀態查詢 =====
+
+async def show_land_status(message, user_id, user_data):
+    expected_thread_name = f"{user_id} 的田地"
+
+    # ✅ 如果不是在玩家自己的田地串
+    if message.channel.name != expected_thread_name:
+        # 嘗試尋找該玩家的田地串
+        for thread in message.channel.threads:
+            if thread.name == expected_thread_name:
+                await message.channel.send(
+                    f"⚠️ 請在你的田地串中使用此指令：{thread.jump_url}"
+                )
+                return
+
+        # 找不到串 → 提示玩家先種田
+        await message.channel.send(
+            f"⚠️ 找不到你的田地串 `{expected_thread_name}`，請先使用 !種蘿蔔 普通肥料 開始種植"
+        )
+        return
+
+    # ✅ 顯示土地狀態卡
+    farm = user_data.get("farm", {})
+    fertilizers = user_data.get("fertilizers", {})
+    coins = user_data.get("coins", 0)
+
+    status_text = (
+        f"🧾 土地狀態卡\n"
+        f"🆔 玩家 ID：{user_id}\n"
+        f"🏷️ 土地等級：Lv.{farm.get('land_level', 1)}\n"
+        f"🌱 農場狀態：{farm.get('status', '未知')}\n"
+        f"🔁 拔蘿蔔次數：{farm.get('pull_count', 0)} / 3\n"
+        f"💰 金幣：{coins}\n"
+        f"🧪 肥料庫存：\n"
+        f"　• 普通肥料：{fertilizers.get('普通肥料', 0)} 個\n"
+        f"　• 高級肥料：{fertilizers.get('高級肥料', 0)} 個\n"
+        f"　• 神奇肥料：{fertilizers.get('神奇肥料', 0)} 個"
+    )
+
+    await message.channel.send(status_text)
