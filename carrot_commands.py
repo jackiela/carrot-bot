@@ -605,22 +605,32 @@ async def handle_resource_status(message, user_id, user_data):
 
 async def show_land_status(message, user_id, user_data):
     expected_thread_name = f"{user_id} 的田地"
+    current_channel = message.channel
 
-    # ✅ 如果不是在玩家自己的田地串
-    if message.channel.name != expected_thread_name:
-        # 嘗試尋找該玩家的田地串
-        for thread in message.channel.threads:
+    # ✅ 如果目前頻道不是玩家的田地串
+    if current_channel.name != expected_thread_name:
+        # 嘗試在目前頻道搜尋玩家的田地串
+        target_thread = None
+        for thread in current_channel.threads:
             if thread.name == expected_thread_name:
-                await message.channel.send(
-                    f"⚠️ 請在你的田地串中使用此指令：{thread.jump_url}"
-                )
-                return
+                target_thread = thread
+                break
 
-        # 找不到串 → 提示玩家先種田
-        await message.channel.send(
-            f"⚠️ 找不到你的田地串 `{expected_thread_name}`，請先使用 !種蘿蔔 普通肥料 開始種植"
+        # ✅ 找到 → 引導跳轉
+        if target_thread:
+            await current_channel.send(
+                f"⚠️ 請在你的田地串中使用此指令：{target_thread.jump_url}"
+            )
+            return
+
+        # ❌ 沒找到 → 自動建立串
+        new_thread = await current_channel.create_thread(
+            name=expected_thread_name,
+            type=discord.ChannelType.public_thread,
+            auto_archive_duration=1440
         )
-        return
+        await new_thread.send(f"📌 已為你建立田地串，請在此使用指令！")
+        current_channel = new_thread  # 切換到新串
 
     # ✅ 顯示土地狀態卡
     farm = user_data.get("farm", {})
@@ -640,4 +650,4 @@ async def show_land_status(message, user_id, user_data):
         f"　• 神奇肥料：{fertilizers.get('神奇肥料', 0)} 個"
     )
 
-    await message.channel.send(status_text)
+    await current_channel.send(status_text)
