@@ -620,8 +620,8 @@ async def show_land_status(message, user_id, user_data):
     if current_channel.name != expected_thread_name:
         print("[DEBUG] 不在玩家田地串，開始搜尋討論串")
 
-        # 取得所有討論串（async）
-        threads = await parent_channel.active_threads()
+        # 取得所有活躍討論串（新版 API）
+        threads = await parent_channel.fetch_active_threads()
 
         # 嘗試尋找玩家的田地串
         target_thread = None
