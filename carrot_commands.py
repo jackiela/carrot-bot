@@ -286,11 +286,11 @@ def pull_carrot_by_farm(fertilizer="普通肥料", land_level=1):
 
   # ===== 今日運勢 =====
 
-async def handle_fortune(message, user_id, username, user_data, ref):
+async def handle_fortune(message, user_id, username, user_data, ref, force=False):
     today = str(datetime.date.today())
     last_fortune = user_data.get("last_fortune")
 
-    if last_fortune == today:
+    if not force and last_fortune == today:
         await message.channel.send("🔒 你今天已抽過運勢囉，明天再來吧！")
         return
 
@@ -315,7 +315,6 @@ async def handle_fortune(message, user_id, username, user_data, ref):
         "coins": user_data["coins"]
     })
 
-    # ✅ 建立 Embed 卡片
     embed = discord.Embed(
         title=f"🎴 今日運勢：{fortune}",
         description=advice,
