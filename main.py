@@ -80,7 +80,7 @@ async def check_daily_login_reward(message, user_id, user_data, ref):
 
     await message.channel.send(
         f"🎁 每日登入獎勵：你獲得了 {reward} 金幣！\n"
-        f"🆔 玩家 ID：`{user_id}`"
+        f"🆔 玩家 ID：`{user_data['name']}`"
     )
 
 # ===== 指令頻道限制（可自訂）=====
