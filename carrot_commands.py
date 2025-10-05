@@ -704,24 +704,27 @@ async def show_land_status(message, user_id, user_data):
 
     # ✅ 建立 Embed 卡片
     embed = discord.Embed(
-        title="🧾 土地狀態卡",
-        description=f"玩家：{message.author.display_name}",
-        color=discord.Color.green()
-    )
-    embed.add_field(name="🏷️ 土地等級", value=f"Lv.{farm.get('land_level', 1)}", inline=True)
-    embed.add_field(name="🌱 農場狀態", value=status_text, inline=True)
-    embed.add_field(name="🔁 拔蘿蔔次數", value=f"{farm.get('pull_count', 0)} / 3", inline=True)
-    embed.add_field(name="💰 金幣", value=str(coins), inline=True)
+    title="🧾 土地狀態卡",
+    description=f"玩家：{message.author.display_name}",
+    color=discord.Color.green()
+)
 
-    embed.add_field(
-        name="🧪 肥料庫存",
-        value=(
-            f"• 普通肥料：{fertilizers.get('普通肥料', 0)} 個\n"
-            f"• 高級肥料：{fertilizers.get('高級肥料', 0)} 個\n"
-            f"• 神奇肥料：{fertilizers.get('神奇肥料', 0)} 個"
-        ),
-        inline=False
-    )
+# 🏷️ 基本資訊
+embed.add_field(name="🏷️ 土地等級", value=f"Lv.{farm.get('land_level', 1)}", inline=True)
+embed.add_field(name="🌱 農場狀態", value=status_text, inline=True)
 
-    embed.set_footer(text="🌙 每天晚上十二點後可重新拔蘿蔔與抽運勢")
-    await current_channel.send(embed=embed)
+# 🔁 活動進度
+embed.add_field(name="🔁 拔蘿蔔次數", value=f"{farm.get('pull_count', 0)} / 3", inline=False)
+embed.add_field(name="💰 金幣", value=str(coins), inline=True)
+
+# 🧪 肥料庫存（獨立區塊）
+embed.add_field(
+    name="🧪 肥料庫存",
+    value=(
+        f"• 普通肥料：{fertilizers.get('普通肥料', 0)} 個\n"
+        f"• 高級肥料：{fertilizers.get('高級肥料', 0)} 個\n"
+        f"• 神奇肥料：{fertilizers.get('神奇肥料', 0)} 個"
+    ),
+    inline=False
+)
+await current_channel.send(embed=embed)
