@@ -28,18 +28,7 @@ from carrot_commands import (
 from utils import is_admin
 from carrot_commands import handle_fortune
 
-if content == "!重置運勢":
-    if not is_admin(user_id):
-        await message.channel.send("⛔ 你沒有權限使用此指令。")
-        return
 
-    user_data["last_fortune"] = ""
-    ref.update({"last_fortune": ""})
-    await message.channel.send("✅ 已重置你的運勢紀錄，現在可以重新抽運勢！")
-
-elif content == "!抽運勢":
-    force = is_admin(user_id)  # 管理員自動跳過限制
-    await handle_fortune(message, user_id, username, user_data, ref, force=force)
 
 # ===== Discord Bot 初始化 =====
 intents = discord.Intents.default()
@@ -128,6 +117,19 @@ async def on_message(message):
     user_data, ref = get_user_data(user_id, username)
     await check_daily_login_reward(message, user_id, user_data, ref)
 
+    if content == "!重置運勢":
+    if not is_admin(user_id):
+        await message.channel.send("⛔ 你沒有權限使用此指令。")
+        return
+
+    user_data["last_fortune"] = ""
+    ref.update({"last_fortune": ""})
+    await message.channel.send("✅ 已重置你的運勢紀錄，現在可以重新抽運勢！")
+
+elif content == "!抽運勢":
+    force = is_admin(user_id)  # 管理員自動跳過限制
+    await handle_fortune(message, user_id, username, user_data, ref, force=force)
+    
     # 👋 歡迎訊息（只在指定頻道顯示一次）
     CARROT_CHANNEL_ID = 1423335407105343589
     if message.channel.id == CARROT_CHANNEL_ID and not user_data["welcome_shown"]:
