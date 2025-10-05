@@ -629,7 +629,7 @@ async def handle_resource_status(message, user_id, user_data):
 # ===== 土地狀態查詢 =====
 
 async def show_land_status(message, user_id, user_data):
-    expected_thread_name = f"{user_id} 的田地"
+    expected_thread_name = f"{message.author.display_name} 的田地"
     current_channel = message.channel
 
     print(f"[DEBUG] 進入 show_land_status，channel.name = {current_channel.name}")
