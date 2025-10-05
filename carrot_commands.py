@@ -714,15 +714,15 @@ async def show_land_status(message, user_id, user_data):
     )
     embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
 
-    # 🏷️ 基本資訊
-    embed.add_field(name="🏷️ 土地等級", value=f"Lv.{farm.get('land_level', 1)}", inline=True)
-    embed.add_field(name="🌱 農場狀態", value=status_text, inline=True)
+    # 🏷️ 基本資訊（上下排列）
+    embed.add_field(name="🏷️ 土地等級", value=f"Lv.{farm.get('land_level', 1)}", inline=False)
+    embed.add_field(name="🌱 農場狀態", value=status_text, inline=False)
 
     # 🔁 活動進度
     embed.add_field(name="🔁 今日剩餘拔蘿蔔次數", value=f"{remaining_pulls} 次", inline=False)
     embed.add_field(name="💰 金幣", value=str(coins), inline=True)
 
-    # 🧪 肥料庫存（獨立區塊）
+    # 🧪 肥料庫存
     embed.add_field(
         name="🧪 肥料庫存",
         value=(
@@ -732,4 +732,5 @@ async def show_land_status(message, user_id, user_data):
         ),
         inline=False
     )
+
     await current_channel.send(embed=embed)
