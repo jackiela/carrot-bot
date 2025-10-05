@@ -284,6 +284,7 @@ def pull_carrot_by_farm(fertilizer="普通肥料", land_level=1):
         return random.choice(legendary_carrots), random.randint(100, 200)
 
   # ===== 今日運勢 =====
+
 async def handle_fortune(message, user_id, username, user_data, ref):
     today = str(datetime.date.today())
     last_fortune = user_data.get("last_fortune")
@@ -294,28 +295,36 @@ async def handle_fortune(message, user_id, username, user_data, ref):
 
     fortune = random.choice(list(fortunes.keys()))
     advice = random.choice(fortunes[fortune])
-
-    # 🎲 隨機獎勵範圍
-    reward_ranges = {
-        "大吉": (11, 15),
-        "中吉": (6, 10),
-        "小吉": (1, 5),
-        "凶": (0)
-    }
     min_reward, max_reward = reward_ranges.get(fortune, (0, 0))
     reward = random.randint(min_reward, max_reward)
 
+    user_data.setdefault("coins", 0)
     user_data["last_fortune"] = today
     user_data["coins"] += reward
-    ref.set(user_data)
 
-    msg = f"🎯 你的今日運勢是：**{fortune}**\n💡 建議：{advice}"
+    ref.update({
+        "last_fortune": today,
+        "coins": user_data["coins"]
+    })
+
+    # ✅ 建立 Embed 卡片
+    embed = discord.Embed(
+        title=f"🎴 今日運勢：{fortune}",
+        description=advice,
+        color=discord.Color.orange() if fortune == "大吉" else
+               discord.Color.green() if fortune == "中吉" else
+               discord.Color.blue() if fortune == "小吉" else
+               discord.Color.red()
+    )
+    embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
+    embed.set_footer(text=f"📅 {today}")
+
     if reward > 0:
-        msg += f"\n💰 你獲得了 {reward} 金幣作為運勢獎勵！"
+        embed.add_field(name="💰 金幣獎勵", value=f"你獲得了 {reward} 金幣！", inline=False)
     else:
-        msg += f"\n😢 今天沒有金幣獎勵，明天再接再厲！"
+        embed.add_field(name="😢 沒有金幣獎勵", value="明天再接再厲！", inline=False)
 
-    await message.channel.send(msg)
+    await message.channel.send(embed=embed)
 
 # ===== 拔蘿蔔 =====
 async def handle_pull_carrot(message, user_id, username, user_data, ref):
