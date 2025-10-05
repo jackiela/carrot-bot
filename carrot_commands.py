@@ -341,32 +341,52 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
     await message.channel.send(embed=embed)
 
 # ===== 拔蘿蔔 =====
+
 async def handle_pull_carrot(message, user_id, username, user_data, ref):
     today = str(datetime.date.today())
     pulls = user_data.get("carrot_pulls", {})
     today_pulls = pulls.get(today, 0)
 
     if today_pulls >= 3:
-        await message.channel.send("🔒 今天已拔過三次蘿蔔囉，明天再來吧！")
+        embed = discord.Embed(
+            title="🔒 拔蘿蔔次數已達上限",
+            description="今天已拔過三次蘿蔔囉，請明天再來！",
+            color=discord.Color.red()
+        )
+        embed.set_footer(text=f"📅 {today}｜🌙 晚上十二點過後可再拔")
+        await message.channel.send(embed=embed)
         return
 
     result = pull_carrot()
-    await message.channel.send(f"💪 你拔出了：{result}")
+    is_new = result not in user_data.get("carrots", [])
+    remaining = 2 - today_pulls  # 因為這次還沒記錄
 
-    # ✅ 防止 KeyError
+    # ✅ 更新資料
     user_data.setdefault("carrots", [])
-
-    if result not in user_data["carrots"]:
+    if is_new:
         user_data["carrots"].append(result)
-        await message.channel.send("📖 新發現！你的圖鑑新增了一種蘿蔔！")
 
     user_data.setdefault("carrot_pulls", {})
     user_data["carrot_pulls"][today] = today_pulls + 1
     ref.set(user_data)
 
-    # ✅ 更新拔蘿蔔次數
-    user_data["carrot_pulls"][today] = today_pulls + 1
-    ref.set(user_data)
+    # ✅ 建立 Embed 卡片
+    embed = discord.Embed(
+        title="💪 拔蘿蔔結果",
+        description=f"你拔出了：**{result}**",
+        color=discord.Color.orange()
+    )
+    embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
+    embed.set_footer(text=f"📅 {today}｜🌙 晚上十二點過後可再拔")
+
+    if is_new:
+        embed.add_field(name="📖 新發現！", value="你的圖鑑新增了一種蘿蔔！", inline=False)
+    else:
+        embed.add_field(name="📘 已收藏", value="這種蘿蔔你已經擁有囉！", inline=False)
+
+    embed.add_field(name="🔁 今日剩餘次數", value=f"{remaining} 次", inline=False)
+
+    await message.channel.send(embed=embed)
 
 # ===== 蘿蔔圖鑑 =====
 async def handle_carrot_encyclopedia(message, user_id, user_data):
