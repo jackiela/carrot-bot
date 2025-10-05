@@ -188,6 +188,14 @@ async def on_message(message):
             await handle_plant_carrot(message, user_id, user_data, ref, fertilizer)
         else:
             await message.channel.send("❓ 請使用正確格式：`!種蘿蔔 普通肥料`")
+            
+    elif content.startswith("!購買肥料"):
+        parts = content.split()
+        if len(parts) == 2:
+            fertilizer = parts[1]
+            await handle_buy_fertilizer(message, user_id, user_data, ref, fertilizer)
+        else:
+            await message.channel.send("❓ 請使用正確格式：`!購買肥料 普通肥料`")
 
     elif content == "!收成蘿蔔":
         await handle_harvest_carrot(message, user_id, user_data, ref)
