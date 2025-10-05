@@ -112,6 +112,7 @@ async def on_message(message):
 
     user_id = str(message.author.id)
     username = str(message.author.display_name)
+    content = message.content
     today = datetime.datetime.now().date().isoformat()
 
     user_data, ref = get_user_data(user_id, username)
@@ -126,9 +127,9 @@ async def on_message(message):
         ref.update({"last_fortune": ""})
         await message.channel.send("✅ 已重置你的運勢紀錄，現在可以重新抽運勢！")
 
-elif content == "!抽運勢":
-    force = is_admin(user_id)  # 管理員自動跳過限制
-    await handle_fortune(message, user_id, username, user_data, ref, force=force)
+    elif content == "!抽運勢":
+        force = is_admin(user_id)  # 管理員自動跳過限制
+        await handle_fortune(message, user_id, username, user_data, ref, force=force)
     
     # 👋 歡迎訊息（只在指定頻道顯示一次）
     CARROT_CHANNEL_ID = 1423335407105343589
