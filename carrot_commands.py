@@ -702,29 +702,34 @@ async def show_land_status(message, user_id, user_data):
     raw_status = farm.get("status", "未知")
     status_text = status_map.get(raw_status, "未知")
 
+    # ✅ 拔蘿蔔剩餘次數
+    pull_count = farm.get("pull_count", 0)
+    remaining_pulls = max(0, 3 - pull_count)
+
     # ✅ 建立 Embed 卡片
     embed = discord.Embed(
-    title="🧾 土地狀態卡",
-    description=f"玩家：{message.author.display_name}",
-    color=discord.Color.green()
-)
+        title="🧾 土地狀態卡",
+        description=f"玩家：{message.author.display_name}",
+        color=discord.Color.green()
+    )
+    embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
 
-# 🏷️ 基本資訊
-embed.add_field(name="🏷️ 土地等級", value=f"Lv.{farm.get('land_level', 1)}", inline=True)
-embed.add_field(name="🌱 農場狀態", value=status_text, inline=True)
+    # 🏷️ 基本資訊
+    embed.add_field(name="🏷️ 土地等級", value=f"Lv.{farm.get('land_level', 1)}", inline=True)
+    embed.add_field(name="🌱 農場狀態", value=status_text, inline=True)
 
-# 🔁 活動進度
-embed.add_field(name="🔁 拔蘿蔔次數", value=f"{farm.get('pull_count', 0)} / 3", inline=False)
-embed.add_field(name="💰 金幣", value=str(coins), inline=True)
+    # 🔁 活動進度
+    embed.add_field(name="🔁 今日剩餘拔蘿蔔次數", value=f"{remaining_pulls} 次", inline=False)
+    embed.add_field(name="💰 金幣", value=str(coins), inline=True)
 
-# 🧪 肥料庫存（獨立區塊）
-embed.add_field(
-    name="🧪 肥料庫存",
-    value=(
-        f"• 普通肥料：{fertilizers.get('普通肥料', 0)} 個\n"
-        f"• 高級肥料：{fertilizers.get('高級肥料', 0)} 個\n"
-        f"• 神奇肥料：{fertilizers.get('神奇肥料', 0)} 個"
-    ),
-    inline=False
-)
-await current_channel.send(embed=embed)
+    # 🧪 肥料庫存（獨立區塊）
+    embed.add_field(
+        name="🧪 肥料庫存",
+        value=(
+            f"• 普通肥料：{fertilizers.get('普通肥料', 0)} 個\n"
+            f"• 高級肥料：{fertilizers.get('高級肥料', 0)} 個\n"
+            f"• 神奇肥料：{fertilizers.get('神奇肥料', 0)} 個"
+        ),
+        inline=False
+    )
+    await current_channel.send(embed=embed)
