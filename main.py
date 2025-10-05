@@ -25,6 +25,22 @@ from carrot_commands import (
     show_land_status
 )
 
+from utils import is_admin
+from carrot_commands import handle_fortune
+
+if content == "!重置運勢":
+    if not is_admin(user_id):
+        await message.channel.send("⛔ 你沒有權限使用此指令。")
+        return
+
+    user_data["last_fortune"] = ""
+    ref.update({"last_fortune": ""})
+    await message.channel.send("✅ 已重置你的運勢紀錄，現在可以重新抽運勢！")
+
+elif content == "!抽運勢":
+    force = is_admin(user_id)  # 管理員自動跳過限制
+    await handle_fortune(message, user_id, username, user_data, ref, force=force)
+
 # ===== Discord Bot 初始化 =====
 intents = discord.Intents.default()
 intents.message_content = True
