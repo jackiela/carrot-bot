@@ -664,9 +664,7 @@ async def show_land_status(message, user_id, user_data):
     if current_channel.name != expected_thread_name:
         print("[DEBUG] 不在玩家田地串，開始搜尋討論串")
 
-        # ✅ 使用 threads 屬性（支援舊版 discord.py）
         threads = parent_channel.threads
-
         target_thread = None
         for thread in threads:
             if thread.name == expected_thread_name:
@@ -695,17 +693,35 @@ async def show_land_status(message, user_id, user_data):
     fertilizers = user_data.get("fertilizers", {})
     coins = user_data.get("coins", 0)
 
-    status_text = (
-        f"🧾 土地狀態卡\n"
-        f"🆔 玩家：{message.author.display_name}\n"
-        f"🏷️ 土地等級：Lv.{farm.get('land_level', 1)}\n"
-        f"🌱 農場狀態：{farm.get('status', '未知')}\n"
-        f"🔁 拔蘿蔔次數：{farm.get('pull_count', 0)} / 3\n"
-        f"💰 金幣：{coins}\n"
-        f"🧪 肥料庫存：\n"
-        f"　• 普通肥料：{fertilizers.get('普通肥料', 0)} 個\n"
-        f"　• 高級肥料：{fertilizers.get('高級肥料', 0)} 個\n"
-        f"　• 神奇肥料：{fertilizers.get('神奇肥料', 0)} 個"
+    # ✅ 狀態轉換為中文
+    status_map = {
+        "planted": "已種植，請等待蘿蔔收成",
+        "harvested": "已收成，可種植新蘿蔔",
+        "未種植": "未種植，可種植新蘿蔔",
+    }
+    raw_status = farm.get("status", "未知")
+    status_text = status_map.get(raw_status, "未知")
+
+    # ✅ 建立 Embed 卡片
+    embed = discord.Embed(
+        title="🧾 土地狀態卡",
+        description=f"玩家：{message.author.display_name}",
+        color=discord.Color.green()
+    )
+    embed.add_field(name="🏷️ 土地等級", value=f"Lv.{farm.get('land_level', 1)}", inline=True)
+    embed.add_field(name="🌱 農場狀態", value=status_text, inline=True)
+    embed.add_field(name="🔁 拔蘿蔔次數", value=f"{farm.get('pull_count', 0)} / 3", inline=True)
+    embed.add_field(name="💰 金幣", value=str(coins), inline=True)
+
+    embed.add_field(
+        name="🧪 肥料庫存",
+        value=(
+            f"• 普通肥料：{fertilizers.get('普通肥料', 0)} 個\n"
+            f"• 高級肥料：{fertilizers.get('高級肥料', 0)} 個\n"
+            f"• 神奇肥料：{fertilizers.get('神奇肥料', 0)} 個"
+        ),
+        inline=False
     )
 
-    await current_channel.send(status_text)
+    embed.set_footer(text="🌙 每天晚上十二點後可重新拔蘿蔔與抽運勢")
+    await current_channel.send(embed=embed)
