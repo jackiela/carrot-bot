@@ -118,13 +118,13 @@ async def on_message(message):
     await check_daily_login_reward(message, user_id, user_data, ref)
 
     if content == "!重置運勢":
-    if not is_admin(user_id):
-        await message.channel.send("⛔ 你沒有權限使用此指令。")
-        return
+        if not is_admin(user_id):
+            await message.channel.send("⛔ 你沒有權限使用此指令。")
+            return
 
-    user_data["last_fortune"] = ""
-    ref.update({"last_fortune": ""})
-    await message.channel.send("✅ 已重置你的運勢紀錄，現在可以重新抽運勢！")
+        user_data["last_fortune"] = ""
+        ref.update({"last_fortune": ""})
+        await message.channel.send("✅ 已重置你的運勢紀錄，現在可以重新抽運勢！")
 
 elif content == "!抽運勢":
     force = is_admin(user_id)  # 管理員自動跳過限制
