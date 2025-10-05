@@ -564,21 +564,34 @@ async def handle_buy_fertilizer(message, user_id, user_data, ref, fertilizer):
     }
 
     if fertilizer not in prices:
-        await message.channel.send("❌ 肥料種類錯誤，只能購買：普通、高級、神奇")
+        await message.channel.send("❌ 肥料種類錯誤，只能購買：普通肥料、高級肥料、神奇肥料")
         return
 
     coins = user_data.get("coins", 0)
     cost = prices[fertilizer]
 
     if coins < cost:
-        await message.channel.send(f"💸 你沒有足夠金幣購買 {fertilizer}（需要 {cost} 金幣）")
+        await message.channel.send(f"💸 金幣不足！{fertilizer} 價格為 {cost} 金幣，你目前只有 {coins} 金幣")
         return
 
-    user_data["coins"] -= cost
+    # ✅ 初始化肥料欄位
+    user_data.setdefault("fertilizers", {})
     user_data["fertilizers"][fertilizer] = user_data["fertilizers"].get(fertilizer, 0) + 1
+    user_data["coins"] -= cost
     ref.set(user_data)
 
-    await message.channel.send(f"✅ 成功購買 1 個 {fertilizer}，花費 {cost} 金幣")
+    # ✅ 建立 Embed 卡片
+    embed = discord.Embed(
+        title="🛒 購買成功",
+        description=f"你購買了 1 個 **{fertilizer}**",
+        color=discord.Color.blue()
+    )
+    embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
+    embed.add_field(name="💰 花費金幣", value=f"{cost} 金幣", inline=True)
+    embed.add_field(name="💰 剩餘金幣", value=f"{user_data['coins']} 金幣", inline=True)
+    embed.add_field(name="🧪 肥料庫存", value=f"{fertilizer}：{user_data['fertilizers'][fertilizer]} 個", inline=False)
+
+    await message.channel.send(embed=embed)
 
 # ===== 升級土地 =====
 async def handle_upgrade_land(message, user_id, user_data, ref):
