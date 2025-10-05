@@ -294,33 +294,40 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
         await message.channel.send("🔒 你今天已抽過運勢囉，明天再來吧！")
         return
 
-    fortune = random.choice(list(fortunes.keys()))
-    advice = random.choice(fortunes[fortune])
+    # ✅ 隨機抽運勢類型與建議
+    fortune_type = random.choice(list(fortunes.keys()))
+    advice = random.choice(fortunes[fortune_type])
 
-    reward_ranges = {
-        "大吉": (11, 15),
-        "中吉": (6, 10),
-        "小吉": (1, 5),
-        "凶": (0, 0)
-    }
-    min_reward, max_reward = reward_ranges.get(fortune, (0, 0))
+    # ✅ 可擴充：蘿蔔種類前綴（目前固定為白蘿蔔）
+    radish_prefix = random.choice(["白蘿蔔", "紫蘿蔔", "金蘿蔔"])
+    fortune = f"{radish_prefix}{fortune_type}"
+
+    # ✅ 根據運勢類型給予獎勵
+    if "大吉" in fortune:
+        min_reward, max_reward = (11, 15)
+    elif "中吉" in fortune:
+        min_reward, max_reward = (6, 10)
+    elif "小吉" in fortune:
+        min_reward, max_reward = (1, 5)
+    else:
+        min_reward, max_reward = (0, 0)
+
     reward = random.randint(min_reward, max_reward)
+    print(f"[DEBUG] 抽到運勢：{fortune}，獎勵範圍：{min_reward}～{max_reward}，實際獎勵：{reward}")
 
+    # ✅ 更新玩家資料
     user_data.setdefault("coins", 0)
     user_data["last_fortune"] = today
     user_data["coins"] += reward
+    ref.set(user_data)
 
-    ref.update({
-        "last_fortune": today,
-        "coins": user_data["coins"]
-    })
-
+    # ✅ 建立 Embed 卡片
     embed = discord.Embed(
         title=f"🎴 今日運勢：{fortune}",
         description=advice,
-        color=discord.Color.orange() if fortune == "大吉" else
-               discord.Color.green() if fortune == "中吉" else
-               discord.Color.blue() if fortune == "小吉" else
+        color=discord.Color.orange() if "大吉" in fortune else
+               discord.Color.green() if "中吉" in fortune else
+               discord.Color.blue() if "小吉" in fortune else
                discord.Color.red()
     )
     embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
