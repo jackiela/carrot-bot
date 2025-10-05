@@ -324,7 +324,7 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
                discord.Color.red()
     )
     embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
-    embed.set_footer(text=f"📅 {today}")
+    embed.set_footer(text=f"📅 {today}｜🌙 過了晚上十二點可以再抽一次")
 
     if reward > 0:
         embed.add_field(name="💰 金幣獎勵", value=f"你獲得了 {reward} 金幣！", inline=False)
