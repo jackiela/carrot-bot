@@ -112,7 +112,7 @@ async def on_message(message):
 
     user_id = str(message.author.id)
     username = str(message.author.display_name)
-    content = message.content
+    content = message.content.strip()
     today = datetime.datetime.now().date().isoformat()
 
     user_data, ref = get_user_data(user_id, username)
@@ -124,16 +124,15 @@ async def on_message(message):
             return
 
         user_data["last_fortune"] = ""
-        ref.update({"last_fortune": ""})
+        ref.set(user_data)
         await message.channel.send("✅ 已重置你的運勢紀錄，現在可以重新抽運勢！")
 
     elif content == "!抽運勢":
-        force = is_admin(user_id)  # 管理員自動跳過限制
+        force = is_admin(user_id)
         await handle_fortune(message, user_id, username, user_data, ref, force=force)
-    
-    # 👋 歡迎訊息（只在指定頻道顯示一次）
+
     CARROT_CHANNEL_ID = 1423335407105343589
-    if message.channel.id == CARROT_CHANNEL_ID and not user_data["welcome_shown"]:
+    if message.channel.id == CARROT_CHANNEL_ID and not user_data.get("welcome_shown", False):
         await message.channel.send(
             f"👋 歡迎加入胡蘿蔔農場，{user_data['name']}！\n"
             f"你目前擁有：\n"
@@ -144,8 +143,6 @@ async def on_message(message):
         user_data["welcome_shown"] = True
         user_data["last_fortune"] = today
         ref.set(user_data)
-
-    content = message.content.strip()
 
     # ✅ 頻道限制（支援討論串）
     if content in COMMAND_CHANNELS:
