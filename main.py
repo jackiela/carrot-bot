@@ -112,6 +112,7 @@ async def on_message(message):
     if message.author.bot:
         return
 
+    # ===== 使用者基本資料 =====
     user_id = str(message.author.id)
     username = str(message.author.display_name)
     content = message.content.strip()
@@ -120,36 +121,38 @@ async def on_message(message):
     user_data, ref = get_user_data(user_id, username)
     await check_daily_login_reward(message, user_id, user_data, ref)
 
-# ✅ 管理員重置運勢
-if content == "!重置運勢":
-    print(f"[DEBUG] 收到 !重置運勢 指令，user_id={user_id}")
-    if not is_admin(user_id):
-        await message.channel.send("⛔ 你沒有權限使用此指令。")
+    # ===== 管理員指令區 =====
+    if content == "!重置運勢":
+        print(f"[DEBUG] 收到 !重置運勢 指令，user_id={user_id}")
+        if not is_admin(user_id):
+            await message.channel.send("⛔ 你沒有權限使用此指令。")
+            return
+
+        user_data["last_fortune"] = ""
+        ref.set(user_data)
+        await message.channel.send("✅ 已重置你的運勢紀錄，現在可以重新抽運勢！")
         return
 
-    user_data["last_fortune"] = ""
-    ref.set(user_data)
-    await message.channel.send("✅ 已重置你的運勢紀錄，現在可以重新抽運勢！")
+    elif content == "!debug":
+        if not is_admin(user_id):
+            await message.channel.send("⛔ 你沒有權限使用此指令。")
+            return
 
-# ✅ 管理員 debug 指令
-elif content == "!debug":
-    if not is_admin(user_id):
-        await message.channel.send("⛔ 你沒有權限使用此指令。")
+        await message.channel.send(
+            f"🧪 Debug 資料：\n"
+            f"👤 玩家：{username}\n"
+            f"📅 last_fortune：{user_data.get('last_fortune')}\n"
+            f"💰 金幣：{user_data.get('coins')}\n"
+            f"🧪 肥料：{json.dumps(user_data.get('fertilizers'), ensure_ascii=False)}"
+        )
         return
 
-    await message.channel.send(
-        f"🧪 Debug 資料：\n"
-        f"👤 玩家：{username}\n"
-        f"📅 last_fortune：{user_data.get('last_fortune')}\n"
-        f"💰 金幣：{user_data.get('coins')}\n"
-        f"🧪 肥料：{json.dumps(user_data.get('fertilizers'), ensure_ascii=False)}"
-    )
+    # ===== 抽運勢（管理員可跳過限制）=====
+    elif content == "!抽運勢":
+        force = is_admin(user_id)
+        await handle_fortune(message, user_id, username, user_data, ref, force=force)
 
-# ✅ 抽運勢（管理員可跳過限制）
-elif content == "!抽運勢":
-    force = is_admin(user_id)
-    await handle_fortune(message, user_id, username, user_data, ref, force=force)
-
+    # ===== 歡迎訊息（只顯示一次）=====
     CARROT_CHANNEL_ID = 1423335407105343589
     if message.channel.id == CARROT_CHANNEL_ID and not user_data.get("welcome_shown", False):
         await message.channel.send(
