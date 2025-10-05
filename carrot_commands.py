@@ -198,12 +198,6 @@ fortunes = {
     ]
 }
 
-reward_ranges = {
-    "大吉": (11, 15),
-    "中吉": (6, 10),
-    "小吉": (1, 5),
-    "凶": (0, 0)
-}
 
 # ===== 胡蘿蔔小知識 =====
 carrot_facts = [
@@ -302,6 +296,13 @@ async def handle_fortune(message, user_id, username, user_data, ref):
 
     fortune = random.choice(list(fortunes.keys()))
     advice = random.choice(fortunes[fortune])
+
+    reward_ranges = {
+        "大吉": (11, 15),
+        "中吉": (6, 10),
+        "小吉": (1, 5),
+        "凶": (0, 0)
+    }
     min_reward, max_reward = reward_ranges.get(fortune, (0, 0))
     reward = random.randint(min_reward, max_reward)
 
