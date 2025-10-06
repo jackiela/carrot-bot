@@ -2,6 +2,7 @@
 
 import datetime
 from pytz import timezone
+from carrot_data import common_carrots, rare_carrots, legendary_carrots, all_carrots
 
 ADMIN_IDS = ["657882539331158016"]  # ← RIDDLE 的 Discord ID
 
