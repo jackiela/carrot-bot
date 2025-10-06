@@ -1,4 +1,4 @@
-*9*import discord
+import discord
 import os
 import json
 import random
