@@ -39,3 +39,23 @@ def get_remaining_hours(target_time: datetime.datetime) -> str:
     hours, remainder = divmod(remaining.total_seconds(), 3600)
     minutes = remainder // 60
     return f"還剩 {int(hours)} 小時 {int(minutes)} 分鐘"
+
+def get_carrot_thumbnail(result: str) -> str:
+    if result in common_carrots:
+        return "https://i.imgur.com/0yKXQ9E.png"  # 普通蘿蔔
+    elif result in rare_carrots:
+        return "https://i.imgur.com/1gU7ZyE.png"  # 稀有蘿蔔
+    elif result in legendary_carrots:
+        return "https://i.imgur.com/3zFvKkL.png"  # 傳說蘿蔔
+    else:
+        return "https://i.imgur.com/4gTqYvE.png"  # 預設：未知或種植提示
+
+def get_fortune_thumbnail(fortune: str) -> str:
+    if "大吉" in fortune:
+        return "https://i.imgur.com/9ZxJv3M.png"  # 金色符咒風格
+    elif "中吉" in fortune:
+        return "https://i.imgur.com/8wKXQ9E.png"  # 綠色符咒風格
+    elif "小吉" in fortune:
+        return "https://i.imgur.com/7gU7ZyE.png"  # 藍色符咒風格
+    else:
+        return "https://i.imgur.com/6zFvKkL.png"  # 紅色符咒或厄運風格
