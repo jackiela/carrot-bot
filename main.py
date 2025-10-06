@@ -17,12 +17,11 @@ from carrot_commands import (
     handle_carrot_tip,
     handle_plant_carrot,
     handle_harvest_carrot,
-    handle_farm_status,
     handle_buy_fertilizer,
     handle_upgrade_land,
     handle_land_progress,
     handle_resource_status,
-    show_land_status
+    show_farm_overview  # ✅ 新整合函式
 )
 
 from utils import is_admin
