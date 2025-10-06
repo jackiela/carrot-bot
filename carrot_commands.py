@@ -51,11 +51,13 @@ def pull_carrot_by_farm(fertilizer="普通肥料", land_level=1):
 
   # ===== 今日運勢 =====
 async def handle_fortune(message, user_id, username, user_data, ref, force=False):
-    from utils import get_today
+    from utils import get_today, get_fortune_thumbnail
     today = get_today()
     last_fortune = user_data.get("last_fortune")
+    is_admin = message.author.guild_permissions.administrator  # ✅ 判斷是否為管理員
 
-    if not force and last_fortune == today:
+    # ✅ 限制抽卡：非管理員且已抽過且未強制
+    if not force and last_fortune == today and not is_admin:
         await message.channel.send("🔒 你今天已抽過運勢囉，明天再來吧！")
         return
 
@@ -86,7 +88,7 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
     user_data["coins"] += reward
     ref.set(user_data)
 
-    # ✅ 建立  卡片
+    # ✅ 建立 Embed 卡片
     embed = discord.Embed(
         title=f"🎴 今日運勢：{fortune}",
         description=advice,
@@ -98,13 +100,6 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
     embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
     embed.set_thumbnail(url=get_fortune_thumbnail(fortune))  # ✅ 加入符咒縮圖
     embed.set_footer(text=f"📅 {today}｜🌙 過了晚上十二點可以再抽一次")
-
-    if reward > 0:
-        embed.add_field(name="💰 金幣獎勵", value=f"你獲得了 {reward} 金幣！", inline=False)
-    else:
-        embed.add_field(name="😢 沒有金幣獎勵", value="明天再接再厲！", inline=False)
-
-    await message.channel.send(embed=embed)
     
 # ===== 拔蘿蔔 =====
 async def handle_pull_carrot(message, user_id, username, user_data, ref):
