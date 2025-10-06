@@ -3,6 +3,7 @@ import random
 import discord
 from firebase_admin import db
 from utils import get_today, get_now, get_remaining_hours
+from utils import get_carrot_thumbnail
 
 # ===== 拔蘿蔔遊戲（120 種，含稀有度） =====
 common_carrots = [
@@ -332,7 +333,7 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
     user_data["coins"] += reward
     ref.set(user_data)
 
-    # ✅ 建立 Embed 卡片
+    # ✅ 建立  卡片
     embed = discord.Embed(
         title=f"🎴 今日運勢：{fortune}",
         description=advice,
@@ -342,6 +343,7 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
                discord.Color.red()
     )
     embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
+    embed.set_thumbnail(url=get_fortune_thumbnail(fortune))  # ✅ 加入符咒縮圖
     embed.set_footer(text=f"📅 {today}｜🌙 過了晚上十二點可以再抽一次")
 
     if reward > 0:
@@ -388,6 +390,7 @@ async def handle_pull_carrot(message, user_id, username, user_data, ref):
         color=discord.Color.orange()
     )
     embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
+    embed.set_thumbnail(url=get_carrot_thumbnail(result))  # ✅ 加入蘿蔔縮圖
     embed.set_footer(text=f"📅 {today}｜🌙 晚上十二點過後可再拔")
 
     if is_new:
