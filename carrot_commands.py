@@ -5,7 +5,7 @@ from firebase_admin import db
 from utils import get_today, get_now, get_remaining_hours
 from utils import get_carrot_thumbnail
 from carrot_data import common_carrots, rare_carrots, legendary_carrots, all_carrots
-
+from fortune_data import fortunes
 
 
 # ===== 抽卡邏輯 =====
