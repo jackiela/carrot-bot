@@ -1,4 +1,4 @@
-import discord
+*9*import discord
 import os
 import json
 import random
@@ -219,6 +219,23 @@ async def on_message(message):
 
     elif content == "!種植":
         await handle_carrot_tip(message)
+
+    elif content == "!debug指令" and is_admin(user_id):
+    await message.channel.send(
+        "**🧪 指令掛載狀態檢查**\n"
+        "📦 Discord 指令：\n"
+        "　✅ !運勢　✅ !拔蘿蔔　✅ !種蘿蔔　✅ !收成蘿蔔\n"
+        "　✅ !購買肥料　✅ !升級土地　✅ !土地進度　✅ !農場總覽\n"
+        "　✅ !蘿蔔圖鑑　✅ !蘿蔔排行　✅ !胡蘿蔔　✅ !食譜　✅ !種植\n"
+        "🔧 管理員指令：\n"
+        "　✅ !重置運勢　✅ !debug　✅ !debug時間　✅ !debug指令\n"
+        "🌐 Flask 路由：\n"
+        "　✅ /upload-cookie　✅ /routes　✅ /status\n"
+        "🕒 時區判斷：使用 get_today() / `get_now()`（台灣時間）\n"
+        "📦 Firebase：已初始化，使用 /users/{user_id} 儲存資料\n"
+        "🧠 utils.py：已整合 `is_admin`、`get_today`、`get_now`、`get_remaining_hours`\n"
+    )
+
 # ===== 假 Web Server（支援 Render 免費 Web Service）=====
 keep_alive()
 
