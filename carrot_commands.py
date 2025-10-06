@@ -268,25 +268,34 @@ def pull_carrot_by_farm(fertilizer="普通肥料", land_level=1):
     base_roll = random.randint(1, 100)
     bonus = 0
 
+    # ✅ 肥料加成
     if fertilizer == "高級肥料":
         bonus += 5
     elif fertilizer == "神奇肥料":
         bonus += 15
 
+    # ✅ 土地等級加成
     if land_level >= 3:
         bonus += (land_level - 2) * 5
 
     roll = base_roll + bonus
 
+    # ✅ 獎勵金額範圍配置
+    reward_ranges = {
+        "common": (5, 10),
+        "rare": (20, 40),
+        "legendary": (100, 200)
+    }
+
+    # ✅ 根據抽卡結果回傳蘿蔔與金幣
     if roll <= 70:
-        return random.choice(common_carrots), random.randint(5, 10)
+        return random.choice(common_carrots), random.randint(*reward_ranges["common"])
     elif roll <= 95:
-        return random.choice(rare_carrots), random.randint(20, 40)
+        return random.choice(rare_carrots), random.randint(*reward_ranges["rare"])
     else:
-        return random.choice(legendary_carrots), random.randint(100, 200)
+        return random.choice(legendary_carrots), random.randint(*reward_ranges["legendary"])
 
   # ===== 今日運勢 =====
-
 async def handle_fortune(message, user_id, username, user_data, ref, force=False):
     from utils import get_today
     today = get_today()
@@ -341,12 +350,10 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
         embed.add_field(name="😢 沒有金幣獎勵", value="明天再接再厲！", inline=False)
 
     await message.channel.send(embed=embed)
-
+    
 # ===== 拔蘿蔔 =====
-
 async def handle_pull_carrot(message, user_id, username, user_data, ref):
     from utils import get_today
-    
     today = get_today()
     pulls = user_data.get("carrot_pulls", {})
     today_pulls = pulls.get(today, 0)
@@ -357,7 +364,7 @@ async def handle_pull_carrot(message, user_id, username, user_data, ref):
             description="今天已拔過三次蘿蔔囉，請明天再來！",
             color=discord.Color.red()
         )
-        embed.set_footer(text=f"📅 {get_today()}｜🌙 晚上十二點過後可再拔")
+        embed.set_footer(text=f"📅 {today}｜🌙 晚上十二點過後可再拔")
         await message.channel.send(embed=embed)
         return
 
@@ -381,7 +388,7 @@ async def handle_pull_carrot(message, user_id, username, user_data, ref):
         color=discord.Color.orange()
     )
     embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
-    embed.set_footer(text=f"📅 {get_today()}｜🌙 晚上十二點過後可再拔")
+    embed.set_footer(text=f"📅 {today}｜🌙 晚上十二點過後可再拔")
 
     if is_new:
         embed.add_field(name="📖 新發現！", value="你的圖鑑新增了一種蘿蔔！", inline=False)
@@ -490,7 +497,8 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
 
 # ===== 收成蘿蔔 =====
 async def handle_harvest_carrot(message, user_id, user_data, ref):
-    now = datetime.datetime.now()
+    from utils import get_now
+    now = get_now()
     farm = user_data.get("farm", {})
 
     if farm.get("status") != "planted":
