@@ -204,17 +204,19 @@ async def on_message(message):
         await handle_upgrade_land(message, user_id, user_data, ref)
 
     # 📦 狀態查詢類
+
+    elif content in ["!土地狀態", "!農場狀態"]:
+        await message.channel.send(
+            "📦 此指令已整合為 `!農場總覽`\n請改用 !農場總覽 查看完整土地與農場資訊！")
+    
     elif content == "!資源狀態":
         await handle_resource_status(message, user_id, user_data)
-
-    elif content == "!農場狀態":
-        await handle_farm_status(message, user_id, user_data)
 
     elif content == "!土地進度":
         await handle_land_progress(message, user_id, user_data)
 
-    elif content == "!土地狀態":
-        await show_land_status(message, user_id, user_data)
+    elif content == "!農場總覽":
+        await show_farm_overview(message, user_id, user_data)
 
     # 🎲 其他功能類
     elif content == "!運勢":
