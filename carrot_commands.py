@@ -381,7 +381,7 @@ async def handle_pull_carrot(message, user_id, username, user_data, ref):
         color=discord.Color.orange()
     )
     embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
-    mbed.set_footer(text=f"📅 {get_today()}｜🌙 晚上十二點過後可再抽")
+    embed.set_footer(text=f"📅 {get_today()}｜🌙 晚上十二點過後可再拔")
 
     if is_new:
         embed.add_field(name="📖 新發現！", value="你的圖鑑新增了一種蘿蔔！", inline=False)
