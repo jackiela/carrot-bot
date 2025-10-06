@@ -49,7 +49,7 @@ def pull_carrot_by_farm(fertilizer="普通肥料", land_level=1):
     else:
         return random.choice(legendary_carrots), random.randint(*reward_ranges["legendary"])
 
-  # ===== 今日運勢 =====
+# ===== 今日運勢 =====
 async def handle_fortune(message, user_id, username, user_data, ref, force=False):
     from utils import get_today, get_fortune_thumbnail
     today = get_today()
@@ -65,7 +65,7 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
     fortune_type = random.choice(list(fortunes.keys()))
     advice = random.choice(fortunes[fortune_type])
 
-    # ✅ 可擴充：蘿蔔種類前綴（目前固定為白蘿蔔）
+    # ✅ 可擴充：蘿蔔種類前綴（目前隨機）
     radish_prefix = random.choice(["白蘿蔔", "紫蘿蔔", "金蘿蔔"])
     fortune = f"{radish_prefix}{fortune_type}"
 
@@ -100,6 +100,13 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
     embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
     embed.set_thumbnail(url=get_fortune_thumbnail(fortune))  # ✅ 加入符咒縮圖
     embed.set_footer(text=f"📅 {today}｜🌙 過了晚上十二點可以再抽一次")
+
+    if reward > 0:
+        embed.add_field(name="💰 金幣獎勵", value=f"你獲得了 {reward} 金幣！", inline=False)
+    else:
+        embed.add_field(name="😢 沒有金幣獎勵", value="明天再接再厲！", inline=False)
+
+    await message.channel.send(embed=embed)  # ✅ 補上這行，修復無反應問題
     
 # ===== 拔蘿蔔 =====
 async def handle_pull_carrot(message, user_id, username, user_data, ref):
