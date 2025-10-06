@@ -1,14 +1,10 @@
-# utils.py
-
 import datetime
 from pytz import timezone
 from carrot_data import common_carrots, rare_carrots, legendary_carrots, all_carrots
 from fortune_data import fortunes
 
-ADMIN_IDS = ["657882539331158016"]  # ← RIDDLE 的 Discord ID
-
-def is_admin(user_id: str) -> bool:
-    return str(user_id) in ADMIN_IDS
+# ✅ 台灣時區物件（共用）
+tz_taipei = timezone("Asia/Taipei")
 
 # ✅ 管理員 ID 清單（可加入多位）
 ADMIN_IDS = [
@@ -22,16 +18,21 @@ def is_admin(user_id: str) -> bool:
 
 def get_today() -> str:
     """取得台灣當地日期（字串格式 YYYY-MM-DD）"""
-    taiwan = timezone("Asia/Taipei")
-    return datetime.datetime.now(taiwan).date().isoformat()
+    return datetime.datetime.now(tz_taipei).date().isoformat()
 
 def get_now() -> datetime.datetime:
     """取得台灣當地時間（datetime 物件）"""
-    taiwan = timezone("Asia/Taipei")
-    return datetime.datetime.now(taiwan)
+    return datetime.datetime.now(tz_taipei)
+
+def parse_datetime(iso_str: str) -> datetime.datetime:
+    """解析 ISO 字串為 datetime，並加上台灣時區（若缺）"""
+    dt = datetime.datetime.fromisoformat(iso_str)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=tz_taipei)
+    return dt
 
 def get_remaining_hours(target_time: datetime.datetime) -> str:
-    """計算距離目標時間還有幾小時幾分鐘"""
+    """計算距離目標時間還有幾小時幾分鐘（簡略格式）"""
     now = get_now()
     remaining = target_time - now
 
@@ -42,7 +43,28 @@ def get_remaining_hours(target_time: datetime.datetime) -> str:
     minutes = remainder // 60
     return f"還剩 {int(hours)} 小時 {int(minutes)} 分鐘"
 
+def get_remaining_time_str(target: datetime.datetime) -> str:
+    """回傳人類友善的倒數格式（還剩 X 小時 Y 分鐘）"""
+    now = get_now()
+    delta = target - now
+    total_seconds = int(delta.total_seconds())
+
+    if total_seconds <= 0:
+        return "已到時間"
+
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes = remainder // 60
+
+    parts = []
+    if hours > 0:
+        parts.append(f"{hours} 小時")
+    if minutes > 0:
+        parts.append(f"{minutes} 分鐘")
+
+    return "還剩 " + " ".join(parts)
+
 def get_carrot_thumbnail(result: str) -> str:
+    """根據蘿蔔種類回傳對應縮圖網址"""
     if result in common_carrots:
         return "https://i.imgur.com/0yKXQ9E.png"  # 普通蘿蔔
     elif result in rare_carrots:
@@ -53,6 +75,7 @@ def get_carrot_thumbnail(result: str) -> str:
         return "https://i.imgur.com/4gTqYvE.png"  # 預設：未知或種植提示
 
 def get_fortune_thumbnail(fortune: str) -> str:
+    """根據運勢回傳對應符咒縮圖網址"""
     if "大吉" in fortune:
         return "https://i.imgur.com/9ZxJv3M.png"  # 金色符咒風格
     elif "中吉" in fortune:
