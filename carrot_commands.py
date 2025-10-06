@@ -4,6 +4,7 @@ import discord
 from firebase_admin import db
 from utils import get_today, get_now, get_remaining_hours
 from utils import get_carrot_thumbnail
+from carrot_data import common_carrots, rare_carrots, legendary_carrots, all_carrots
 
 # ===== 拔蘿蔔遊戲（120 種，含稀有度） =====
 common_carrots = [
