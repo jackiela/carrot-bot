@@ -167,6 +167,10 @@ async def on_message(message):
             return
 
     # ===== 指令分派 =====
+    
+    if content.startswith("!健康檢查"):
+    await handle_health_check(message)
+    
     if content.startswith("!種蘿蔔"):
         parts = content.split()
         if len(parts) == 2:
