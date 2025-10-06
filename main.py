@@ -1,7 +1,6 @@
 import discord
 import os
 import json
-import datetime
 import random
 import firebase_admin
 from firebase_admin import credentials, db
@@ -21,13 +20,10 @@ from carrot_commands import (
     handle_upgrade_land,
     handle_land_progress,
     handle_resource_status,
-    show_farm_overview  # ✅ 新整合函式
+    show_farm_overview
 )
 
-from utils import is_admin
-from carrot_commands import handle_fortune
-
-
+from utils import is_admin, get_today, get_now
 
 # ===== Discord Bot 初始化 =====
 intents = discord.Intents.default()
@@ -37,7 +33,6 @@ client = discord.Client(intents=intents)
 # ===== Firebase 初始化 =====
 firebase_json = os.getenv("FIREBASE_CREDENTIAL_JSON")
 cred_dict = json.loads(firebase_json)
-
 cred = credentials.Certificate(cred_dict)
 firebase_admin.initialize_app(cred, {
     'databaseURL': 'https://carrotbot-80059-default-rtdb.asia-southeast1.firebasedatabase.app'
@@ -64,30 +59,26 @@ def get_user_data(user_id, username):
         "status": "未種植"
     })
     data.setdefault("welcome_shown", False)
-    data.setdefault("last_login", "")  # ✅ 登入獎勵欄位
-
+    data.setdefault("last_login", "")
     ref.set(data)
     return data, ref
 
-# ===== 每日登入獎勵（隨機 1～5 金幣）=====
+# ===== 每日登入獎勵 =====
 async def check_daily_login_reward(message, user_id, user_data, ref):
-    today = str(datetime.date.today())
+    today = get_today()
     last_login = user_data.get("last_login", "")
-
     if last_login == today:
         return
-
     reward = random.randint(1, 5)
     user_data["coins"] += reward
     user_data["last_login"] = today
     ref.set(user_data)
-
     await message.channel.send(
         f"🎁 每日登入獎勵：你獲得了 {reward} 金幣！\n"
         f"🆔 玩家 ID：`{user_data['name']}`"
     )
 
-# ===== 指令頻道限制（可自訂）=====
+# ===== 指令頻道限制 =====
 COMMAND_CHANNELS = {
     "!運勢": 1421065753595084800,
     "!重製運勢": 1421065753595084800,
@@ -106,28 +97,24 @@ COMMAND_CHANNELS = {
 }
 
 # ===== Bot 指令處理 =====
-
 @client.event
 async def on_message(message):
     if message.author.bot:
         return
 
-    # ===== 使用者基本資料 =====
     user_id = str(message.author.id)
     username = str(message.author.display_name)
     content = message.content.strip()
-    today = datetime.datetime.now().date().isoformat()
+    today = get_today()
 
     user_data, ref = get_user_data(user_id, username)
     await check_daily_login_reward(message, user_id, user_data, ref)
 
-    # ===== 管理員指令區 =====
+    # ===== 管理員指令 =====
     if content == "!重置運勢":
-        print(f"[DEBUG] 收到 !重置運勢 指令，user_id={user_id}")
         if not is_admin(user_id):
             await message.channel.send("⛔ 你沒有權限使用此指令。")
             return
-
         user_data["last_fortune"] = ""
         ref.set(user_data)
         await message.channel.send("✅ 已重置你的運勢紀錄，現在可以重新抽運勢！")
@@ -137,7 +124,6 @@ async def on_message(message):
         if not is_admin(user_id):
             await message.channel.send("⛔ 你沒有權限使用此指令。")
             return
-
         await message.channel.send(
             f"🧪 Debug 資料：\n"
             f"👤 玩家：{username}\n"
@@ -147,12 +133,14 @@ async def on_message(message):
         )
         return
 
-    # ===== 抽運勢（管理員可跳過限制）=====
-    elif content == "!抽運勢":
-        force = is_admin(user_id)
-        await handle_fortune(message, user_id, username, user_data, ref, force=force)
+    elif content == "!debug時間" and is_admin(user_id):
+        await message.channel.send(
+            f"🕒 台灣時間：{get_now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+            f"📅 今日日期：{get_today()}"
+        )
+        return
 
-    # ===== 歡迎訊息（只顯示一次）=====
+    # ===== 歡迎訊息 =====
     CARROT_CHANNEL_ID = 1423335407105343589
     if message.channel.id == CARROT_CHANNEL_ID and not user_data.get("welcome_shown", False):
         await message.channel.send(
@@ -166,7 +154,7 @@ async def on_message(message):
         user_data["last_fortune"] = today
         ref.set(user_data)
 
-    # ✅ 頻道限制（支援討論串）
+    # ===== 頻道限制判斷 =====
     if content in COMMAND_CHANNELS:
         allowed_channel = COMMAND_CHANNELS[content]
         parent_id = getattr(message.channel, "parent_id", None)
@@ -178,21 +166,18 @@ async def on_message(message):
             await message.channel.send(f"⚠️ 這個指令只能在 <#{allowed_channel}> 或其討論串中使用")
             return
 
-    # ✅ 指令分派開始
-    # 🌱 農場操作類
+    # ===== 指令分派 =====
     if content.startswith("!種蘿蔔"):
         parts = content.split()
         if len(parts) == 2:
-            fertilizer = parts[1]
-            await handle_plant_carrot(message, user_id, user_data, ref, fertilizer)
+            await handle_plant_carrot(message, user_id, user_data, ref, parts[1])
         else:
             await message.channel.send("❓ 請使用正確格式：`!種蘿蔔 普通肥料`")
-            
+
     elif content.startswith("!購買肥料"):
         parts = content.split()
         if len(parts) == 2:
-            fertilizer = parts[1]
-            await handle_buy_fertilizer(message, user_id, user_data, ref, fertilizer)
+            await handle_buy_fertilizer(message, user_id, user_data, ref, parts[1])
         else:
             await message.channel.send("❓ 請使用正確格式：`!購買肥料 普通肥料`")
 
@@ -202,12 +187,9 @@ async def on_message(message):
     elif content == "!升級土地":
         await handle_upgrade_land(message, user_id, user_data, ref)
 
-    # 📦 狀態查詢類
-
     elif content in ["!土地狀態", "!農場狀態"]:
-        await message.channel.send(
-            "📦 此指令已整合為 `!農場總覽`\n請改用 !農場總覽 查看完整土地與農場資訊！")
-    
+        await message.channel.send("📦 此指令已整合為 `!農場總覽`\n請改用 !農場總覽 查看完整土地與農場資訊！")
+
     elif content == "!資源狀態":
         await handle_resource_status(message, user_id, user_data)
 
@@ -217,7 +199,6 @@ async def on_message(message):
     elif content == "!農場總覽":
         await show_farm_overview(message, user_id, user_data)
 
-    # 🎲 其他功能類
     elif content == "!運勢":
         await handle_fortune(message, user_id, username, user_data, ref)
 
@@ -232,7 +213,7 @@ async def on_message(message):
 
     elif content == "!胡蘿蔔":
         await handle_carrot_fact(message)
-
+        
     elif content == "!食譜":
         await handle_carrot_recipe(message)
 
