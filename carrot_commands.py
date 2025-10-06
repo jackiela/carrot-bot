@@ -617,3 +617,54 @@ async def show_farm_overview(message, user_id, user_data):
         )
 
     await current_channel.send(embed=embed)
+
+# ===== 健康檢查 =====
+
+async def handle_health_check(message):
+    from utils import get_today, get_fortune_thumbnail, get_carrot_thumbnail, get_carrot_color
+    today = get_today()
+    is_admin = message.author.guild_permissions.administrator
+
+    # 🔐 限制非管理員使用
+    if not is_admin:
+        await message.channel.send("🚫 此指令僅限管理員使用。")
+        return
+
+    # ✅ 檢查項目與建議
+    checks = {
+        "📦 fortunes 是否載入": {
+            "ok": "fortunes" in globals(),
+            "fix": "請確認你有 from fortune_data import fortunes"
+        },
+        "🧠 get_fortune_thumbnail 是否可用": {
+            "ok": callable(get_fortune_thumbnail),
+            "fix": "請確認 utils.py 有定義該函式，並已匯入"
+        },
+        "🥕 get_carrot_thumbnail 是否可用": {
+            "ok": callable(get_carrot_thumbnail),
+            "fix": "請確認 utils.py 有定義該函式，並已匯入"
+        },
+        "🎨 get_carrot_color 是否可用": {
+            "ok": callable(get_carrot_color),
+            "fix": "請確認 utils.py 有定義該函式，並已匯入"
+        },
+        "📚 蘿蔔資料是否載入": {
+            "ok": "common_carrots" in globals(),
+            "fix": "請確認你有 from carrot_data import common_carrots 等"
+        }
+    }
+
+    # ✅ 建立 Embed 回報
+    embed = discord.Embed(
+        title="🩺 系統健康檢查",
+        description="以下是目前功能掛載狀態：",
+        color=discord.Color.green() if all(c["ok"] for c in checks.values()) else discord.Color.red()
+    )
+    embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
+    embed.set_footer(text=f"📅 {today}｜🔁 每次重啟後可重新檢查")
+
+    for name, result in checks.items():
+        status = "✅ 正常" if result["ok"] else f"❌ 錯誤\n🛠 {result['fix']}"
+        embed.add_field(name=name, value=status, inline=False)
+
+    await message.channel.send(embed=embed)
