@@ -390,8 +390,9 @@ async def handle_resource_status(message, user_id, user_data):
     await message.channel.send(reply)
 
 # ===== 土地狀態查詢 =====
-
 async def show_farm_overview(message, user_id, user_data):
+    from utils import parse_datetime, get_now, get_remaining_time_str
+
     expected_thread_name = f"{message.author.display_name} 的田地"
     current_channel = message.channel
 
@@ -425,22 +426,58 @@ async def show_farm_overview(message, user_id, user_data):
     fertilizer_used = farm.get("fertilizer", "未使用")
     land_level = farm.get("land_level", 1)
     pull_count = farm.get("pull_count", 0)
-    remaining_pulls = max(0, 3 - pull_count)
 
     # 狀態轉換為中文
     status_map = {
-        "planted": "已種植，請等待蘿蔔收成",
-        "harvested": "已收成，可種植新蘿蔔",
-        "未種植": "未種植，可種植新蘿蔔",
+        "planted": "🌱 已種植，請等待蘿蔔收成",
+        "harvested": "✅ 已收成，可種植新蘿蔔",
+        "未種植": "🪴 未種植，可種植新蘿蔔",
     }
     raw_status = farm.get("status", "未知")
-    status_text = status_map.get(raw_status, "未知")
+    status_text = status_map.get(raw_status, "❓ 狀態未知")
 
-    # 收成時間顯示
+    # 收成時間與倒數
     harvest_display = "未種植"
+    remaining_str = ""
     harvest_time_str = farm.get("harvest_time")
     if harvest_time_str:
-        harvest_time = datetime.datetime.fromisoformat(harvest_time_str)
+        harvest_time = parse_datetime(harvest_time_str)
+        harvest_display = harvest_time.strftime("%Y-%m-%d %H:%M")
+        remaining_str = get_remaining_time_str(harvest_time)
+
+    # 土地升級進度條
+    if land_level < 10:
+        required = 10
+        next_level = land_level + 1
+        remaining_pulls = max(0, required - pull_count)
+        bonus = f"收成時間 -{next_level * 2} 小時"
+        progress_bar = "█" * pull_count + "░" * (required - pull_count)
+        upgrade_text = (
+            f"📈 土地升級進度：\n"
+            f"目前等級：Lv.{land_level}\n"
+            f"累積拔蘿蔔次數：{pull_count}/{required}\n"
+            f"進度條：{progress_bar}\n"
+            f"距離 Lv.{next_level} 還需拔蘿蔔 {remaining_pulls} 次\n"
+            f"升級後獎勵：{bonus}"
+        )
+    else:
+        upgrade_text = (
+            f"📈 土地升級進度：\n"
+            f"目前等級：Lv.10（已達最高）\n"
+            f"收成時間減少：20 小時 🎉\n"
+            f"🏆 你已達成最強土地，恭喜！"
+        )
+
+    # 最終輸出
+    await current_channel.send(
+        f"🏡 你的田地狀態如下：\n"
+        f"{status_text}\n"
+        f"肥料使用：{fertilizer_used}\n"
+        f"預計收成時間：{harvest_display}\n"
+        f"{remaining_str}\n"
+        f"{upgrade_text}"
+    )
+    
         # ===== 土地進度查詢 =====
 async def handle_land_progress(message, user_id, user_data):
     farm = user_data.get("farm", {})
