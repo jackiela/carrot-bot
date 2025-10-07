@@ -218,12 +218,14 @@ async def handle_carrot_tip(message):
     await message.channel.send(f"🌱 胡蘿蔔種植小貼士：{tip}")
 
 # ===== 種蘿蔔 =====
+
 async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普通肥料"):
     from utils import get_now
     now = get_now()
     farm = user_data.get("farm", {})
     fertilizers = user_data.get("fertilizers", {})
     land_level = farm.get("land_level", 1)
+    pull_count = farm.get("pull_count", 0)
 
     if farm.get("status") == "planted":
         await message.channel.send("🌱 你已經種了一根蘿蔔，請先收成再種新的一根！")
@@ -236,10 +238,15 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
         return
 
     harvest_time = now + datetime.timedelta(days=1)
+
+    # ✅ 肥料加成
     if fertilizer == "神奇肥料":
         harvest_time -= datetime.timedelta(hours=6)
     elif fertilizer == "高級肥料":
         harvest_time -= datetime.timedelta(hours=2)
+
+    # ✅ 土地等級加成（每級 -2 小時）
+    harvest_time -= datetime.timedelta(hours=land_level * 2)
 
     fertilizers[fertilizer] -= 1
     user_data["farm"] = {
@@ -247,11 +254,12 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
         "harvest_time": harvest_time.isoformat(),
         "status": "planted",
         "fertilizer": fertilizer,
-        "land_level": land_level
+        "land_level": land_level,
+        "pull_count": pull_count  # ✅ 保留拔蘿蔔進度
     }
 
     ref.set(user_data)
-    await message.channel.send(f"🌱 你使用了 {fertilizer} 種下蘿蔔，明天可以收成！")
+    await message.channel.send(f"🌱 你使用了 {fertilizer} 種下蘿蔔，預計收成時間：{harvest_time.strftime('%Y-%m-%d %H:%M')}")
 
 # ===== 收成蘿蔔 =====
 async def handle_harvest_carrot(message, user_id, user_data, ref):
