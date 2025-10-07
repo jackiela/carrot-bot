@@ -398,8 +398,9 @@ async def handle_resource_status(message, user_id, user_data):
     await message.channel.send(reply)
 
 # ===== 土地狀態查詢 =====
+
 async def show_farm_overview(message, user_id, user_data):
-    from utils import parse_datetime, get_now, get_remaining_time_str
+    from utils import get_now, parse_datetime, get_remaining_time_str
 
     expected_thread_name = f"{message.author.display_name} 的田地"
     current_channel = message.channel
@@ -434,57 +435,64 @@ async def show_farm_overview(message, user_id, user_data):
     fertilizer_used = farm.get("fertilizer", "未使用")
     land_level = farm.get("land_level", 1)
     pull_count = farm.get("pull_count", 0)
+    remaining_pulls = max(0, 3 - pull_count)
 
     # 狀態轉換為中文
     status_map = {
-        "planted": "🌱 已種植，請等待蘿蔔收成",
-        "harvested": "✅ 已收成，可種植新蘿蔔",
-        "未種植": "🪴 未種植，可種植新蘿蔔",
+        "planted": "已種植，請等待蘿蔔收成",
+        "harvested": "已收成，可種植新蘿蔔",
+        "未種植": "未種植，可種植新蘿蔔",
     }
     raw_status = farm.get("status", "未知")
-    status_text = status_map.get(raw_status, "❓ 狀態未知")
+    status_text = status_map.get(raw_status, "未知")
 
-    # 收成時間與倒數
+    # 收成時間顯示
     harvest_display = "未種植"
-    remaining_str = ""
     harvest_time_str = farm.get("harvest_time")
     if harvest_time_str:
         harvest_time = parse_datetime(harvest_time_str)
-        harvest_display = harvest_time.strftime("%Y-%m-%d %H:%M")
+        formatted_time = harvest_time.strftime("%Y/%m/%d %H:%M")
         remaining_str = get_remaining_time_str(harvest_time)
 
-    # 土地升級進度條
-    if land_level < 10:
-        required = 10
-        next_level = land_level + 1
-        remaining_pulls = max(0, required - pull_count)
-        bonus = f"收成時間 -{next_level * 2} 小時"
-        progress_bar = "█" * pull_count + "░" * (required - pull_count)
-        upgrade_text = (
-            f"📈 土地升級進度：\n"
-            f"目前等級：Lv.{land_level}\n"
-            f"累積拔蘿蔔次數：{pull_count}/{required}\n"
-            f"進度條：{progress_bar}\n"
-            f"距離 Lv.{next_level} 還需拔蘿蔔 {remaining_pulls} 次\n"
-            f"升級後獎勵：{bonus}"
-        )
-    else:
-        upgrade_text = (
-            f"📈 土地升級進度：\n"
-            f"目前等級：Lv.10（已達最高）\n"
-            f"收成時間減少：20 小時 🎉\n"
-            f"🏆 你已達成最強土地，恭喜！"
+        if "已到時間" in remaining_str or "✅" in remaining_str:
+            harvest_display = f"{formatted_time}（✅ 已可收成）"
+        else:
+            harvest_display = f"{formatted_time}（{remaining_str}）"
+
+    # 建立 Embed 卡片
+    embed = discord.Embed(
+        title="🌾 農場總覽卡",
+        description=f"玩家：{message.author.display_name}",
+        color=discord.Color.green()
+    )
+    embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
+
+    embed.add_field(name="🏷️ 土地狀態", value=f"Lv.{land_level} 的土地目前{status_text}", inline=False)
+    embed.add_field(name="🧪 使用肥料", value=fertilizer_used, inline=True)
+    embed.add_field(name="⏳ 收成時間", value=harvest_display, inline=True)
+    embed.add_field(name="🔁 今日剩餘拔蘿蔔次數", value=f"{remaining_pulls} 次", inline=False)
+    embed.add_field(name="💰 金幣餘額", value=str(coins), inline=True)
+
+    embed.add_field(
+        name="🧪 肥料庫存",
+        value=(
+            f"• 普通肥料：{fertilizers.get('普通肥料', 0)} 個\n"
+            f"• 高級肥料：{fertilizers.get('高級肥料', 0)} 個\n"
+            f"• 神奇肥料：{fertilizers.get('神奇肥料', 0)} 個"
+        ),
+        inline=False
+    )
+
+    # 肥料不足提醒
+    total_fertilizer = sum(fertilizers.get(k, 0) for k in ["普通肥料", "高級肥料", "神奇肥料"])
+    if total_fertilizer == 0:
+        embed.add_field(
+            name="⚠️ 肥料不足",
+            value="你目前沒有任何肥料，請使用 !購買肥料 普通肥料 開始補充！",
+            inline=False
         )
 
-    # 最終輸出
-    await current_channel.send(
-        f"🏡 你的田地狀態如下：\n"
-        f"{status_text}\n"
-        f"肥料使用：{fertilizer_used}\n"
-        f"預計收成時間：{harvest_display}\n"
-        f"{remaining_str}\n"
-        f"{upgrade_text}"
-    )
+    await current_channel.send(embed=embed)
     
         # ===== 土地進度查詢 =====
 async def handle_land_progress(message, user_id, user_data):
