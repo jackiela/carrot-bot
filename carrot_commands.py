@@ -400,7 +400,11 @@ async def handle_resource_status(message, user_id, user_data):
 # ===== 土地狀態查詢 =====
 
 async def show_farm_overview(message, user_id, user_data):
-    from utils import get_now, parse_datetime, get_remaining_time_str
+    import datetime
+    from pytz import timezone
+    from utils import get_now, get_remaining_time_str
+
+    tz_taipei = timezone("Asia/Taipei")
 
     expected_thread_name = f"{message.author.display_name} 的田地"
     current_channel = message.channel
@@ -446,18 +450,34 @@ async def show_farm_overview(message, user_id, user_data):
     raw_status = farm.get("status", "未知")
     status_text = status_map.get(raw_status, "未知")
 
-    # 收成時間顯示
+    # 收成時間顯示（修正版）
     harvest_display = "未種植"
     harvest_time_str = farm.get("harvest_time")
     if harvest_time_str:
-        harvest_time = parse_datetime(harvest_time_str)
-        formatted_time = harvest_time.strftime("%Y/%m/%d %H:%M")
-        remaining_str = get_remaining_time_str(harvest_time)
+        try:
+            harvest_time = datetime.datetime.fromisoformat(harvest_time_str)
 
-        if "已到時間" in remaining_str or "✅" in remaining_str:
-            harvest_display = f"{formatted_time}（✅ 已可收成）"
-        else:
-            harvest_display = f"{formatted_time}（{remaining_str}）"
+            # ✅ 若是無時區的時間，加上台灣時區
+            if harvest_time.tzinfo is None:
+                harvest_time = tz_taipei.localize(harvest_time)
+
+            # ✅ 統一 now 的時區
+            now = get_now()
+            if now.tzinfo is None:
+                now = tz_taipei.localize(now)
+
+            # ✅ 使用安全的時間差
+            remaining_str = get_remaining_time_str(harvest_time)
+
+            formatted_time = harvest_time.strftime("%Y/%m/%d %H:%M")
+
+            if "已到時間" in remaining_str or "✅" in remaining_str:
+                harvest_display = f"{formatted_time}（✅ 已可收成）"
+            else:
+                harvest_display = f"{formatted_time}（{remaining_str}）"
+
+        except Exception as e:
+            harvest_display = f"⚠️ 時間格式錯誤：{e}"
 
     # 建立 Embed 卡片
     embed = discord.Embed(
