@@ -25,32 +25,19 @@ def get_now() -> datetime.datetime:
     return datetime.datetime.now(tz_taipei)
 
 def parse_datetime(iso_str: str) -> datetime.datetime:
-    """解析 ISO 字串為 datetime，並加上台灣時區（若缺）"""
+    """解析 ISO 字串為 datetime，並轉換為台灣時區"""
     dt = datetime.datetime.fromisoformat(iso_str)
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=tz_taipei)
-    return dt
-
-def get_remaining_hours(target_time: datetime.datetime) -> str:
-    """計算距離目標時間還有幾小時幾分鐘（簡略格式）"""
-    now = get_now()
-    remaining = target_time - now
-
-    if remaining.total_seconds() <= 0:
-        return "✅ 已可執行"
-
-    hours, remainder = divmod(remaining.total_seconds(), 3600)
-    minutes = remainder // 60
-    return f"還剩 {int(hours)} 小時 {int(minutes)} 分鐘"
+    return dt.astimezone(tz_taipei)
 
 def get_remaining_time_str(target: datetime.datetime) -> str:
     """回傳人類友善的倒數格式（還剩 X 小時 Y 分鐘）"""
     now = get_now()
+    target = target.astimezone(tz_taipei)
     delta = target - now
     total_seconds = int(delta.total_seconds())
 
     if total_seconds <= 0:
-        return "已到時間"
+        return "✅ 已可執行"
 
     hours, remainder = divmod(total_seconds, 3600)
     minutes = remainder // 60
@@ -62,6 +49,14 @@ def get_remaining_time_str(target: datetime.datetime) -> str:
         parts.append(f"{minutes} 分鐘")
 
     return "還剩 " + " ".join(parts)
+
+def get_remaining_hours(target: datetime.datetime) -> int:
+    """回傳剩餘小時數（可用於條件判斷）"""
+    now = get_now()
+    target = target.astimezone(tz_taipei)
+    delta = target - now
+    total_seconds = int(delta.total_seconds())
+    return max(0, total_seconds // 3600)
 
 def get_carrot_thumbnail(result: str) -> str:
     """根據蘿蔔種類回傳對應縮圖網址"""
