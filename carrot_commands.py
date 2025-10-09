@@ -71,11 +71,13 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
 
     # ✅ 根據運勢類型給予獎勵
     if "大吉" in fortune:
-        min_reward, max_reward = (11, 15)
+        min_reward, max_reward = (12, 15)
     elif "中吉" in fortune:
-        min_reward, max_reward = (6, 10)
+        min_reward, max_reward = (8, 11)
     elif "小吉" in fortune:
-        min_reward, max_reward = (1, 5)
+        min_reward, max_reward = (4, 7)
+    elif "吉" in fortune:
+        min_reward, max_reward = (1, 3)    
     else:
         min_reward, max_reward = (0, 0)
 
@@ -95,6 +97,7 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
         color=discord.Color.orange() if "大吉" in fortune else
                discord.Color.green() if "中吉" in fortune else
                discord.Color.blue() if "小吉" in fortune else
+               discord.Color.yallow() if "吉" in fortune else
                discord.Color.red()
     )
     embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
