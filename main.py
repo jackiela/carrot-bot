@@ -240,6 +240,76 @@ async def on_message(message):
             "🧠 utils.py：已整合 `is_admin`、`get_today`、`get_now`、`get_remaining_hours`\n"
         )
 
+# ===== HTTP API（給前端呼叫抽運勢）=====
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+import threading
+import uvicorn
+from datetime import datetime
+import asyncio
+
+app = FastAPI()
+
+@app.get("/api/fortune")
+async def api_fortune(user_id: str = None, username: str = None):
+    """
+    前端呼叫範例：
+    GET https://carrot-bot-1.onrender.com/api/fortune?user_id=123&username=Tom
+    """
+
+    if not user_id or not username:
+        return JSONResponse({"status": "error", "message": "缺少 user_id 或 username"}, status_code=400)
+
+    # 🔹 讀取使用者資料
+    user_data, ref = get_user_data(user_id, username)
+
+    # 🔹 建立模擬 Discord message 物件
+    class DummyAuthor:
+        def __init__(self, name):
+            self.display_name = name
+            self.guild_permissions = type("Perm", (), {"administrator": False})()
+            self.display_avatar = type("Avatar", (), {"url": "https://cdn.discordapp.com/embed/avatars/0.png"})()
+
+    class DummyChannel:
+        async def send(self, msg=None, embed=None):
+            # 這裡可以選擇是否讓機器人同步在 DC 頻道發訊息
+            # channel = client.get_channel(你的運勢頻道ID)
+            # if channel and embed:
+            #     await channel.send(embed=embed)
+            return
+
+    class DummyMessage:
+        def __init__(self, name):
+            self.author = DummyAuthor(name)
+            self.channel = DummyChannel()
+
+    message = DummyMessage(username)
+
+    # 🔹 執行原本的運勢邏輯
+    try:
+        await handle_fortune(message, user_id, username, user_data, ref)
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+    # 🔹 回傳結果
+    new_data = ref.get()
+    today = get_today()
+
+    return {
+        "status": "ok",
+        "date": today,
+        "user": username,
+        "fortune": new_data.get("last_fortune", "未知"),
+        "coins": new_data.get("coins", 0)
+    }
+
+# ===== 啟動 FastAPI 在背景執行 =====
+def start_fastapi():
+    uvicorn.run(app, host="0.0.0.0", port=3000)
+
+threading.Thread(target=start_fastapi).start()
+
+
 # ===== 假 Web Server（支援 Render 免費 Web Service）=====
 keep_alive()
 
