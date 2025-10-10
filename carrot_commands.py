@@ -86,8 +86,8 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
 
     # ✅ 更新玩家資料
     user_data.setdefault("coins", 0)
-    user_data["last_fortune"] = today
-    user_data["fortune_result"] = fortune  # ✅ 新增這行，儲存抽到的運勢
+    user_data["last_fortune"] = fortune
+    user_data["last_fortune_date"] = today
     user_data["coins"] += reward
     ref.set(user_data)
 
