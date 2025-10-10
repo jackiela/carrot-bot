@@ -53,23 +53,19 @@ def pull_carrot_by_farm(fertilizer="普通肥料", land_level=1):
 async def handle_fortune(message, user_id, username, user_data, ref, force=False):
     from utils import get_today, get_fortune_thumbnail
     today = get_today()
-    last_fortune_date = user_data.get("last_fortune_date")
+    last_fortune = user_data.get("last_fortune")
     is_admin = message.author.guild_permissions.administrator  # ✅ 判斷是否為管理員
 
-    # ✅ 限制抽卡：非管理員且今日已抽過
-    if not force and last_fortune_date == today and not is_admin:
+    # ✅ 限制抽卡：非管理員且已抽過且未強制
+    if not force and last_fortune == today and not is_admin:
         await message.channel.send("🔒 你今天已抽過運勢囉，明天再來吧！")
         return
 
-    # ✅ 隨機抽運勢
-    fortune_type = random.choice(list(fortunes.keys()))
-    advice = random.choice(fortunes[fortune_type])
+    # ✅ 隨機抽運勢類型與建議
+    fortune = random.choice(list(fortunes.keys()))
+    advice = random.choice(fortunes[fortune])
 
-    # ✅ 隨機加上前綴（白/紅/紫/金/黑蘿蔔）
-    radish_prefix = random.choice(["紅蘿蔔", "白蘿蔔", "紫蘿蔔", "金蘿蔔", "黑蘿蔔"])
-    fortune = f"{radish_prefix}{fortune_type}"
-
-    # ✅ 根據運勢給予獎勵
+    # ✅ 根據運勢類型給予獎勵
     if "大吉" in fortune:
         min_reward, max_reward = (12, 15)
     elif "中吉" in fortune:
@@ -84,16 +80,26 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
     reward = random.randint(min_reward, max_reward)
     print(f"[DEBUG] 抽到運勢：{fortune}，獎勵範圍：{min_reward}～{max_reward}，實際獎勵：{reward}")
 
-    # ✅ 更新玩家資料（修正這裡）
+    # ✅ 更新玩家資料
     user_data.setdefault("coins", 0)
     user_data["last_fortune"] = fortune
-    user_data["last_fortune_date"] = today
     user_data["coins"] += reward
     ref.set(user_data)
 
+    # ✅ 運勢對應 emoji
+    emoji_map = {
+        "大吉": "🎯",
+        "中吉": "🍀",
+        "小吉": "🌤",
+        "吉": "🥕",
+        "凶": "💀"
+    }
+    emoji = next((v for k, v in emoji_map.items() if k in fortune), "")
+    fortune_display = f"{emoji} {fortune}"
+
     # ✅ 建立 Embed 卡片
     embed = discord.Embed(
-        title=f"🎴 今日運勢：{fortune}",
+        title=f"🎴 今日運勢：{fortune_display}",
         description=advice,
         color=discord.Color.orange() if "大吉" in fortune else
                discord.Color.green() if "中吉" in fortune else
