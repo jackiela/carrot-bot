@@ -97,7 +97,7 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
         color=discord.Color.orange() if "大吉" in fortune else
                discord.Color.green() if "中吉" in fortune else
                discord.Color.blue() if "小吉" in fortune else
-               discord.Color.yallow() if "吉" in fortune else
+               discord.Color.yellow() if "吉" in fortune else
                discord.Color.red()
     )
     embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
