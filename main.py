@@ -256,14 +256,13 @@ async def api_fortune(user_id: str = None, username: str = None):
     前端呼叫範例：
     GET https://carrot-bot-1.onrender.com/api/fortune?user_id=123&username=Tom
     """
-
     if not user_id or not username:
         return JSONResponse({"status": "error", "message": "缺少 user_id 或 username"}, status_code=400)
 
-    # 🔹 讀取使用者資料
+    # 讀取使用者資料
     user_data, ref = get_user_data(user_id, username)
 
-    # 🔹 建立模擬 Discord message 物件
+    # 模擬 Discord message 物件
     class DummyAuthor:
         def __init__(self, name):
             self.display_name = name
@@ -272,11 +271,7 @@ async def api_fortune(user_id: str = None, username: str = None):
 
     class DummyChannel:
         async def send(self, msg=None, embed=None):
-            # 這裡可以選擇是否讓機器人同步在 DC 頻道發訊息
-            # channel = client.get_channel(你的運勢頻道ID)
-            # if channel and embed:
-            #     await channel.send(embed=embed)
-            return
+            return  # 可改成同步發送至 Discord 頻道（可選）
 
     class DummyMessage:
         def __init__(self, name):
@@ -285,13 +280,13 @@ async def api_fortune(user_id: str = None, username: str = None):
 
     message = DummyMessage(username)
 
-    # 🔹 執行原本的運勢邏輯
+    # 執行原本的運勢邏輯
     try:
         await handle_fortune(message, user_id, username, user_data, ref)
     except Exception as e:
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
-    # 🔹 回傳結果
+    # 回傳結果
     new_data = ref.get()
     today = get_today()
 
@@ -305,10 +300,10 @@ async def api_fortune(user_id: str = None, username: str = None):
 
 # ===== 啟動 FastAPI 在背景執行 =====
 def start_fastapi():
-    uvicorn.run(app, host="0.0.0.0", port=3000)
+    port = int(os.environ.get("PORT", 3000))  # ✅ 改為 Render 專用 PORT
+    uvicorn.run(app, host="0.0.0.0", port=port)
 
-threading.Thread(target=start_fastapi).start()
-
+threading.Thread(target=start_fastapi, daemon=True).start()
 
 # ===== 假 Web Server（支援 Render 免費 Web Service）=====
 keep_alive()
@@ -316,3 +311,4 @@ keep_alive()
 # ===== 啟動 Bot =====
 TOKEN = os.getenv("DISCORD_TOKEN")
 client.run(TOKEN)
+
