@@ -154,6 +154,13 @@ async def on_message(message):
         await show_farm_overview(message, user_id, user_data)
     elif content == "!資源狀態":
         await handle_resource_status(message, user_id, user_data)
+    elif content.startswith("!購買肥料"):
+        parts = content.split()
+        if len(parts) == 2:
+            await handle_buy_fertilizer(message, user_id, user_data, ref, parts[1])
+        else:
+            await message.channel.send("❓ 指令格式錯誤，請使用：`!購買肥料 普通肥料` 或 `!購買肥料 高級肥料`")
+
 
 
 # ==========================================================
