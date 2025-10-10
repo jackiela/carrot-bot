@@ -166,51 +166,56 @@ fastapi_app = FastAPI()
 def ping():
     return {"status": "ok"}
 
+# ✅ 改良後的 /api/fortune（正確運勢 + emoji + 建議）
 @fastapi_app.get("/api/fortune")
 async def api_fortune(user_id: str = None, username: str = None):
     if not user_id or not username:
         return JSONResponse({"status": "error", "message": "缺少 user_id 或 username"}, status_code=400)
 
-    user_data, ref = get_user_data(user_id, username)
-
-    class DummyAuthor:
-        def __init__(self, name):
-            self.display_name = name
-            self.guild_permissions = type("Perm", (), {"administrator": False})()
-            self.display_avatar = type("Avatar", (), {"url": "https://cdn.discordapp.com/embed/avatars/0.png"})()
-
-    class DummyChannel:
-        async def send(self, msg=None, embed=None):
-            return
-
-    class DummyMessage:
-        def __init__(self, name):
-            self.author = DummyAuthor(name)
-            self.channel = DummyChannel()
-
-    message = DummyMessage(username)
     try:
-        await handle_fortune(message, user_id, username, user_data, ref)
+        from fortune_data import fortunes  # 載入運勢資料
+        today = get_today()
+        fortune_type = random.choice(list(fortunes.keys()))
+        advice = random.choice(fortunes[fortune_type])
+
+        # 金幣獎勵範圍
+        reward_ranges = {
+            "大吉": (12, 15),
+            "中吉": (8, 11),
+            "小吉": (4, 7),
+            "吉": (1, 3),
+            "凶": (0, 0),
+        }
+        min_r, max_r = next((v for k, v in reward_ranges.items() if k in fortune_type), (0, 0))
+        reward = random.randint(min_r, max_r)
+
+        user_data, ref = get_user_data(user_id, username)
+        user_data["last_fortune"] = fortune_type
+        user_data["coins"] = user_data.get("coins", 0) + reward
+        ref.set(user_data)
+
+        emoji_map = {
+            "大吉": "🎯",
+            "中吉": "🍀",
+            "小吉": "🌤",
+            "吉": "🥕",
+            "凶": "💀"
+        }
+        emoji = next((v for k, v in emoji_map.items() if k in fortune_type), "")
+        fortune_display = f"{emoji} {fortune_type}"
+
+        return {
+            "status": "ok",
+            "date": today,
+            "user": username,
+            "fortune": fortune_display,
+            "advice": advice,
+            "reward": reward,
+            "coins": user_data["coins"]
+        }
+
     except Exception as e:
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
-
-    new_data = ref.get()
-    fortune_text = new_data.get("last_fortune", "未知")
-    emoji_map = {
-        "大吉": "🎯",
-        "中吉": "🍀",
-        "小吉": "🌤",
-        "吉": "🥕",
-        "凶": "💀"
-    }
-    emoji = next((v for k, v in emoji_map.items() if k in fortune_text), "")
-    return {
-        "status": "ok",
-        "date": get_today(),
-        "user": username,
-        "fortune": f"{emoji} {fortune_text}",
-        "coins": new_data.get("coins", 0)
-    }
 
 fastapi_app.mount("/", WSGIMiddleware(flask_app))
 
