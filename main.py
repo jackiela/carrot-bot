@@ -245,8 +245,7 @@ async def api_fortune(user_id: str = None, username: str = None):
         "date": get_today(),
         "user": username,
         "fortune": f"{emoji} {fortune_text}",
-        "advice": advice,
-        "coins": new_data.get("coins", 0)
+        "advice": advice
     }
 
 
