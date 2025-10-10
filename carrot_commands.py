@@ -53,23 +53,23 @@ def pull_carrot_by_farm(fertilizer="普通肥料", land_level=1):
 async def handle_fortune(message, user_id, username, user_data, ref, force=False):
     from utils import get_today, get_fortune_thumbnail
     today = get_today()
-    last_fortune = user_data.get("last_fortune")
+    last_fortune_date = user_data.get("last_fortune_date")
     is_admin = message.author.guild_permissions.administrator  # ✅ 判斷是否為管理員
 
-    # ✅ 限制抽卡：非管理員且已抽過且未強制
-    if not force and last_fortune == today and not is_admin:
+    # ✅ 限制抽卡：非管理員且今日已抽過
+    if not force and last_fortune_date == today and not is_admin:
         await message.channel.send("🔒 你今天已抽過運勢囉，明天再來吧！")
         return
 
-    # ✅ 隨機抽運勢類型與建議
+    # ✅ 隨機抽運勢
     fortune_type = random.choice(list(fortunes.keys()))
     advice = random.choice(fortunes[fortune_type])
 
-    # ✅ 可擴充：蘿蔔種類前綴（目前隨機）
-    radish_prefix = random.choice(["白蘿蔔", "紫蘿蔔", "金蘿蔔"])
+    # ✅ 隨機加上前綴（白/紅/紫/金/黑蘿蔔）
+    radish_prefix = random.choice(["紅蘿蔔", "白蘿蔔", "紫蘿蔔", "金蘿蔔", "黑蘿蔔"])
     fortune = f"{radish_prefix}{fortune_type}"
 
-    # ✅ 根據運勢類型給予獎勵
+    # ✅ 根據運勢給予獎勵
     if "大吉" in fortune:
         min_reward, max_reward = (12, 15)
     elif "中吉" in fortune:
@@ -84,7 +84,7 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
     reward = random.randint(min_reward, max_reward)
     print(f"[DEBUG] 抽到運勢：{fortune}，獎勵範圍：{min_reward}～{max_reward}，實際獎勵：{reward}")
 
-    # ✅ 更新玩家資料
+    # ✅ 更新玩家資料（修正這裡）
     user_data.setdefault("coins", 0)
     user_data["last_fortune"] = fortune
     user_data["last_fortune_date"] = today
@@ -102,7 +102,7 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
                discord.Color.red()
     )
     embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
-    embed.set_thumbnail(url=get_fortune_thumbnail(fortune))  # ✅ 加入符咒縮圖
+    embed.set_thumbnail(url=get_fortune_thumbnail(fortune))
     embed.set_footer(text=f"📅 {today}｜🌙 過了晚上十二點可以再抽一次")
 
     if reward > 0:
@@ -111,6 +111,7 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
         embed.add_field(name="😢 沒有金幣獎勵", value="明天再接再厲！", inline=False)
 
     await message.channel.send(embed=embed)
+
     
 # ===== 拔蘿蔔 =====
 async def handle_pull_carrot(message, user_id, username, user_data, ref):
