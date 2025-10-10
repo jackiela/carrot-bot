@@ -41,7 +41,8 @@ def get_user_data(user_id, username):
     data = ref.get() or {}
     data.setdefault("name", username)
     data.setdefault("carrots", [])
-    data.setdefault("last_fortune", "")
+    data.setdefault("last_fortune_date", "")
+    data.setdefault("fortune_result", "")
     data.setdefault("carrot_pulls", {})
     data.setdefault("coins", 50)
     data.setdefault("fertilizers", {"普通肥料": 1, "高級肥料": 0, "神奇肥料": 0})
@@ -154,14 +155,12 @@ import threading
 import time
 import requests
 
-# Flask for keep-alive
 flask_app = Flask(__name__)
 
 @flask_app.route("/")
 def home():
     return "✅ Carrot Bot is alive and running on Railway."
 
-# FastAPI for /api/fortune
 fastapi_app = FastAPI()
 
 @fastapi_app.get("/api/ping")
@@ -201,37 +200,31 @@ async def api_fortune(user_id: str = None, username: str = None):
         "status": "ok",
         "date": get_today(),
         "user": username,
-        "fortune": new_data.get("last_fortune", "未知"),
+        "fortune": new_data.get("fortune_result", "未知"),
         "coins": new_data.get("coins", 0)
     }
 
-# Mount Flask into FastAPI
 fastapi_app.mount("/", WSGIMiddleware(flask_app))
 
-# 啟動 Web Server
 def start_web():
     port = int(os.environ.get("PORT", 8080))
     uvicorn.run(fastapi_app, host="0.0.0.0", port=port)
 
-# 自動 Keep Alive Loop（防休眠）
+# ===== Keep Alive 防休眠 =====
 def keep_alive_loop():
     while True:
         try:
-            # Railway 自動提供 domain，但可以自定義
             url = os.environ.get("RAILWAY_STATIC_URL", "https://carrot-bot-production.up.railway.app")
             requests.get(f"{url}/api/ping", timeout=5)
             print("[KeepAlive] Pinged self successfully ✅")
         except Exception as e:
             print("[KeepAlive] Failed:", e)
-        time.sleep(600)  # 每 10 分鐘 ping 一次
+        time.sleep(600)  # 每 10 分鐘一次
 
-# 啟動 Thread（非 daemon，確保服務不會被關掉）
-threading.Thread(target=start_web, daemon=False).start()
-threading.Thread(target=keep_alive_loop, daemon=False).start()
+# 改為 daemon=True 避免 Railway 強制重啟
+threading.Thread(target=start_web, daemon=True).start()
+threading.Thread(target=keep_alive_loop, daemon=True).start()
 
-# ==========================================================
-# 啟動 Discord Bot
-# ==========================================================
+# ===== Discord Bot 啟動 =====
 TOKEN = os.getenv("DISCORD_TOKEN")
 client.run(TOKEN)
-
