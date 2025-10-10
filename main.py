@@ -143,7 +143,7 @@ async def on_message(message):
         await handle_resource_status(message, user_id, user_data)
 
 # ==========================================================
-# Flask + FastAPI 整合（防休眠 + /api/fortune）
+# Flask + FastAPI 整合（防休眠 + 提供 /api/fortune + /api/ping）
 # ==========================================================
 from flask import Flask
 from fastapi import FastAPI
@@ -151,22 +151,22 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.wsgi import WSGIMiddleware
 import uvicorn
 import threading
-import requests
 import time
+import requests
 
-# Flask 防睡眠
+# Flask for keep-alive
 flask_app = Flask(__name__)
 
 @flask_app.route("/")
 def home():
-    return "✅ Carrot Bot is alive and running."
+    return "✅ Carrot Bot is alive and running on Railway."
 
-@flask_app.route("/api/ping")
-def ping():
-    return {"status": "alive", "message": "🥕 Ping OK — bot still running!"}
-
-# FastAPI 抽籤 API
+# FastAPI for /api/fortune
 fastapi_app = FastAPI()
+
+@fastapi_app.get("/api/ping")
+def ping():
+    return {"status": "ok"}
 
 @fastapi_app.get("/api/fortune")
 async def api_fortune(user_id: str = None, username: str = None):
@@ -205,31 +205,33 @@ async def api_fortune(user_id: str = None, username: str = None):
         "coins": new_data.get("coins", 0)
     }
 
-# 掛載 Flask → FastAPI
+# Mount Flask into FastAPI
 fastapi_app.mount("/", WSGIMiddleware(flask_app))
 
-# 啟動 Web 伺服器
+# 啟動 Web Server
 def start_web():
-    port = int(os.environ.get("PORT", 3000))
+    port = int(os.environ.get("PORT", 8080))
     uvicorn.run(fastapi_app, host="0.0.0.0", port=port)
 
-# 自動 keep-alive
+# 自動 Keep Alive Loop（防休眠）
 def keep_alive_loop():
     while True:
         try:
-            url = os.environ.get("RENDER_EXTERNAL_URL", "")
-            if url:
-                requests.get(f"{url}/api/ping", timeout=5)
-                print("[KeepAlive] Pinged self successfully")
+            # Railway 自動提供 domain，但可以自定義
+            url = os.environ.get("RAILWAY_STATIC_URL", "https://carrot-bot-production.up.railway.app")
+            requests.get(f"{url}/api/ping", timeout=5)
+            print("[KeepAlive] Pinged self successfully ✅")
         except Exception as e:
             print("[KeepAlive] Failed:", e)
         time.sleep(600)  # 每 10 分鐘 ping 一次
 
-threading.Thread(target=start_web, daemon=True).start()
-threading.Thread(target=keep_alive_loop, daemon=True).start()
+# 啟動 Thread（非 daemon，確保服務不會被關掉）
+threading.Thread(target=start_web, daemon=False).start()
+threading.Thread(target=keep_alive_loop, daemon=False).start()
 
 # ==========================================================
 # 啟動 Discord Bot
 # ==========================================================
 TOKEN = os.getenv("DISCORD_TOKEN")
 client.run(TOKEN)
+
