@@ -77,7 +77,7 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
     elif "小吉" in fortune:
         min_reward, max_reward = (4, 7)
     elif "吉" in fortune:
-        min_reward, max_reward = (1, 3)    
+        min_reward, max_reward = (1, 3)
     else:
         min_reward, max_reward = (0, 0)
 
@@ -87,6 +87,7 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
     # ✅ 更新玩家資料
     user_data.setdefault("coins", 0)
     user_data["last_fortune"] = today
+    user_data["fortune_result"] = fortune  # ✅ 新增這行，儲存抽到的運勢
     user_data["coins"] += reward
     ref.set(user_data)
 
@@ -109,7 +110,7 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
     else:
         embed.add_field(name="😢 沒有金幣獎勵", value="明天再接再厲！", inline=False)
 
-    await message.channel.send(embed=embed)  # ✅ 補上這行，修復無反應問題
+    await message.channel.send(embed=embed)
     
 # ===== 拔蘿蔔 =====
 async def handle_pull_carrot(message, user_id, username, user_data, ref):
