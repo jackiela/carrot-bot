@@ -250,6 +250,10 @@ import asyncio
 
 app = FastAPI()
 
+@app.get("/")
+async def root():
+    return {"message": "🥕 Carrot Bot is running on Render!", "endpoints": ["/api/fortune"]}
+
 @app.get("/api/fortune")
 async def api_fortune(user_id: str = None, username: str = None):
     """
