@@ -195,11 +195,20 @@ async def api_fortune(user_id: str = None, username: str = None):
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
     new_data = ref.get()
+    fortune_text = new_data.get("last_fortune", "未知")
+    emoji_map = {
+        "大吉": "🎯",
+        "中吉": "🍀",
+        "小吉": "🌤",
+        "吉": "🥕",
+        "凶": "💀"
+    }
+    emoji = next((v for k, v in emoji_map.items() if k in fortune_text), "")
     return {
         "status": "ok",
         "date": get_today(),
         "user": username,
-        "fortune": new_data.get("last_fortune", "未知"),
+        "fortune": f"{emoji} {fortune_text}",
         "coins": new_data.get("coins", 0)
     }
 
