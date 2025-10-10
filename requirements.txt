@@ -4,3 +4,5 @@ flask
 audioop-lts
 firebase-admin
 pytz
+fastapi
+uvicorn
