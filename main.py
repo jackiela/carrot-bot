@@ -22,12 +22,12 @@ from carrot_commands import (
 )
 from utils import is_admin, get_today, get_now
 
-# ===== Discord Bot 初始化 =====
+# ========== Discord Bot 初始化 ==========
 intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
 
-# ===== Firebase 初始化 =====
+# ========== Firebase 初始化 ==========
 firebase_json = os.getenv("FIREBASE_CREDENTIAL_JSON")
 cred_dict = json.loads(firebase_json)
 cred = credentials.Certificate(cred_dict)
@@ -35,7 +35,7 @@ firebase_admin.initialize_app(cred, {
     'databaseURL': 'https://carrotbot-80059-default-rtdb.asia-southeast1.firebasedatabase.app'
 })
 
-# ===== 使用者資料讀取與補齊 =====
+# ========== 使用者資料 ==========
 def get_user_data(user_id, username):
     ref = db.reference(f"/users/{user_id}")
     data = ref.get() or {}
@@ -51,7 +51,7 @@ def get_user_data(user_id, username):
     ref.set(data)
     return data, ref
 
-# ===== 每日登入獎勵 =====
+# ========== 每日登入獎勵 ==========
 async def check_daily_login_reward(message, user_id, user_data, ref):
     today = get_today()
     if user_data.get("last_login") == today:
@@ -60,11 +60,9 @@ async def check_daily_login_reward(message, user_id, user_data, ref):
     user_data["coins"] += reward
     user_data["last_login"] = today
     ref.set(user_data)
-    await message.channel.send(
-        f"🎁 每日登入獎勵：你獲得了 {reward} 金幣！\n🆔 玩家 ID：`{user_data['name']}`"
-    )
+    await message.channel.send(f"🎁 每日登入獎勵：你獲得了 {reward} 金幣！\n🆔 玩家 ID：`{user_data['name']}`")
 
-# ===== 指令頻道限制 =====
+# ========== 指令頻道限制 ==========
 COMMAND_CHANNELS = {
     "!運勢": 1421065753595084800,
     "!重製運勢": 1421065753595084800,
@@ -82,7 +80,7 @@ COMMAND_CHANNELS = {
     "!土地狀態": 1423335407105343589,
 }
 
-# ===== Discord Bot 指令處理 =====
+# ========== Bot 指令處理 ==========
 @client.event
 async def on_message(message):
     if message.author.bot:
@@ -91,16 +89,9 @@ async def on_message(message):
     user_id = str(message.author.id)
     username = str(message.author.display_name)
     content = message.content.strip()
-
     user_data, ref = get_user_data(user_id, username)
-    await check_daily_login_reward(message, user_id, user_data, ref)
 
-    # 管理員指令
-    if content == "!debug" and is_admin(user_id):
-        await message.channel.send(
-            f"🧪 Debug 資料：\n👤 玩家：{username}\n💰 金幣：{user_data['coins']}\n🧪 肥料：{json.dumps(user_data['fertilizers'], ensure_ascii=False)}"
-        )
-        return
+    await check_daily_login_reward(message, user_id, user_data, ref)
 
     # 歡迎訊息
     CARROT_CHANNEL_ID = 1423335407105343589
@@ -152,7 +143,7 @@ async def on_message(message):
         await handle_resource_status(message, user_id, user_data)
 
 # ==========================================================
-# Flask + FastAPI 整合（防休眠 + 提供 /api/fortune）
+# Flask + FastAPI 整合（防休眠 + /api/fortune）
 # ==========================================================
 from flask import Flask
 from fastapi import FastAPI
@@ -160,15 +151,21 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.wsgi import WSGIMiddleware
 import uvicorn
 import threading
+import requests
+import time
 
-# Flask for keep-alive
+# Flask 防睡眠
 flask_app = Flask(__name__)
 
 @flask_app.route("/")
 def home():
-    return "✅ Carrot Bot is alive and running on Render."
+    return "✅ Carrot Bot is alive and running."
 
-# FastAPI for /api/fortune
+@flask_app.route("/api/ping")
+def ping():
+    return {"status": "alive", "message": "🥕 Ping OK — bot still running!"}
+
+# FastAPI 抽籤 API
 fastapi_app = FastAPI()
 
 @fastapi_app.get("/api/fortune")
@@ -208,15 +205,28 @@ async def api_fortune(user_id: str = None, username: str = None):
         "coins": new_data.get("coins", 0)
     }
 
-# Mount Flask into FastAPI
+# 掛載 Flask → FastAPI
 fastapi_app.mount("/", WSGIMiddleware(flask_app))
 
-# 啟動整合伺服器
+# 啟動 Web 伺服器
 def start_web():
     port = int(os.environ.get("PORT", 3000))
     uvicorn.run(fastapi_app, host="0.0.0.0", port=port)
 
+# 自動 keep-alive
+def keep_alive_loop():
+    while True:
+        try:
+            url = os.environ.get("RENDER_EXTERNAL_URL", "")
+            if url:
+                requests.get(f"{url}/api/ping", timeout=5)
+                print("[KeepAlive] Pinged self successfully")
+        except Exception as e:
+            print("[KeepAlive] Failed:", e)
+        time.sleep(600)  # 每 10 分鐘 ping 一次
+
 threading.Thread(target=start_web, daemon=True).start()
+threading.Thread(target=keep_alive_loop, daemon=True).start()
 
 # ==========================================================
 # 啟動 Discord Bot
