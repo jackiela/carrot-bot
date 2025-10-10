@@ -41,8 +41,7 @@ def get_user_data(user_id, username):
     data = ref.get() or {}
     data.setdefault("name", username)
     data.setdefault("carrots", [])
-    data.setdefault("last_fortune_date", "")
-    data.setdefault("fortune_result", "")
+    data.setdefault("last_fortune", "")
     data.setdefault("carrot_pulls", {})
     data.setdefault("coins", 50)
     data.setdefault("fertilizers", {"普通肥料": 1, "高級肥料": 0, "神奇肥料": 0})
@@ -200,7 +199,7 @@ async def api_fortune(user_id: str = None, username: str = None):
         "status": "ok",
         "date": get_today(),
         "user": username,
-        "fortune": new_data.get("fortune_result", "未知"),
+        "fortune": new_data.get("last_fortune", "未知"),
         "coins": new_data.get("coins", 0)
     }
 
@@ -210,21 +209,25 @@ def start_web():
     port = int(os.environ.get("PORT", 8080))
     uvicorn.run(fastapi_app, host="0.0.0.0", port=port)
 
-# ===== Keep Alive 防休眠 =====
+# ✅ 修正版 keep-alive：自動補 https:// 避免 Invalid URL
 def keep_alive_loop():
     while True:
         try:
             url = os.environ.get("RAILWAY_STATIC_URL", "https://carrot-bot-production.up.railway.app")
+            if url and not url.startswith("http"):
+                url = "https://" + url
             requests.get(f"{url}/api/ping", timeout=5)
             print("[KeepAlive] Pinged self successfully ✅")
         except Exception as e:
             print("[KeepAlive] Failed:", e)
-        time.sleep(600)  # 每 10 分鐘一次
+        time.sleep(600)
 
-# 改為 daemon=True 避免 Railway 強制重啟
-threading.Thread(target=start_web, daemon=True).start()
-threading.Thread(target=keep_alive_loop, daemon=True).start()
+# 啟動 Thread
+threading.Thread(target=start_web, daemon=False).start()
+threading.Thread(target=keep_alive_loop, daemon=False).start()
 
-# ===== Discord Bot 啟動 =====
+# ==========================================================
+# 啟動 Discord Bot
+# ==========================================================
 TOKEN = os.getenv("DISCORD_TOKEN")
 client.run(TOKEN)
