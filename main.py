@@ -17,7 +17,6 @@ from carrot_commands import (
     handle_buy_fertilizer,
     handle_upgrade_land,
     handle_land_progress,
-    handle_resource_status,
     show_farm_overview
 )
 from utils import is_admin, get_today, get_now
@@ -215,8 +214,6 @@ async def on_message(message):
         await handle_land_progress(message, user_id, user_data)
     elif content == "!農場總覽":
         await show_farm_overview(message, user_id, user_data)
-    elif content == "!資源狀態":
-        await handle_resource_status(message, user_id, user_data)
     elif content.startswith("!購買肥料"):
         parts = content.split()
         if len(parts) == 2:
