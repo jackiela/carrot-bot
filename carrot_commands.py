@@ -53,19 +53,19 @@ def pull_carrot_by_farm(fertilizer="普通肥料", land_level=1):
 async def handle_fortune(message, user_id, username, user_data, ref, force=False):
     from utils import get_today, get_fortune_thumbnail
     today = get_today()
-    last_fortune = user_data.get("last_fortune")
-    is_admin = message.author.guild_permissions.administrator  # ✅ 判斷是否為管理員
+    last_fortune_date = user_data.get("last_fortune_date")
+    is_admin = message.author.guild_permissions.administrator  # ✅ 管理員可無限抽
 
-    # ✅ 限制抽卡：非管理員且已抽過且未強制
-    if not force and last_fortune == today and not is_admin:
+    # ✅ 限制抽籤次數（非管理員且今日已抽）
+    if not force and last_fortune_date == today and not is_admin:
         await message.channel.send("🔒 你今天已抽過運勢囉，明天再來吧！")
         return
 
-    # ✅ 隨機抽運勢類型與建議
+    # ✅ 隨機抽運勢與建議
     fortune = random.choice(list(fortunes.keys()))
     advice = random.choice(fortunes[fortune])
 
-    # ✅ 根據運勢類型給予獎勵
+    # ✅ 根據運勢設定獎勵範圍
     if "大吉" in fortune:
         min_reward, max_reward = (12, 15)
     elif "中吉" in fortune:
@@ -78,12 +78,20 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
         min_reward, max_reward = (0, 0)
 
     reward = random.randint(min_reward, max_reward)
-    print(f"[DEBUG] 抽到運勢：{fortune}，獎勵範圍：{min_reward}～{max_reward}，實際獎勵：{reward}")
-
-    # ✅ 更新玩家資料
     user_data.setdefault("coins", 0)
-    user_data["last_fortune"] = fortune
     user_data["coins"] += reward
+    user_data["last_fortune"] = fortune
+    user_data["last_fortune_date"] = today
+
+    # ✅ 若有幸運手套且抽到大吉 → 額外獎勵
+    extra_text = ""
+    if "大吉" in fortune and "gloves" in user_data and "幸運手套" in user_data["gloves"]:
+        extra_carrot = random.choice(common_carrots)
+        user_data.setdefault("carrots", [])
+        user_data["carrots"].append(extra_carrot)
+        extra_text = f"🧤 幸運手套發揮作用！你額外獲得一根 {extra_carrot} 🥕"
+
+    # ✅ 寫回資料庫
     ref.set(user_data)
 
     # ✅ 運勢對應 emoji
@@ -97,7 +105,7 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
     emoji = next((v for k, v in emoji_map.items() if k in fortune), "")
     fortune_display = f"{emoji} {fortune}"
 
-    # ✅ 建立 Embed 卡片
+    # ✅ 建立 Embed 顯示卡片
     embed = discord.Embed(
         title=f"🎴 今日運勢：{fortune_display}",
         description=advice,
@@ -107,14 +115,20 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
                discord.Color.yellow() if "吉" in fortune else
                discord.Color.red()
     )
+
     embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
     embed.set_thumbnail(url=get_fortune_thumbnail(fortune))
     embed.set_footer(text=f"📅 {today}｜🌙 過了晚上十二點可以再抽一次")
 
+    # ✅ 顯示金幣獎勵
     if reward > 0:
         embed.add_field(name="💰 金幣獎勵", value=f"你獲得了 {reward} 金幣！", inline=False)
     else:
         embed.add_field(name="😢 沒有金幣獎勵", value="明天再接再厲！", inline=False)
+
+    # ✅ 若有手套加成，顯示額外欄位
+    if extra_text:
+        embed.add_field(name="🧤 幸運加成", value=extra_text, inline=False)
 
     await message.channel.send(embed=embed)
 
@@ -454,7 +468,6 @@ async def handle_resource_status(message, user_id, user_data):
     await message.channel.send(reply)
 
 # ===== 土地狀態查詢 =====
-
 async def show_farm_overview(message, user_id, user_data):
     from utils import parse_datetime, get_remaining_time_str
 
@@ -484,7 +497,7 @@ async def show_farm_overview(message, user_id, user_data):
         await new_thread.send(f"📌 已為你建立田地串，請在此使用指令！")
         current_channel = new_thread
 
-    # 資料整理
+    # === 資料整理 ===
     farm = user_data.get("farm", {})
     fertilizers = user_data.get("fertilizers", {})
     coins = user_data.get("coins", 0)
@@ -492,6 +505,10 @@ async def show_farm_overview(message, user_id, user_data):
     land_level = farm.get("land_level", 1)
     pull_count = farm.get("pull_count", 0)
     remaining_pulls = max(0, 3 - pull_count)
+
+    gloves = user_data.get("gloves", [])
+    decorations = user_data.get("decorations", [])
+    lucky_bags = user_data.get("lucky_bag", 0)
 
     # 狀態轉換為中文
     status_map = {
@@ -518,10 +535,10 @@ async def show_farm_overview(message, user_id, user_data):
         except Exception as e:
             harvest_display = f"⚠️ 時間格式錯誤：{e}"
 
-    # 建立 Embed 卡片
+    # === Embed 建立 ===
     embed = discord.Embed(
         title="🌾 農場總覽卡",
-        description=f"玩家：{message.author.display_name}",
+        description=f"👤 玩家：{message.author.display_name}",
         color=discord.Color.green()
     )
     embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
@@ -530,8 +547,9 @@ async def show_farm_overview(message, user_id, user_data):
     embed.add_field(name="🧪 使用肥料", value=fertilizer_used, inline=True)
     embed.add_field(name="⏳ 收成時間", value=harvest_display, inline=True)
     embed.add_field(name="🔁 今日剩餘拔蘿蔔次數", value=f"{remaining_pulls} 次", inline=False)
-    embed.add_field(name="💰 金幣餘額", value=str(coins), inline=True)
+    embed.add_field(name="💰 金幣餘額", value=f"{coins} 金幣", inline=True)
 
+    # 肥料顯示
     embed.add_field(
         name="🧪 肥料庫存",
         value=(
@@ -542,12 +560,54 @@ async def show_farm_overview(message, user_id, user_data):
         inline=False
     )
 
+    # 🧤 手套顯示
+    if gloves:
+        embed.add_field(
+            name="🧤 擁有手套",
+            value="、".join(gloves),
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="🧤 擁有手套",
+            value="尚未擁有任何手套",
+            inline=False
+        )
+
+    # 🪴 裝飾顯示
+    if decorations:
+        embed.add_field(
+            name="🪴 農場裝飾",
+            value="、".join(decorations),
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="🪴 農場裝飾",
+            value="尚未放置任何裝飾",
+            inline=False
+        )
+
+    # 🧧 開運福袋顯示
+    if lucky_bags > 0:
+        embed.add_field(
+            name="🧧 開運福袋",
+            value=f"你擁有 {lucky_bags} 個，可以使用 `!開福袋` 來開啟！",
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="🧧 開運福袋",
+            value="尚未擁有，可以花費 80 金幣購買。",
+            inline=False
+        )
+
     # 肥料不足提醒
     total_fertilizer = sum(fertilizers.get(k, 0) for k in ["普通肥料", "高級肥料", "神奇肥料"])
     if total_fertilizer == 0:
         embed.add_field(
             name="⚠️ 肥料不足",
-            value="你目前沒有任何肥料，請使用 !購買肥料 普通肥料 開始補充！",
+            value="你目前沒有任何肥料，請使用 `!購買肥料 普通肥料` 來補充！",
             inline=False
         )
 
