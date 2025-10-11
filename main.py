@@ -21,7 +21,7 @@ from carrot_commands import (
     show_farm_overview
 )
 from utils import is_admin, get_today, get_now
-from fortune_data import fortunes  # ✅ 匯入運勢資料
+from fortune_data import fortunes
 
 # ===== Discord Bot 初始化 =====
 intents = discord.Intents.default()
@@ -49,6 +49,8 @@ def get_user_data(user_id, username):
     data.setdefault("farm", {"land_level": 1, "pull_count": 0, "status": "未種植"})
     data.setdefault("welcome_shown", False)
     data.setdefault("last_login", "")
+    data.setdefault("gloves", 0)
+    data.setdefault("decorations", [])
     ref.set(data)
     return data, ref
 
@@ -62,9 +64,7 @@ async def check_daily_login_reward(message, user_id, user_data, ref):
     user_data["coins"] += reward
     user_data["last_login"] = today
     ref.set(user_data)
-    await message.channel.send(
-        f"🎁 每日登入獎勵：你獲得了 {reward} 金幣！\n🆔 玩家 ID：`{user_data['name']}`"
-    )
+    await message.channel.send(f"🎁 每日登入獎勵：你獲得了 {reward} 金幣！")
 
 
 # ===== 指令頻道限制 =====
@@ -83,7 +83,78 @@ COMMAND_CHANNELS = {
     "!升級土地": 1423335407105343589,
     "!土地進度": 1423335407105343589,
     "!土地狀態": 1423335407105343589,
+    "!商店": 1423335407105343589,
+    "!開運福袋": 1423335407105343589,
+    "!購買手套": 1423335407105343589,
+    "!購買裝飾": 1423335407105343589,
 }
+
+# ===== 自己田地判定 =====
+def is_in_own_farm_thread(message):
+    expected = f"{message.author.display_name} 的田地"
+    return isinstance(message.channel, discord.Thread) and message.channel.name == expected
+
+
+# ===== 商店指令 =====
+async def handle_shop(message, user_data, ref):
+    embed = discord.Embed(title="🏪 胡蘿蔔商店", color=discord.Color.orange())
+    embed.add_field(name="🧧 開運福袋", value="80 金幣｜隨機獲得金幣 / 肥料 / 裝飾", inline=False)
+    embed.add_field(name="🧤 農場手套", value="150 金幣｜抽到大吉時掉出一根額外蘿蔔", inline=False)
+    embed.add_field(name="🎀 農場裝飾", value="100 金幣｜讓你的農場更漂亮", inline=False)
+    embed.set_footer(text=f"💰 你目前擁有 {user_data['coins']} 金幣")
+    await message.channel.send(embed=embed)
+
+
+# ===== 開運福袋 =====
+async def handle_lucky_bag(message, user_data, ref):
+    cost = 80
+    if user_data["coins"] < cost:
+        await message.channel.send("💸 金幣不足，無法購買開運福袋！")
+        return
+
+    user_data["coins"] -= cost
+    reward_type = random.choice(["coins", "fertilizer", "decoration"])
+    result = ""
+
+    if reward_type == "coins":
+        gain = random.randint(30, 100)
+        user_data["coins"] += gain
+        result = f"💰 {gain} 金幣"
+    elif reward_type == "fertilizer":
+        user_data["fertilizers"]["普通肥料"] += 1
+        result = "🧪 普通肥料 x1"
+    else:
+        decor = random.choice(["蘿蔔風鈴", "小木牌", "田園花圈"])
+        user_data["decorations"].append(decor)
+        result = f"🎀 {decor}"
+
+    ref.set(user_data)
+    await message.channel.send(f"🧧 你開啟了開運福袋，獲得：{result}！")
+
+
+# ===== 購買手套 =====
+async def handle_buy_gloves(message, user_data, ref):
+    cost = 150
+    if user_data["coins"] < cost:
+        await message.channel.send("💸 金幣不足，無法購買手套！")
+        return
+    user_data["coins"] -= cost
+    user_data["gloves"] += 1
+    ref.set(user_data)
+    await message.channel.send("🧤 購買成功！你的手套 +1，在抽到大吉時會掉出一根額外蘿蔔！")
+
+
+# ===== 購買裝飾 =====
+async def handle_buy_decoration(message, user_data, ref):
+    cost = 100
+    if user_data["coins"] < cost:
+        await message.channel.send("💸 金幣不足，無法購買裝飾！")
+        return
+    decor = random.choice(["南瓜燈", "木柵欄", "胡蘿蔔旗子", "花園石板"])
+    user_data["coins"] -= cost
+    user_data["decorations"].append(decor)
+    ref.set(user_data)
+    await message.channel.send(f"🎀 恭喜獲得新的農場裝飾：{decor}！")
 
 
 # ===== Discord Bot 指令處理 =====
@@ -93,37 +164,27 @@ async def on_message(message):
         return
 
     user_id = str(message.author.id)
-    username = str(message.author.display_name)
+    username = message.author.display_name
     content = message.content.strip()
 
     user_data, ref = get_user_data(user_id, username)
     await check_daily_login_reward(message, user_id, user_data, ref)
 
-    # 管理員指令
-    if content == "!debug" and is_admin(user_id):
-        await message.channel.send(
-            f"🧪 Debug 資料：\n👤 玩家：{username}\n💰 金幣：{user_data['coins']}\n🧪 肥料：{json.dumps(user_data['fertilizers'], ensure_ascii=False)}"
-        )
-        return
-
-    # 歡迎訊息
-    CARROT_CHANNEL_ID = 1423335407105343589
-    if message.channel.id == CARROT_CHANNEL_ID and not user_data.get("welcome_shown", False):
-        await message.channel.send(
-            f"👋 歡迎加入胡蘿蔔農場，{username}！\n"
-            f"💰 金幣：{user_data['coins']}\n🧪 普通肥料：{user_data['fertilizers']['普通肥料']} 個\n🌱 使用 `!種蘿蔔 普通肥料` 開始種植吧！"
-        )
-        user_data["welcome_shown"] = True
-        ref.set(user_data)
-
-    # 頻道限制檢查
-    if content in COMMAND_CHANNELS:
-        allowed_channel = COMMAND_CHANNELS[content]
+    # ✅ 頻道限制
+    if content.split()[0] in COMMAND_CHANNELS:
+        allowed_channel = COMMAND_CHANNELS[content.split()[0]]
         if message.channel.id != allowed_channel and getattr(message.channel, "parent_id", None) != allowed_channel:
             await message.channel.send(f"⚠️ 這個指令只能在 <#{allowed_channel}> 使用")
             return
 
-    # 指令分派
+    # ✅ 田地限定指令
+    farm_cmds = ["!種蘿蔔", "!收成蘿蔔", "!升級土地", "!土地進度", "!農場總覽", "!商店", "!開運福袋", "!購買手套", "!購買裝飾"]
+    if any(content.startswith(cmd) for cmd in farm_cmds):
+        if not is_in_own_farm_thread(message):
+            await message.channel.send("⚠️ 此指令僅能在你自己的田地串中使用！")
+            return
+
+    # ===== 指令分派 =====
     if content == "!運勢":
         await handle_fortune(message, user_id, username, user_data, ref)
     elif content == "!拔蘿蔔":
@@ -132,12 +193,14 @@ async def on_message(message):
         await handle_carrot_encyclopedia(message, user_id, user_data)
     elif content == "!蘿蔔排行":
         await handle_carrot_ranking(message)
-    elif content == "!胡蘿蔔":
-        await handle_carrot_fact(message)
-    elif content == "!食譜":
-        await handle_carrot_recipe(message)
-    elif content == "!種植":
-        await handle_carrot_tip(message)
+    elif content == "!商店":
+        await handle_shop(message, user_data, ref)
+    elif content == "!開運福袋":
+        await handle_lucky_bag(message, user_data, ref)
+    elif content == "!購買手套":
+        await handle_buy_gloves(message, user_data, ref)
+    elif content == "!購買裝飾":
+        await handle_buy_decoration(message, user_data, ref)
     elif content.startswith("!種蘿蔔"):
         parts = content.split()
         if len(parts) == 2:
@@ -160,7 +223,6 @@ async def on_message(message):
             await handle_buy_fertilizer(message, user_id, user_data, ref, parts[1])
         else:
             await message.channel.send("❓ 指令格式錯誤，請使用：`!購買肥料 普通肥料` 或 `!購買肥料 高級肥料`")
-
 
 
 # ==========================================================
