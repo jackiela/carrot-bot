@@ -603,3 +603,115 @@ async def handle_health_check(message):
         embed.add_field(name=name, value=status, inline=False)
 
     await message.channel.send(embed=embed)
+
+# 🧤 購買手套
+async def handle_buy_glove(message, user_id, user_data, ref, glove_name):
+    glove_shop = {
+        "幸運手套": {"price": 100, "desc": "抽到大吉時額外掉出一根蘿蔔"},
+        "農夫手套": {"price": 150, "desc": "收成時金幣 +20%"},
+        "強化手套": {"price": 200, "desc": "種植時間 -1 小時"},
+        "神奇手套": {"price": 500, "desc": "收成時有機率獲得稀有蘿蔔"}
+    }
+
+    if glove_name not in glove_shop:
+        await message.channel.send("❌ 沒有這種手套！可購買：幸運手套、農夫手套、強化手套、神奇手套")
+        return
+
+    cost = glove_shop[glove_name]["price"]
+    coins = user_data.get("coins", 0)
+    if coins < cost:
+        await message.channel.send(f"💸 金幣不足！需要 {cost} 金幣，你目前只有 {coins}")
+        return
+
+    user_data["coins"] -= cost
+    user_data.setdefault("gloves", [])
+    if glove_name not in user_data["gloves"]:
+        user_data["gloves"].append(glove_name)
+
+    ref.set(user_data)
+    await message.channel.send(f"🧤 你購買了 **{glove_name}**！\n📈 效果：{glove_shop[glove_name]['desc']}")
+
+# 🎍 農場裝飾
+async def handle_buy_decoration(message, user_id, user_data, ref, deco_name):
+    shop = {
+        "花圃": 80,
+        "木柵欄": 100,
+        "竹燈籠": 150,
+        "鯉魚旗": 200,
+        "聖誕樹": 250
+    }
+
+    if deco_name not in shop:
+        await message.channel.send("❌ 沒有這種裝飾！可購買：花圃、木柵欄、竹燈籠、鯉魚旗、聖誕樹")
+        return
+
+    cost = shop[deco_name]
+    coins = user_data.get("coins", 0)
+    if coins < cost:
+        await message.channel.send(f"💸 金幣不足！{deco_name} 價格 {cost} 金幣，你目前只有 {coins}")
+        return
+
+    user_data["coins"] -= cost
+    user_data.setdefault("decorations", [])
+    if deco_name not in user_data["decorations"]:
+        user_data["decorations"].append(deco_name)
+    ref.set(user_data)
+
+    await message.channel.send(f"🎍 你購買了 **{deco_name}**！農場更漂亮了 🌾")
+
+# 🧧 開運福袋
+async def handle_open_lucky_bag(message, user_id, user_data, ref):
+    cost = 80
+    coins = user_data.get("coins", 0)
+
+    if coins < cost:
+        await message.channel.send(f"💸 金幣不足！開運福袋需要 {cost} 金幣，你目前只有 {coins}")
+        return
+
+    user_data["coins"] -= cost
+    reward_type = random.choice(["coins", "fertilizer", "decoration"])
+    msg = ""
+
+    if reward_type == "coins":
+        reward = random.randint(20, 150)
+        user_data["coins"] += reward
+        msg = f"💰 你獲得了 {reward} 金幣！"
+    elif reward_type == "fertilizer":
+        fertilizer_type = random.choice(["普通肥料", "高級肥料", "神奇肥料"])
+        user_data.setdefault("fertilizers", {})
+        user_data["fertilizers"][fertilizer_type] = user_data["fertilizers"].get(fertilizer_type, 0) + 1
+        msg = f"🧪 你獲得了 1 個 {fertilizer_type}！"
+    else:
+        decorations = ["花圃", "木柵欄", "竹燈籠", "鯉魚旗", "聖誕樹"]
+        deco = random.choice(decorations)
+        user_data.setdefault("decorations", [])
+        if deco not in user_data["decorations"]:
+            user_data["decorations"].append(deco)
+            msg = f"🎍 你獲得了新的裝飾 **{deco}**！"
+        else:
+            user_data["coins"] += 50
+            msg = f"🎁 抽到重複裝飾，轉換為 50 金幣 💰"
+
+    ref.set(user_data)
+    await message.channel.send(f"🧧 你打開了開運福袋！\n{msg}")
+
+# 🏪 商店總覽
+async def handle_shop(message):
+    text = (
+        "🏪 **農場商店**\n\n"
+        "🧤 手套：\n"
+        "  • 幸運手套 — 100 金幣（大吉時額外掉出一根蘿蔔）\n"
+        "  • 農夫手套 — 150 金幣（收成金幣 +20%）\n"
+        "  • 強化手套 — 200 金幣（種植時間 -1 小時）\n"
+        "  • 神奇手套 — 500 金幣（稀有蘿蔔機率上升）\n\n"
+        "🎍 裝飾：\n"
+        "  • 花圃（80）• 木柵欄（100）• 竹燈籠（150）• 鯉魚旗（200）• 聖誕樹（250）\n\n"
+        "🧧 其他：\n"
+        "  • 開運福袋 — 80 金幣（隨機獎勵）\n\n"
+        "📜 使用方式：\n"
+        "`!購買手套 幸運手套`\n"
+        "`!購買裝飾 花圃`\n"
+        "`!開福袋`"
+    )
+    await message.channel.send(text)
+
