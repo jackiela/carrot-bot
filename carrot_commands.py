@@ -377,7 +377,7 @@ async def handle_upgrade_land(message, user_id, user_data, ref):
 
     await message.channel.send(f"🛠️ 土地成功升級至 Lv.{level + 1}，花費 {cost} 金幣")
 
-# ===== 土地進度查詢 =====
+# ===== 土地進度查詢（新版 Embed） =====
 async def handle_land_progress(message, user_id, user_data):
     farm = user_data.get("farm", {})
     land_level = farm.get("land_level", 1)
@@ -387,85 +387,41 @@ async def handle_land_progress(message, user_id, user_data):
     next_level = land_level + 1
 
     if land_level >= 5:
-        await message.channel.send("🏔️ 你的土地已達最高等級 Lv.5，不需再升級！")
+        embed = discord.Embed(
+            title="🏔️ 土地已達最高等級",
+            description="你的土地已升級至 Lv.5，無需再升級！",
+            color=discord.Color.gold()
+        )
+        embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
+        await message.channel.send(embed=embed)
         return
 
     required = upgrade_thresholds.get(land_level, 999)
     remaining = required - pull_count
+    progress_percent = min(int((pull_count / required) * 100), 100)
 
-    reply = f"📈 土地升級進度：\n"
-    reply += f"目前等級：Lv.{land_level}\n"
-    reply += f"累積拔蘿蔔次數：{pull_count}/{required}\n"
-    reply += f"距離 Lv.{next_level} 還需拔蘿蔔 {remaining} 次\n"
-    reply += f"升級後獎勵："
+    # 等級效果說明
+    effect_text = {
+        2: "⏳ 收成時間 -2 小時",
+        3: "🍀 稀有機率 +5%",
+        4: "🎁 解鎖特殊蘿蔔池",
+        5: "🌟 蘿蔔事件機率提升"
+    }.get(next_level, "未知")
 
-    if next_level == 2:
-        reply += "收成時間 -2 小時"
-    elif next_level == 3:
-        reply += "稀有機率 +5%"
-    elif next_level == 4:
-        reply += "解鎖特殊蘿蔔池"
-    elif next_level == 5:
-        reply += "蘿蔔事件機率提升"
+    embed = discord.Embed(
+        title="📈 土地升級進度",
+        color=discord.Color.green()
+    )
+    embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
 
-    await message.channel.send(reply)
+    embed.add_field(name="🏷️ 當前等級", value=f"Lv.{land_level}", inline=True)
+    embed.add_field(name="🎯 下一等級", value=f"Lv.{next_level}", inline=True)
+    embed.add_field(name="🥕 拔蘿蔔次數", value=f"{pull_count}/{required} 次", inline=False)
+    embed.add_field(name="📊 進度條", value=f"[{'■' * (progress_percent // 10)}{'□' * (10 - progress_percent // 10)}] {progress_percent}%", inline=False)
+    embed.add_field(name="🎁 升級後效果", value=effect_text, inline=False)
+    embed.set_footer(text="繼續努力拔蘿蔔吧！每拔一次都能增加進度 🌱")
 
-# ===== 資源狀態查詢 =====
-
-async def handle_resource_status(message, user_id, user_data):
-    coins = user_data.get("coins", 0)
-    fertilizers = user_data.get("fertilizers", {})
-
-    reply = f"📦 你的資源狀態：\n💰 金幣：{coins}\n🧪 肥料庫存：\n"
-    for k, v in fertilizers.items():
-        reply += f" - {k}：{v} 個\n"
-
-    await message.channel.send(reply)
-   
-        # ===== 土地進度查詢 =====
-async def handle_land_progress(message, user_id, user_data):
-    farm = user_data.get("farm", {})
-    land_level = farm.get("land_level", 1)
-    pull_count = farm.get("pull_count", 0)
-
-    upgrade_thresholds = {1: 10, 2: 30, 3: 60, 4: 100}
-    next_level = land_level + 1
-
-    if land_level >= 5:
-        await message.channel.send("🏔️ 你的土地已達最高等級 Lv.5，不需再升級！")
-        return
-
-    required = upgrade_thresholds.get(land_level, 999)
-    remaining = required - pull_count
-
-    reply = f"📈 土地升級進度：\n"
-    reply += f"目前等級：Lv.{land_level}\n"
-    reply += f"累積拔蘿蔔次數：{pull_count}/{required}\n"
-    reply += f"距離 Lv.{next_level} 還需拔蘿蔔 {remaining} 次\n"
-    reply += f"升級後獎勵："
-
-    if next_level == 2:
-        reply += "收成時間 -2 小時"
-    elif next_level == 3:
-        reply += "稀有機率 +5%"
-    elif next_level == 4:
-        reply += "解鎖特殊蘿蔔池"
-    elif next_level == 5:
-        reply += "蘿蔔事件機率提升"
-
-    await message.channel.send(reply)
-
-# ===== 資源狀態查詢 =====
-
-async def handle_resource_status(message, user_id, user_data):
-    coins = user_data.get("coins", 0)
-    fertilizers = user_data.get("fertilizers", {})
-
-    reply = f"📦 你的資源狀態：\n💰 金幣：{coins}\n🧪 肥料庫存：\n"
-    for k, v in fertilizers.items():
-        reply += f" - {k}：{v} 個\n"
-
-    await message.channel.send(reply)
+    await message.channel.send(embed=embed)
 
 # ===== 土地狀態查詢 =====
 async def show_farm_overview(message, user_id, user_data):
