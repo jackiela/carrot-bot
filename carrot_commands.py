@@ -8,6 +8,49 @@ from carrot_data import common_carrots, rare_carrots, legendary_carrots, all_car
 from fortune_data import fortunes
 
 
+# ✅ 通用工具：確認玩家是否在自己的田地
+async def ensure_player_thread(message):
+    """確認玩家是否在自己的田地串，若無則自動建立或導向"""
+    expected_name = f"{message.author.display_name} 的田地"
+    current_channel = message.channel
+
+    # 找主頻道
+    if isinstance(current_channel, discord.Thread):
+        parent_channel = current_channel.parent
+    else:
+        parent_channel = current_channel
+
+    # 嘗試找現有的 thread（含封存）
+    target_thread = None
+    for t in parent_channel.threads:
+        if t.name == expected_name:
+            target_thread = t
+            break
+
+    if not target_thread:
+        async for t in parent_channel.archived_threads(limit=None):
+            if t.name == expected_name:
+                target_thread = t
+                break
+
+    # 如果玩家不在自己的 thread 裡
+    if not isinstance(current_channel, discord.Thread) or current_channel.name != expected_name:
+        if target_thread:
+            # 若已存在 → 引導使用
+            await message.channel.send(f"⚠️ 請在你的田地串中使用此指令：{target_thread.jump_url}")
+            return None
+        else:
+            # 若沒有 → 建立新的
+            new_thread = await parent_channel.create_thread(
+                name=expected_name,
+                type=discord.ChannelType.public_thread,
+                auto_archive_duration=1440
+            )
+            await new_thread.send(f"📌 已為你建立田地串，請在此使用指令！")
+            return new_thread
+
+    return current_channel
+
 # ===== 抽卡邏輯 =====
 def pull_carrot():
     roll = random.randint(1, 100)
@@ -243,9 +286,12 @@ async def handle_carrot_tip(message):
     await message.channel.send(f"🌱 胡蘿蔔種植小貼士：{tip}")
 
 # ===== 種蘿蔔 =====
-
 async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普通肥料"):
     from utils import get_now
+    current_channel = await ensure_player_thread(message)
+    if current_channel is None:
+        return  # 已提示導向，不繼續執行
+
     now = get_now()
     farm = user_data.get("farm", {})
     fertilizers = user_data.get("fertilizers", {})
@@ -253,24 +299,21 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
     pull_count = farm.get("pull_count", 0)
 
     if farm.get("status") == "planted":
-        await message.channel.send("🌱 你已經種了一根蘿蔔，請先收成再種新的一根！")
+        await current_channel.send("🌱 你已經種了一根蘿蔔，請先收成再種新的一根！")
         return
 
     if fertilizers.get(fertilizer, 0) <= 0:
-        await message.channel.send(
+        await current_channel.send(
             f"❌ 你沒有 {fertilizer}，請先購買！\n💰 你目前金幣：{user_data.get('coins', 0)}\n🛒 使用 !購買肥料 普通肥料 來購買"
         )
         return
 
     harvest_time = now + datetime.timedelta(days=1)
-
-    # ✅ 肥料加成
     if fertilizer == "神奇肥料":
         harvest_time -= datetime.timedelta(hours=6)
     elif fertilizer == "高級肥料":
         harvest_time -= datetime.timedelta(hours=2)
 
-    # ✅ 土地等級加成（每級 -2 小時）
     harvest_time -= datetime.timedelta(hours=land_level * 2)
 
     fertilizers[fertilizer] -= 1
@@ -280,50 +323,48 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
         "status": "planted",
         "fertilizer": fertilizer,
         "land_level": land_level,
-        "pull_count": pull_count  # ✅ 保留拔蘿蔔進度
+        "pull_count": pull_count
     }
 
     ref.set(user_data)
-    await message.channel.send(f"🌱 你使用了 {fertilizer} 種下蘿蔔，預計收成時間：{harvest_time.strftime('%Y-%m-%d %H:%M')}")
-
+    await current_channel.send(
+        f"🌱 你使用了 {fertilizer} 種下蘿蔔，預計收成時間：{harvest_time.strftime('%Y-%m-%d %H:%M')}"
+    )
 # ===== 收成蘿蔔 =====
 async def handle_harvest_carrot(message, user_id, user_data, ref):
-    import discord
-    from utils import get_now, parse_datetime, get_remaining_time_str, get_carrot_thumbnail
+    from utils import get_now, parse_datetime, get_remaining_time_str
+    current_channel = await ensure_player_thread(message)
+    if current_channel is None:
+        return
+
     now = get_now()
     farm = user_data.get("farm", {})
 
-    expected_thread_name = f"{message.author.display_name} 的田地"
-    current_channel = message.channel
-
-    # === 檢查是否在 thread（主頻道就導向田地串）===
-    if not isinstance(current_channel, discord.Thread):
-        parent_channel = current_channel
-
-        # 嘗試找自己的田地串（包含已封存）
-        target_thread = None
-        async for thread in parent_channel.archived_threads(limit=None):
-            if thread.name == expected_thread_name:
-                target_thread = thread
-                break
-        for thread in parent_channel.threads:
-            if thread.name == expected_thread_name:
-                target_thread = thread
-                break
-
-        # 沒有就幫他建立
-        if not target_thread:
-            target_thread = await parent_channel.create_thread(
-                name=expected_thread_name,
-                type=discord.ChannelType.public_thread,
-                auto_archive_duration=1440
-            )
-            await target_thread.send(f"📌 已為你建立田地串，請在這裡使用收成指令！")
-
-        await message.channel.send(
-            f"⚠️ 此指令僅能在你自己的田地串中使用！\n👉 前往這裡收成：{target_thread.jump_url}"
-        )
+    if farm.get("status") != "planted":
+        await current_channel.send("🪴 你還沒種蘿蔔喔，請先使用 `!種蘿蔔`！")
         return
+
+    harvest_time = parse_datetime(farm["harvest_time"])
+    if now < harvest_time:
+        time_str = get_remaining_time_str(harvest_time)
+        await current_channel.send(f"⏳ 蘿蔔還在努力生長中！{time_str}才能收成喔～")
+        return
+
+    fertilizer = farm.get("fertilizer", "普通肥料")
+    land_level = farm.get("land_level", 1)
+    result, price = pull_carrot_by_farm(fertilizer, land_level)
+
+    await current_channel.send(f"🌾 收成成功！你獲得：{result}\n💰 已自動販售，獲得 {price} 金幣！")
+
+    if result not in user_data["carrots"]:
+        user_data["carrots"].append(result)
+        await current_channel.send("📖 新發現！你的圖鑑新增了一種蘿蔔！")
+
+    user_data["coins"] = user_data.get("coins", 0) + price
+    user_data["farm"]["status"] = "harvested"
+    user_data["farm"]["pull_count"] = user_data["farm"].get("pull_count", 0) + 1
+    ref.set(user_data)
+
 
     # === 如果在別人的田地串 ===
     if current_channel.name != expected_thread_name:
@@ -486,47 +527,21 @@ async def handle_land_progress(message, user_id, user_data):
 # ===== 土地狀態查詢 =====
 async def show_farm_overview(message, user_id, user_data):
     from utils import parse_datetime, get_remaining_time_str
+    current_channel = await ensure_player_thread(message)
+    if current_channel is None:
+        return
 
-    expected_thread_name = f"{message.author.display_name} 的田地"
-    current_channel = message.channel
-
-    # 安全取得主頻道
-    if isinstance(current_channel, discord.Thread):
-        parent_channel = current_channel.parent
-    else:
-        parent_channel = current_channel
-
-    # 判斷是否在玩家自己的田地串
-    if current_channel.name != expected_thread_name:
-        threads = parent_channel.threads
-        target_thread = next((t for t in threads if t.name == expected_thread_name), None)
-
-        if target_thread:
-            await current_channel.send(f"⚠️ 請在你的田地串中使用此指令：{target_thread.jump_url}")
-            return
-
-        new_thread = await parent_channel.create_thread(
-            name=expected_thread_name,
-            type=discord.ChannelType.public_thread,
-            auto_archive_duration=1440
-        )
-        await new_thread.send(f"📌 已為你建立田地串，請在此使用指令！")
-        current_channel = new_thread
-
-    # === 資料整理 ===
     farm = user_data.get("farm", {})
     fertilizers = user_data.get("fertilizers", {})
     coins = user_data.get("coins", 0)
     fertilizer_used = farm.get("fertilizer", "未使用")
     land_level = farm.get("land_level", 1)
     pull_count = farm.get("pull_count", 0)
-    remaining_pulls = max(0, 3 - pull_count)
-
     gloves = user_data.get("gloves", [])
     decorations = user_data.get("decorations", [])
     lucky_bags = user_data.get("lucky_bag", 0)
 
-    # 狀態轉換為中文
+    # 狀態
     status_map = {
         "planted": "已種植，請等待蘿蔔收成",
         "harvested": "已收成，可種植新蘿蔔",
@@ -535,7 +550,7 @@ async def show_farm_overview(message, user_id, user_data):
     raw_status = farm.get("status", "未知")
     status_text = status_map.get(raw_status, "未知")
 
-    # 收成時間顯示（安全處理）
+    # 收成時間
     harvest_display = "未種植"
     harvest_time_str = farm.get("harvest_time")
     if harvest_time_str:
@@ -543,7 +558,6 @@ async def show_farm_overview(message, user_id, user_data):
             harvest_time = parse_datetime(harvest_time_str)
             formatted_time = harvest_time.strftime("%Y/%m/%d %H:%M")
             remaining_str = get_remaining_time_str(harvest_time)
-
             if "✅" in remaining_str or "已到時間" in remaining_str:
                 harvest_display = f"{formatted_time}（✅ 已可收成）"
             else:
@@ -551,21 +565,16 @@ async def show_farm_overview(message, user_id, user_data):
         except Exception as e:
             harvest_display = f"⚠️ 時間格式錯誤：{e}"
 
-    # === Embed 建立 ===
     embed = discord.Embed(
         title="🌾 農場總覽卡",
         description=f"👤 玩家：{message.author.display_name}",
         color=discord.Color.green()
     )
-    embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
-
     embed.add_field(name="🏷️ 土地狀態", value=f"Lv.{land_level} 的土地目前{status_text}", inline=False)
     embed.add_field(name="🧪 使用肥料", value=fertilizer_used, inline=True)
     embed.add_field(name="⏳ 收成時間", value=harvest_display, inline=True)
-    embed.add_field(name="🔁 今日剩餘拔蘿蔔次數", value=f"{remaining_pulls} 次", inline=False)
     embed.add_field(name="💰 金幣餘額", value=f"{coins} 金幣", inline=True)
 
-    # 肥料顯示
     embed.add_field(
         name="🧪 肥料庫存",
         value=(
@@ -576,56 +585,23 @@ async def show_farm_overview(message, user_id, user_data):
         inline=False
     )
 
-    # 🧤 手套顯示
-    if gloves:
-        embed.add_field(
-            name="🧤 擁有手套",
-            value="、".join(gloves),
-            inline=False
-        )
-    else:
-        embed.add_field(
-            name="🧤 擁有手套",
-            value="尚未擁有任何手套",
-            inline=False
-        )
+    embed.add_field(
+        name="🧤 擁有手套",
+        value="、".join(gloves) if gloves else "尚未擁有任何手套",
+        inline=False
+    )
 
-    # 🪴 裝飾顯示
-    if decorations:
-        embed.add_field(
-            name="🪴 農場裝飾",
-            value="、".join(decorations),
-            inline=False
-        )
-    else:
-        embed.add_field(
-            name="🪴 農場裝飾",
-            value="尚未放置任何裝飾",
-            inline=False
-        )
+    embed.add_field(
+        name="🪴 農場裝飾",
+        value="、".join(decorations) if decorations else "尚未放置任何裝飾",
+        inline=False
+    )
 
-    # 🧧 開運福袋顯示
-    if lucky_bags > 0:
-        embed.add_field(
-            name="🧧 開運福袋",
-            value=f"你擁有 {lucky_bags} 個，可以使用 `!開福袋` 來開啟！",
-            inline=False
-        )
-    else:
-        embed.add_field(
-            name="🧧 開運福袋",
-            value="尚未擁有，可以花費 80 金幣購買。",
-            inline=False
-        )
-
-    # 肥料不足提醒
-    total_fertilizer = sum(fertilizers.get(k, 0) for k in ["普通肥料", "高級肥料", "神奇肥料"])
-    if total_fertilizer == 0:
-        embed.add_field(
-            name="⚠️ 肥料不足",
-            value="你目前沒有任何肥料，請使用 `!購買肥料 普通肥料` 來補充！",
-            inline=False
-        )
+    embed.add_field(
+        name="🧧 開運福袋",
+        value=f"你擁有 {lucky_bags} 個，可使用 `!開福袋` 開啟" if lucky_bags > 0 else "尚未擁有，可花費 80 金幣購買。",
+        inline=False
+    )
 
     await current_channel.send(embed=embed)
 
