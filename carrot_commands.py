@@ -289,9 +289,25 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
 # ===== 收成蘿蔔 =====
 async def handle_harvest_carrot(message, user_id, user_data, ref):
     from utils import get_now, parse_datetime, get_remaining_time_str
+    import discord
+
     now = get_now()
     farm = user_data.get("farm", {})
 
+    # ✅ 限定只能在「自己的田地串」收成
+    expected_thread_name = f"{message.author.display_name} 的田地"
+
+    # 🚫 若不是執行於 Thread（主頻道）
+    if not isinstance(message.channel, discord.Thread):
+        await message.channel.send("⚠️ 此指令僅能在你自己的田地串中使用！")
+        return
+
+    # 🚫 若在別人的田地串
+    if message.channel.name != expected_thread_name:
+        await message.channel.send("⚠️ 此指令僅能在你自己的田地串中使用！")
+        return
+
+    # ✅ 正常收成邏輯
     if farm.get("status") != "planted":
         await message.channel.send("🪴 你還沒種蘿蔔喔，請先使用 `!種蘿蔔`！")
         return
@@ -317,6 +333,7 @@ async def handle_harvest_carrot(message, user_id, user_data, ref):
     user_data["farm"]["pull_count"] = user_data["farm"].get("pull_count", 0) + 1
 
     ref.set(user_data)
+
 
 # ===== 購買肥料 =====
 async def handle_buy_fertilizer(message, user_id, user_data, ref, fertilizer):
