@@ -289,35 +289,50 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
 # ===== 收成蘿蔔 =====
 async def handle_harvest_carrot(message, user_id, user_data, ref):
     from utils import get_now, parse_datetime, get_remaining_time_str
-    import discord
-
     now = get_now()
     farm = user_data.get("farm", {})
 
-    # ✅ 限定只能在「自己的田地串」收成
+    # 🔸 1. 確認是否在自己的田地串中
     expected_thread_name = f"{message.author.display_name} 的田地"
+    current_channel = message.channel
 
-    # 🚫 若不是執行於 Thread（主頻道）
-    if not isinstance(message.channel, discord.Thread):
+    # 如果不在 thread（主頻道）
+    if not isinstance(current_channel, discord.Thread):
+        parent_channel = current_channel
+        # 嘗試尋找玩家自己的 thread
+        target_thread = next((t for t in parent_channel.threads if expected_thread_name in t.name), None)
+
+        if not target_thread:
+            # 找不到就自動建立一個
+            new_thread = await parent_channel.create_thread(
+                name=expected_thread_name,
+                type=discord.ChannelType.public_thread,
+                auto_archive_duration=1440
+            )
+            await new_thread.send(f"📌 已為你建立田地串，請在這裡使用收成指令！")
+            target_thread = new_thread
+
+        await message.channel.send(f"⚠️ 此指令僅能在你自己的田地串中使用！\n👉 前往這裡收成：{target_thread.jump_url}")
+        return
+
+    # 如果在 thread 中，但不是自己的
+    if message.author.display_name not in current_channel.name:
         await message.channel.send("⚠️ 此指令僅能在你自己的田地串中使用！")
         return
 
-    # 🚫 若在別人的田地串
-    if message.channel.name != expected_thread_name:
-        await message.channel.send("⚠️ 此指令僅能在你自己的田地串中使用！")
-        return
-
-    # ✅ 正常收成邏輯
+    # 🔸 2. 檢查是否有種植
     if farm.get("status") != "planted":
         await message.channel.send("🪴 你還沒種蘿蔔喔，請先使用 `!種蘿蔔`！")
         return
 
+    # 🔸 3. 收成時間判斷
     harvest_time = parse_datetime(farm["harvest_time"])
     if now < harvest_time:
         time_str = get_remaining_time_str(harvest_time)
         await message.channel.send(f"⏳ 蘿蔔還在努力生長中！{time_str}才能收成喔～")
         return
 
+    # 🔸 4. 收成邏輯
     fertilizer = farm.get("fertilizer", "普通肥料")
     land_level = farm.get("land_level", 1)
     result, price = pull_carrot_by_farm(fertilizer, land_level)
@@ -333,6 +348,7 @@ async def handle_harvest_carrot(message, user_id, user_data, ref):
     user_data["farm"]["pull_count"] = user_data["farm"].get("pull_count", 0) + 1
 
     ref.set(user_data)
+
 
 
 # ===== 購買肥料 =====
