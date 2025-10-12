@@ -35,6 +35,7 @@ firebase_admin.initialize_app(cred, {
     'databaseURL': 'https://carrotbot-80059-default-rtdb.asia-southeast1.firebasedatabase.app'
 })
 
+
 # ===== 使用者資料 =====
 def get_user_data(user_id, username):
     ref = db.reference(f"/users/{user_id}")
@@ -75,23 +76,53 @@ COMMAND_CHANNELS = {
     "!蘿蔔圖鑑": 1421518540598411344,
     "!蘿蔔排行": 1421518540598411344,
     "!種蘿蔔": 1423335407105343589,
-    "!收成": 1423335407105343589,
     "!收成蘿蔔": 1423335407105343589,
-    "!農場狀態": 1423335407105343589,
-    "!購買肥料": 1423335407105343589,
     "!升級土地": 1423335407105343589,
     "!土地進度": 1423335407105343589,
     "!土地狀態": 1423335407105343589,
+    "!農場總覽": 1423335407105343589,
+    "!購買肥料": 1423335407105343589,
     "!商店": 1423335407105343589,
     "!開運福袋": 1423335407105343589,
     "!購買手套": 1423335407105343589,
     "!購買裝飾": 1423335407105343589,
 }
 
-# ===== 自己田地判定 =====
+
+# ===== 田地輔助 =====
+def expected_farm_thread_name(author):
+    return f"{author.display_name} 的田地"
+
 def is_in_own_farm_thread(message):
-    expected = f"{message.author.display_name} 的田地"
-    return isinstance(message.channel, discord.Thread) and message.channel.name == expected
+    return isinstance(message.channel, discord.Thread) and message.channel.name == expected_farm_thread_name(message.author)
+
+async def get_or_create_farm_thread(parent_channel, author):
+    thread_name = expected_farm_thread_name(author)
+
+    # 找現有 thread
+    existing = None
+    try:
+        for t in parent_channel.threads:
+            if t.name == thread_name:
+                existing = t
+                break
+    except Exception:
+        pass
+
+    if existing:
+        return existing
+
+    # 建立新 thread
+    try:
+        new_thread = await parent_channel.create_thread(
+            name=thread_name,
+            type=discord.ChannelType.public_thread,
+            auto_archive_duration=1440
+        )
+        await new_thread.send(f"📌 {author.display_name} 的田地已建立，歡迎在此管理你的農場！")
+        return new_thread
+    except Exception:
+        return None
 
 
 # ===== 商店指令 =====
@@ -156,7 +187,7 @@ async def handle_buy_decoration(message, user_data, ref):
     await message.channel.send(f"🎀 恭喜獲得新的農場裝飾：{decor}！")
 
 
-# ===== Discord Bot 指令處理 =====
+# ===== 指令分派 =====
 @client.event
 async def on_message(message):
     if message.author.bot:
@@ -176,14 +207,33 @@ async def on_message(message):
             await message.channel.send(f"⚠️ 這個指令只能在 <#{allowed_channel}> 使用")
             return
 
-    # ✅ 田地限定指令
-    farm_cmds = ["!種蘿蔔", "!收成蘿蔔", "!升級土地", "!土地進度", "!農場總覽", "!商店", "!開運福袋", "!購買手套", "!購買裝飾"]
+    # ✅ 農場相關指令限定
+    farm_cmds = [
+        "!種蘿蔔", "!收成蘿蔔", "!升級土地", "!土地進度",
+        "!農場總覽", "!土地狀態", "!商店", "!開運福袋",
+        "!購買手套", "!購買裝飾"
+    ]
+
     if any(content.startswith(cmd) for cmd in farm_cmds):
         if not is_in_own_farm_thread(message):
-            await message.channel.send("⚠️ 此指令僅能在你自己的田地串中使用！")
+            parent_channel = message.channel.parent if isinstance(message.channel, discord.Thread) else message.channel
+            thread = await get_or_create_farm_thread(parent_channel, message.author)
+            if not thread:
+                await message.channel.send("❌ 無法建立或找到你的田地串（可能缺少權限）。")
+                return
+
+            class _Msg:
+                def __init__(self, author, channel):
+                    self.author = author
+                    self.channel = channel
+
+            fake_msg = _Msg(message.author, thread)
+            await show_farm_overview(fake_msg, user_id, user_data)
+
+            await message.channel.send(f"✅ 我已在你的田地串發送農場總覽：{thread.jump_url}")
             return
 
-    # ===== 指令分派 =====
+    # ===== 指令邏輯 =====
     if content == "!運勢":
         await handle_fortune(message, user_id, username, user_data, ref)
     elif content == "!拔蘿蔔":
@@ -212,7 +262,7 @@ async def on_message(message):
         await handle_upgrade_land(message, user_id, user_data, ref)
     elif content == "!土地進度":
         await handle_land_progress(message, user_id, user_data)
-    elif content == "!農場總覽":
+    elif content in ["!農場總覽", "!土地狀態"]:
         await show_farm_overview(message, user_id, user_data)
     elif content.startswith("!購買肥料"):
         parts = content.split()
@@ -223,7 +273,7 @@ async def on_message(message):
 
 
 # ==========================================================
-# Flask + FastAPI 整合（防休眠 + /api/fortune + CORS）
+# Flask + FastAPI 整合（防休眠 + Fortune API）
 # ==========================================================
 from flask import Flask
 from fastapi import FastAPI
@@ -243,10 +293,9 @@ def home():
 
 fastapi_app = FastAPI()
 
-# ✅ 啟用 CORS
 fastapi_app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 你可改成 ["https://tom-omega.github.io"]
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -255,7 +304,6 @@ fastapi_app.add_middleware(
 @fastapi_app.get("/api/ping")
 def ping():
     return {"status": "ok"}
-
 
 @fastapi_app.get("/api/fortune")
 async def api_fortune(user_id: str = None, username: str = None):
@@ -288,41 +336,21 @@ async def api_fortune(user_id: str = None, username: str = None):
     new_data = ref.get()
     fortune_text = new_data.get("last_fortune", "未知")
 
-    # 從 fortune_data 抓出對應的建議
-    matched_fortune = None
-    for key in fortunes.keys():
-        if key in fortune_text:
-            matched_fortune = key
-            break
-
+    matched_fortune = next((k for k in fortunes if k in fortune_text), None)
     advice = random.choice(fortunes[matched_fortune]) if matched_fortune else "今天胡蘿蔔靜靜地守護你 🍃"
 
-    emoji_map = {
-        "大吉": "🎯",
-        "中吉": "🍀",
-        "小吉": "🌤",
-        "吉": "🥕",
-        "凶": "💀"
-    }
+    emoji_map = {"大吉": "🎯", "中吉": "🍀", "小吉": "🌤", "吉": "🥕", "凶": "💀"}
     emoji = next((v for k, v in emoji_map.items() if k in fortune_text), "")
 
-    return {
-        "status": "ok",
-        "date": get_today(),
-        "user": username,
-        "fortune": f"{emoji} {fortune_text}",
-        "advice": advice
-    }
-
+    return {"status": "ok", "date": get_today(), "user": username, "fortune": f"{emoji} {fortune_text}", "advice": advice}
 
 fastapi_app.mount("/", WSGIMiddleware(flask_app))
 
-# 啟動 Web Server
+
 def start_web():
     port = int(os.environ.get("PORT", 8080))
     uvicorn.run(fastapi_app, host="0.0.0.0", port=port)
 
-# ✅ KeepAlive（避免 Railway 休眠）
 def keep_alive_loop():
     while True:
         try:
@@ -337,6 +365,7 @@ def keep_alive_loop():
 
 threading.Thread(target=start_web, daemon=False).start()
 threading.Thread(target=keep_alive_loop, daemon=False).start()
+
 
 # ==========================================================
 # 啟動 Discord Bot
