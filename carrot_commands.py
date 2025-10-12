@@ -288,66 +288,93 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
 
 # ===== 收成蘿蔔 =====
 async def handle_harvest_carrot(message, user_id, user_data, ref):
-    from utils import get_now, parse_datetime, get_remaining_time_str
+    import discord
+    from utils import get_now, parse_datetime, get_remaining_time_str, get_carrot_thumbnail
     now = get_now()
     farm = user_data.get("farm", {})
 
-    # 🔸 1. 確認是否在自己的田地串中
     expected_thread_name = f"{message.author.display_name} 的田地"
     current_channel = message.channel
 
-    # 如果不在 thread（主頻道）
+    # === 檢查是否在 thread（主頻道就導向田地串）===
     if not isinstance(current_channel, discord.Thread):
         parent_channel = current_channel
-        # 嘗試尋找玩家自己的 thread
-        target_thread = next((t for t in parent_channel.threads if expected_thread_name in t.name), None)
 
+        # 嘗試找自己的田地串（包含已封存）
+        target_thread = None
+        async for thread in parent_channel.archived_threads(limit=None):
+            if thread.name == expected_thread_name:
+                target_thread = thread
+                break
+        for thread in parent_channel.threads:
+            if thread.name == expected_thread_name:
+                target_thread = thread
+                break
+
+        # 沒有就幫他建立
         if not target_thread:
-            # 找不到就自動建立一個
-            new_thread = await parent_channel.create_thread(
+            target_thread = await parent_channel.create_thread(
                 name=expected_thread_name,
                 type=discord.ChannelType.public_thread,
                 auto_archive_duration=1440
             )
-            await new_thread.send(f"📌 已為你建立田地串，請在這裡使用收成指令！")
-            target_thread = new_thread
+            await target_thread.send(f"📌 已為你建立田地串，請在這裡使用收成指令！")
 
-        await message.channel.send(f"⚠️ 此指令僅能在你自己的田地串中使用！\n👉 前往這裡收成：{target_thread.jump_url}")
+        await message.channel.send(
+            f"⚠️ 此指令僅能在你自己的田地串中使用！\n👉 前往這裡收成：{target_thread.jump_url}"
+        )
         return
 
-    # 如果在 thread 中，但不是自己的
-    if message.author.display_name not in current_channel.name:
+    # === 如果在別人的田地串 ===
+    if current_channel.name != expected_thread_name:
         await message.channel.send("⚠️ 此指令僅能在你自己的田地串中使用！")
         return
 
-    # 🔸 2. 檢查是否有種植
+    # === 以下為真正收成邏輯 ===
     if farm.get("status") != "planted":
         await message.channel.send("🪴 你還沒種蘿蔔喔，請先使用 `!種蘿蔔`！")
         return
 
-    # 🔸 3. 收成時間判斷
     harvest_time = parse_datetime(farm["harvest_time"])
     if now < harvest_time:
         time_str = get_remaining_time_str(harvest_time)
         await message.channel.send(f"⏳ 蘿蔔還在努力生長中！{time_str}才能收成喔～")
         return
 
-    # 🔸 4. 收成邏輯
     fertilizer = farm.get("fertilizer", "普通肥料")
     land_level = farm.get("land_level", 1)
     result, price = pull_carrot_by_farm(fertilizer, land_level)
 
-    await message.channel.send(f"🌾 收成成功！你獲得：{result}\n💰 已自動販售，獲得 {price} 金幣！")
-
+    # === 更新玩家資料 ===
     if result not in user_data["carrots"]:
         user_data["carrots"].append(result)
-        await message.channel.send("📖 新發現！你的圖鑑新增了一種蘿蔔！")
+        new_discovery = True
+    else:
+        new_discovery = False
 
     user_data["coins"] = user_data.get("coins", 0) + price
     user_data["farm"]["status"] = "harvested"
     user_data["farm"]["pull_count"] = user_data["farm"].get("pull_count", 0) + 1
-
     ref.set(user_data)
+
+    # === Embed 卡片顯示收成結果 ===
+    embed = discord.Embed(
+        title="🌾 收成成功！",
+        description=f"你成功收成了一根 **{result}** 🥕",
+        color=discord.Color.orange()
+    )
+    embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
+    embed.set_thumbnail(url=get_carrot_thumbnail(result))
+    embed.add_field(name="💰 獲得金幣", value=f"{price} 金幣", inline=True)
+    embed.add_field(name="🧪 使用肥料", value=fertilizer, inline=True)
+    embed.add_field(name="🌾 土地等級", value=f"Lv.{land_level}", inline=True)
+
+    if new_discovery:
+        embed.add_field(name="📖 新發現！", value="你的圖鑑新增了一種蘿蔔！", inline=False)
+
+    embed.set_footer(text="📅 收成完成｜可再次種植新蘿蔔 🌱")
+    await message.channel.send(embed=embed)
+
 
 
 
