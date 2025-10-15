@@ -22,6 +22,10 @@ from carrot_commands import (
 from utils import is_admin, get_today, get_now
 from fortune_data import fortunes
 
+from fastapi.responses import JSONResponse
+from fortune_data import fortunes
+from datetime import datetime
+
 # ===== Discord Bot 初始化 =====
 intents = discord.Intents.default()
 intents.message_content = True
@@ -305,44 +309,36 @@ fastapi_app.add_middleware(
 def ping():
     return {"status": "ok"}
 
-@fastapi_app.get("/api/fortune")
-async def api_fortune(user_id: str = None, username: str = None):
+@fastapi_app.get("/api/web_fortune")
+async def web_fortune(user_id: str = None, username: str = None):
     if not user_id or not username:
         return JSONResponse({"status": "error", "message": "缺少 user_id 或 username"}, status_code=400)
 
-    user_data, ref = get_user_data(user_id, username)
+    today = datetime.now().strftime("%Y-%m-%d")
 
-    class DummyAuthor:
-        def __init__(self, name):
-            self.display_name = name
-            self.guild_permissions = type("Perm", (), {"administrator": False})()
-            self.display_avatar = type("Avatar", (), {"url": "https://cdn.discordapp.com/embed/avatars/0.png"})()
+    # ✅ 用 user_id + 日期 當作隨機種子，確保每人每天固定
+    seed = str(user_id) + today
+    random.seed(seed)
 
-    class DummyChannel:
-        async def send(self, msg=None, embed=None):
-            return
+    fortune_key = random.choice(list(fortunes.keys()))
+    advice = random.choice(fortunes[fortune_key])
 
-    class DummyMessage:
-        def __init__(self, name):
-            self.author = DummyAuthor(name)
-            self.channel = DummyChannel()
+    emoji_map = {
+        "紅蘿蔔大吉": "🥕",
+        "白蘿蔔中吉": "🌿",
+        "紫蘿蔔小吉": "🍆",
+        "金蘿蔔吉": "🌟",
+        "黑蘿蔔凶": "💀"
+    }
+    emoji = emoji_map.get(fortune_key, "🥕")
 
-    message = DummyMessage(username)
-    try:
-        await handle_fortune(message, user_id, username, user_data, ref)
-    except Exception as e:
-        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
-
-    new_data = ref.get()
-    fortune_text = new_data.get("last_fortune", "未知")
-
-    matched_fortune = next((k for k in fortunes if k in fortune_text), None)
-    advice = random.choice(fortunes[matched_fortune]) if matched_fortune else "今天胡蘿蔔靜靜地守護你 🍃"
-
-    emoji_map = {"大吉": "🎯", "中吉": "🍀", "小吉": "🌤", "吉": "🥕", "凶": "💀"}
-    emoji = next((v for k, v in emoji_map.items() if k in fortune_text), "")
-
-    return {"status": "ok", "date": get_today(), "user": username, "fortune": f"{emoji} {fortune_text}", "advice": advice}
+    return {
+        "status": "ok",
+        "date": today,
+        "user": username,
+        "fortune": f"{emoji} {fortune_key}",
+        "advice": advice
+    }
 
 fastapi_app.mount("/", WSGIMiddleware(flask_app))
 
