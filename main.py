@@ -310,16 +310,26 @@ def ping():
     return {"status": "ok"}
 
 @fastapi_app.get("/api/web_fortune")
-async def web_fortune(user_id: str = None, username: str = None):
+async def web_fortune(
+    user_id: str = None,
+    username: str = None,
+    force_random: bool = False
+):
     if not user_id or not username:
         return JSONResponse({"status": "error", "message": "缺少 user_id 或 username"}, status_code=400)
 
     today = datetime.now().strftime("%Y-%m-%d")
 
-    # ✅ 用 user_id + 日期 當作隨機種子，確保每人每天固定
-    seed = str(user_id) + today
-    random.seed(seed)
+    # 🌟 根據是否有 force_random 參數決定抽籤方式
+    if not force_random:
+        # 每人每天固定籤
+        seed = str(user_id) + today
+        random.seed(seed)
+    else:
+        # 每次重新隨機
+        random.seed()
 
+    # 🍀 從 fortune_data.py 抽籤
     fortune_key = random.choice(list(fortunes.keys()))
     advice = random.choice(fortunes[fortune_key])
 
