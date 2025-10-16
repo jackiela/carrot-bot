@@ -59,15 +59,17 @@ def get_remaining_hours(target: datetime.datetime) -> int:
     return max(0, total_seconds // 3600)
 
 def get_carrot_thumbnail(result: str) -> str:
-    """根據蘿蔔種類回傳對應縮圖網址"""
+    """根據蘿蔔種類回傳 GitHub Pages 上的縮圖網址"""
+    base_url = "https://jackiela.github.io/carrot-bot/images"
+
     if result in common_carrots:
-        return "https://i.imgur.com/0yKXQ9E.png"  # 普通蘿蔔
+        return f"{base_url}/common.png"  # 普通蘿蔔
     elif result in rare_carrots:
-        return "https://i.imgur.com/1gU7ZyE.png"  # 稀有蘿蔔
+        return f"{base_url}/rare.png"    # 稀有蘿蔔
     elif result in legendary_carrots:
-        return "https://i.imgur.com/3zFvKkL.png"  # 傳說蘿蔔
+        return f"{base_url}/legendary.png"  # 傳說蘿蔔
     else:
-        return "https://i.imgur.com/4gTqYvE.png"  # 預設：未知或種植提示
+        return f"{base_url}/default.png"  # 預設：未知或種植提示
 
 def get_fortune_thumbnail(fortune: str) -> str:
     """根據運勢回傳對應符咒縮圖網址"""
