@@ -71,6 +71,17 @@ def get_carrot_thumbnail(result: str) -> str:
     else:
         return f"{base_url}/default.png"  # 預設：未知或種植提示
 
+def get_carrot_rarity_color(result: str) -> discord.Color:
+    """根據拔蘿蔔稀有度回傳 Embed 顏色"""
+    if result in legendary_carrots:
+        return discord.Color.gold()
+    elif result in rare_carrots:
+        return discord.Color.purple()
+    elif result in common_carrots:
+        return discord.Color.dark_gray()
+    else:
+        return discord.Color.light_gray()
+
 def get_fortune_thumbnail(fortune: str) -> str:
     """根據運勢回傳對應符咒縮圖網址"""
     if "大吉" in fortune:
