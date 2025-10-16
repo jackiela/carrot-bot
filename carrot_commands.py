@@ -178,7 +178,7 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
     
 # ===== 拔蘿蔔 =====
 async def handle_pull_carrot(message, user_id, username, user_data, ref):
-    from utils import get_today
+    from utils import get_today, get_carrot_thumbnail, get_carrot_rarity_color
     today = get_today()
     pulls = user_data.get("carrot_pulls", {})
     today_pulls = pulls.get(today, 0)
@@ -195,7 +195,7 @@ async def handle_pull_carrot(message, user_id, username, user_data, ref):
 
     result = pull_carrot()
     is_new = result not in user_data.get("carrots", [])
-    remaining = 2 - today_pulls  # 因為這次還沒記錄
+    remaining = 2 - today_pulls
 
     # ✅ 更新資料
     user_data.setdefault("carrots", [])
@@ -206,14 +206,17 @@ async def handle_pull_carrot(message, user_id, username, user_data, ref):
     user_data["carrot_pulls"][today] = today_pulls + 1
     ref.set(user_data)
 
+    # ✅ 判斷稀有度顏色
+    color = get_carrot_rarity_color(result)
+
     # ✅ 建立 Embed 卡片
     embed = discord.Embed(
         title="💪 拔蘿蔔結果",
         description=f"你拔出了：**{result}**",
-        color=discord.Color.orange()
+        color=color
     )
     embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
-    embed.set_thumbnail(url=get_carrot_thumbnail(result))  # ✅ 加入蘿蔔縮圖
+    embed.set_thumbnail(url=get_carrot_thumbnail(result))
     embed.set_footer(text=f"📅 {today}｜🌙 晚上十二點過後可再拔")
 
     if is_new:
@@ -224,7 +227,6 @@ async def handle_pull_carrot(message, user_id, username, user_data, ref):
     embed.add_field(name="🔁 今日剩餘次數", value=f"{remaining} 次", inline=False)
 
     await message.channel.send(embed=embed)
-
 # ===== 蘿蔔圖鑑 =====
 async def handle_carrot_encyclopedia(message, user_id, user_data):
     collected = user_data.get("carrots", [])
