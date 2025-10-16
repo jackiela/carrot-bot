@@ -1,4 +1,5 @@
 import datetime
+import discord
 from pytz import timezone
 from carrot_data import common_carrots, rare_carrots, legendary_carrots, all_carrots
 from fortune_data import fortunes
