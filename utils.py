@@ -92,8 +92,8 @@ def get_fortune_thumbnail(fortune: str) -> str:
     elif "中吉" in fortune:
         return f"{base_url}/中吉.png"  # 綠色符咒風格
     elif "小吉" in fortune:
-        return f"{base_url}/小吉.png""  # 藍色符咒風格
+        return f"{base_url}/小吉.png"  # 藍色符咒風格
     elif "吉" in fortune:
-        return f"{base_url}/吉.png""  # 白色符咒風格    
+        return f"{base_url}/吉.png"  # 白色符咒風格    
     else:
         return f"{base_url}/凶.png" # 紅色符咒或厄運風格
