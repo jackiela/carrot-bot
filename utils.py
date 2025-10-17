@@ -85,11 +85,15 @@ def get_carrot_rarity_color(result: str) -> discord.Color:
 
 def get_fortune_thumbnail(fortune: str) -> str:
     """根據運勢回傳對應符咒縮圖網址"""
+    base_url = "https://jackiela.github.io/carrot-bot/images"
+    
     if "大吉" in fortune:
-        return "https://i.imgur.com/9ZxJv3M.png"  # 金色符咒風格
+        return f"{base_url}/大吉.png"  # 金色符咒風格
     elif "中吉" in fortune:
-        return "https://i.imgur.com/8wKXQ9E.png"  # 綠色符咒風格
+        return f"{base_url}/中吉.png"  # 綠色符咒風格
     elif "小吉" in fortune:
-        return "https://i.imgur.com/7gU7ZyE.png"  # 藍色符咒風格
+        return f"{base_url}/小吉.png""  # 藍色符咒風格
+    elif "吉" in fortune:
+        return f"{base_url}/吉.png""  # 白色符咒風格    
     else:
-        return "https://i.imgur.com/6zFvKkL.png"  # 紅色符咒或厄運風格
+        return f"{base_url}/凶.png" # 紅色符咒或厄運風格
