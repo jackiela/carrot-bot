@@ -66,6 +66,8 @@ def pull_carrot_by_farm(fertilizer="普通肥料", land_level=1):
         return random.choice(rare_carrots), random.randint(*reward_ranges["rare"])
     else:
         return random.choice(legendary_carrots), random.randint(*reward_ranges["legendary"])
+        
+    # ===== 蘿蔔占卜 =====
 
 async def handle_fortune(message, user_id, username, user_data, ref, force=False):
     from utils import get_fortune_thumbnail
@@ -124,6 +126,8 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
         embed.add_field(name="🧤 幸運加成", value=extra_text, inline=False)
 
     await message.channel.send(embed=embed)
+    
+    # ===== 拔蘿蔔 =====
 
 async def handle_pull_carrot(message, user_id, username, user_data, ref):
     today = get_today()
@@ -170,6 +174,66 @@ async def handle_pull_carrot(message, user_id, username, user_data, ref):
     embed.add_field(name="🔁 今日剩餘次數", value=f"{remaining} 次", inline=False)
 
     await message.channel.send(embed=embed)
+    
+    # ===== 蘿蔔圖鑑 =====
+async def handle_carrot_encyclopedia(message, user_id, user_data):
+    collected = user_data.get("carrots", [])
+    if not collected:
+        await message.channel.send("📖 你的圖鑑還是空的，快去拔蘿蔔吧！")
+        return
+
+    total = len(all_carrots)
+    progress = len(collected)
+
+    common_count = len([c for c in collected if c in common_carrots])
+    rare_count = len([c for c in collected if c in rare_carrots])
+    legendary_count = len([c for c in collected if c in legendary_carrots])
+
+    reply = f"📖 你的蘿蔔圖鑑：{progress}/{total} 種\n"
+    reply += f"🔹 普通：{common_count}/{len(common_carrots)} 種\n"
+    reply += f"🔸 稀有：{rare_count}/{len(rare_carrots)} 種\n"
+    reply += f"🌟 傳說：{legendary_count}/{len(legendary_carrots)} 種\n\n"
+    reply += "你已收集到的蘿蔔：\n" + "\n".join(collected)
+
+    await message.channel.send(reply)
+
+# ===== 蘿蔔排行榜 =====
+async def handle_carrot_ranking(message):
+    data = db.reference("/users").get()
+    if not data:
+        await message.channel.send("📊 目前還沒有任何玩家收集蘿蔔！")
+        return
+
+    ranking = sorted(
+        data.items(),
+        key=lambda x: len(x[1].get("carrots", [])),
+        reverse=True
+    )
+
+    reply = "🏆 蘿蔔收集排行榜 🥕\n"
+    for i, (uid, info) in enumerate(ranking[:5], start=1):
+        count = len(info.get("carrots", []))
+        reply += f"{i}. {info.get('name', '未知玩家')} — {count}/{len(all_carrots)} 種\n"
+
+    await message.channel.send(reply)
+
+# ===== 胡蘿蔔小知識 =====
+async def handle_carrot_fact(message):
+    fact = random.choice(carrot_facts)
+    await message.channel.send(f"🥕 胡蘿蔔小知識：{fact}")
+
+# ===== 胡蘿蔔料理 =====
+async def handle_carrot_recipe(message):
+    recipe_name = random.choice(list(recipes.keys()))
+    detail = recipes[recipe_name]
+    await message.channel.send(
+        f"🍴 今日推薦胡蘿蔔料理：**{recipe_name}**\n📖 做法：\n{detail}"
+    )
+
+# ===== 種植小貼士 =====
+async def handle_carrot_tip(message):
+    tip = random.choice(carrot_tips)
+    await message.channel.send(f"🌱 胡蘿蔔種植小貼士：{tip}")
     # ===== 種蘿蔔 =====
 async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普通肥料"):
     from utils import get_now
