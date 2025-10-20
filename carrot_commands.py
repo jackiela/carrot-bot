@@ -6,6 +6,7 @@ from utils import get_today, get_now, get_remaining_hours, get_carrot_thumbnail,
 from carrot_data import common_carrots, rare_carrots, legendary_carrots, all_carrots
 from fortune_data import fortunes
 from datetime import datetime
+from show_farm import show_farm_overview  # 確保你有這個模組
 
 # ✅ 通用工具：確認玩家是否在自己的田地
 async def ensure_player_thread(message):
@@ -606,41 +607,48 @@ async def handle_health_check(message):
 
     await message.channel.send(embed=embed)
 
-# 🧤 購買手套（購買後自動顯示農場總覽，含手套效果）
-async def handle_buy_glove(message, user_id, user_data, ref, glove_name):
-    glove_shop = {
-        "幸運手套": {"price": 100, "desc": "抽到大吉時額外掉出一根蘿蔔"},
-        "農夫手套": {"price": 150, "desc": "收成時金幣 +20%"},
-        "強化手套": {"price": 200, "desc": "種植時間 -1 小時"},
-        "神奇手套": {"price": 500, "desc": "收成時有機率獲得稀有蘿蔔"}
-    }
+# 🧤 手套商店資料
+GLOVE_SHOP = {
+    "幸運手套": {"price": 100, "desc": "抽到大吉時額外掉出一根蘿蔔"},
+    "農夫手套": {"price": 150, "desc": "收成時金幣 +20%"},
+    "強化手套": {"price": 200, "desc": "種植時間 -1 小時"},
+    "神奇手套": {"price": 500, "desc": "收成時有機率獲得稀有蘿蔔"}
+}
 
-    if glove_name not in glove_shop:
-        await message.channel.send("❌ 沒有這種手套！可購買：幸運手套、農夫手套、強化手套、神奇手套")
+# 🎍 裝飾商店資料
+DECORATION_SHOP = {
+    "花圃": 80,
+    "木柵欄": 100,
+    "竹燈籠": 150,
+    "鯉魚旗": 200,
+    "聖誕樹": 250
+}
+
+# 🧤 購買手套
+async def handle_buy_glove(message, user_id, user_data, ref, glove_name):
+    if glove_name not in GLOVE_SHOP:
+        await message.channel.send("❌ 沒有這種手套！可購買：" + "、".join(GLOVE_SHOP.keys()))
         return
 
-    cost = glove_shop[glove_name]["price"]
+    cost = GLOVE_SHOP[glove_name]["price"]
     coins = user_data.get("coins", 0)
     if coins < cost:
         await message.channel.send(f"💸 金幣不足！需要 {cost} 金幣，你目前只有 {coins}")
         return
 
-    # ✅ 修正手套欄位格式
     gloves = user_data.get("gloves")
     if not isinstance(gloves, list):
         gloves = [gloves] if isinstance(gloves, str) else []
     user_data["gloves"] = gloves
 
-    # ✅ 加入手套
     user_data["coins"] -= cost
     if glove_name not in gloves:
         gloves.append(glove_name)
 
     ref.set(user_data)
-
-    # ✅ 顯示購買成功訊息
-    await message.channel.send(f"🧤 你購買了 **{glove_name}**！\n📈 效果：{glove_shop[glove_name]['desc']}")
-
+        # ✅ 顯示購買成功訊息
+    await message.channel.send(f"🧤 你購買了 **{glove_name}**！\n📈 效果：{GLOVE_SHOP[glove_name]['desc']}")
+    
     # ✅ 重新讀取最新資料並顯示農場總覽卡
     updated_data = ref.get()
     await show_farm_overview(message, user_id, updated_data)
@@ -838,3 +846,4 @@ async def handle_give_coins(message, args):
 
     else:
         await message.channel.send("❌ 指令格式錯誤。請使用：`!給金幣 數量` 或 `!給金幣 @玩家 數量`")
+
