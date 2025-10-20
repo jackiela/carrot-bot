@@ -6,7 +6,6 @@ from utils import get_today, get_now, get_remaining_hours, get_carrot_thumbnail,
 from carrot_data import common_carrots, rare_carrots, legendary_carrots, all_carrots
 from fortune_data import fortunes
 from datetime import datetime
-from show_farm import show_farm_overview  # 確保你有這個模組
 
 # ✅ 通用工具：確認玩家是否在自己的田地
 async def ensure_player_thread(message):
@@ -625,7 +624,7 @@ DECORATION_SHOP = {
 }
 
 # 🧤 購買手套
-async def handle_buy_glove(message, user_id, user_data, ref, glove_name):
+async def handle_buy_glove(message, user_id, user_data, ref, glove_name, show_farm_overview):
     if glove_name not in GLOVE_SHOP:
         await message.channel.send("❌ 沒有這種手套！可購買：" + "、".join(GLOVE_SHOP.keys()))
         return
