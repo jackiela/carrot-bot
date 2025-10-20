@@ -763,8 +763,13 @@ async def handle_shop(message):
 
     # ===== 給金幣 =====
 
-async def handle_give_coins(message, args, ref_lookup, log_ref):
-    # ✅ 管理員檢查
+def ref_lookup(user_id):
+    return db.reference(f"/users/{user_id}")
+
+def log_ref():
+    return db.reference("/logs/coin_give")
+
+async def handle_give_coins(message, args):
     if not message.author.guild_permissions.administrator:
         await message.channel.send("🚫 此指令僅限管理員使用。")
         return
@@ -773,7 +778,7 @@ async def handle_give_coins(message, args, ref_lookup, log_ref):
     giver_name = message.author.display_name
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # ✅ 給自己
+    # 給自己
     if len(args) == 1:
         try:
             amount = int(args[0])
@@ -786,8 +791,7 @@ async def handle_give_coins(message, args, ref_lookup, log_ref):
         user_data["coins"] = user_data.get("coins", 0) + amount
         ref.set(user_data)
 
-        # ✅ 紀錄
-        log_ref.push({
+        log_ref().push({
             "giver_id": giver_id,
             "giver_name": giver_name,
             "target_id": giver_id,
@@ -800,7 +804,7 @@ async def handle_give_coins(message, args, ref_lookup, log_ref):
         await message.channel.send(f"💰 已成功給予你 {amount} 金幣！目前餘額：{user_data['coins']} 金幣")
         return
 
-    # ✅ 給其他人
+    # 給其他人
     elif len(args) == 2:
         mention = args[0]
         try:
@@ -819,8 +823,7 @@ async def handle_give_coins(message, args, ref_lookup, log_ref):
         user_data["coins"] = user_data.get("coins", 0) + amount
         ref.set(user_data)
 
-        # ✅ 紀錄
-        log_ref.push({
+        log_ref().push({
             "giver_id": giver_id,
             "giver_name": giver_name,
             "target_id": target_id,
