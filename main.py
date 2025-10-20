@@ -26,6 +26,7 @@ from utils import is_admin, get_today, get_now
 from fortune_data import fortunes
 from fastapi.responses import JSONResponse
 from datetime import datetime
+from carrot_commands import GLOVE_SHOP, DECORATION_SHOP
 
 # ===== Discord Bot 初始化 =====
 intents = discord.Intents.default()
