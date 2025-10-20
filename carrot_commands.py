@@ -578,7 +578,7 @@ async def handle_health_check(message):
 
     await message.channel.send(embed=embed)
 
-# 🧤 購買手套
+# 🧤 購買手套（購買後自動顯示農場總覽）
 async def handle_buy_glove(message, user_id, user_data, ref, glove_name):
     glove_shop = {
         "幸運手套": {"price": 100, "desc": "抽到大吉時額外掉出一根蘿蔔"},
@@ -603,9 +603,15 @@ async def handle_buy_glove(message, user_id, user_data, ref, glove_name):
         user_data["gloves"].append(glove_name)
 
     ref.set(user_data)
+
+    # ✅ 顯示購買成功訊息
     await message.channel.send(f"🧤 你購買了 **{glove_name}**！\n📈 效果：{glove_shop[glove_name]['desc']}")
 
-# 🎍 購買裝飾
+    # ✅ 重新讀取最新資料並顯示農場總覽卡
+    updated_data = ref.get()
+    await show_farm_overview(message, user_id, updated_data)
+
+# 🎍 購買裝飾（購買後自動顯示農場總覽）
 async def handle_buy_decoration(message, user_id, user_data, ref, deco_name):
     shop = {
         "花圃": 80,
@@ -631,9 +637,14 @@ async def handle_buy_decoration(message, user_id, user_data, ref, deco_name):
         user_data["decorations"].append(deco_name)
     ref.set(user_data)
 
+    # ✅ 顯示購買成功訊息
     await message.channel.send(f"🎍 你購買了 **{deco_name}**！農場更漂亮了 🌾")
 
-# 🧧 開運福袋
+    # ✅ 重新讀取最新資料並顯示農場總覽卡
+    updated_data = ref.get()
+    await show_farm_overview(message, user_id, updated_data)
+
+# 🧧 開運福袋（含特效與農場總覽）
 async def handle_open_lucky_bag(message, user_id, user_data, ref):
     cost = 80
     coins = user_data.get("coins", 0)
@@ -644,16 +655,27 @@ async def handle_open_lucky_bag(message, user_id, user_data, ref):
     user_data["coins"] -= cost
     reward_type = random.choice(["coins", "fertilizer", "decoration"])
     msg = ""
+    effect = ""
+    color = discord.Color.orange()
 
     if reward_type == "coins":
-        reward = random.randint(20, 150)
+        reward = random.randint(20, 120)
         user_data["coins"] += reward
         msg = f"💰 你獲得了 {reward} 金幣！"
+        if reward >= 100:
+            effect = "✨ 超大筆金幣入袋！"
+            color = discord.Color.gold()
     elif reward_type == "fertilizer":
         fertilizer_type = random.choice(["普通肥料", "高級肥料", "神奇肥料"])
         user_data.setdefault("fertilizers", {})
         user_data["fertilizers"][fertilizer_type] = user_data["fertilizers"].get(fertilizer_type, 0) + 1
         msg = f"🧪 你獲得了 1 個 {fertilizer_type}！"
+        if fertilizer_type == "神奇肥料":
+            effect = "🌟 神奇肥料降臨！收成機率大提升！"
+            color = discord.Color.purple()
+        elif fertilizer_type == "高級肥料":
+            effect = "🔸 高級肥料入手，收成時間縮短！"
+            color = discord.Color.blue()
     else:
         decorations = ["花圃", "木柵欄", "竹燈籠", "鯉魚旗", "聖誕樹"]
         deco = random.choice(decorations)
@@ -661,6 +683,9 @@ async def handle_open_lucky_bag(message, user_id, user_data, ref):
         if deco not in user_data["decorations"]:
             user_data["decorations"].append(deco)
             msg = f"🎍 你獲得了新的裝飾 **{deco}**！"
+            if deco == "聖誕樹":
+                effect = "🎄 節慶奇蹟！聖誕樹閃耀登場！"
+                color = discord.Color.green()
         else:
             user_data["coins"] += 50
             msg = f"🎁 抽到重複裝飾，轉換為 50 金幣 💰"
@@ -670,11 +695,18 @@ async def handle_open_lucky_bag(message, user_id, user_data, ref):
     embed = discord.Embed(
         title="🧧 開運福袋結果",
         description=msg,
-        color=discord.Color.orange()
+        color=color
     )
     embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
+    if effect:
+        embed.add_field(name="🎉 特殊效果", value=effect, inline=False)
+    embed.set_footer(text="📦 福袋獎勵已加入農場資源")
+
     await message.channel.send(embed=embed)
 
+    # ✅ 顯示最新農場總覽卡
+    updated_data = ref.get()
+    await show_farm_overview(message, user_id, updated_data)
 # 🏪 商店總覽
 async def handle_shop(message):
     text = (
