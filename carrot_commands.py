@@ -1,6 +1,7 @@
 import datetime
 import random
 import discord
+import asyncio
 from firebase_admin import db
 from utils import get_today, get_now, get_remaining_hours, get_carrot_thumbnail, get_carrot_rarity_color
 from carrot_data import common_carrots, rare_carrots, legendary_carrots, all_carrots
@@ -236,9 +237,17 @@ async def handle_carrot_recipe(message):
 async def handle_carrot_tip(message):
     tip = random.choice(carrot_tips)
     await message.channel.send(f"🌱 胡蘿蔔種植小貼士：{tip}")
-    # ===== 種蘿蔔 =====
+    
+# ✅ 自動收成提醒
+async def schedule_harvest_reminder(user_id, channel, harvest_time):
+    now = datetime.now()
+    delay = (harvest_time - now).total_seconds()
+    if delay > 0:
+        await asyncio.sleep(delay)
+        await channel.send(f"🥕 <@{user_id}> 你的蘿蔔已成熟，可以收成囉！使用 `!收成蘿蔔`")
+
+# ✅ 種蘿蔔主函式
 async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普通肥料"):
-    from utils import get_now
     current_channel = await ensure_player_thread(message)
     if current_channel is None:
         return
@@ -255,17 +264,19 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
 
     if fertilizers.get(fertilizer, 0) <= 0:
         await current_channel.send(
-            f"❌ 你沒有 {fertilizer}，請先購買！\n💰 你目前金幣：{user_data.get('coins', 0)}\n🛒 使用 !購買肥料 普通肥料 來購買"
+            f"❌ 你沒有 {fertilizer}，請先購買！\n💰 你目前金幣：{user_data.get('coins', 0)}\n🛒 使用 !購買肥料 {fertilizer} 來購買"
         )
         return
 
+    # ✅ 計算收成時間
     harvest_time = now + timedelta(days=1)
     if fertilizer == "神奇肥料":
-        harvest_time -= datetime.timedelta(hours=6)
+        harvest_time -= timedelta(hours=6)
     elif fertilizer == "高級肥料":
-        harvest_time -= datetime.timedelta(hours=2)
-    harvest_time -= datetime.timedelta(hours=land_level * 2)
+        harvest_time -= timedelta(hours=2)
+    harvest_time -= timedelta(hours=land_level * 2)
 
+    # ✅ 更新資料
     fertilizers[fertilizer] -= 1
     user_data["farm"] = {
         "plant_time": now.isoformat(),
@@ -275,12 +286,24 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
         "land_level": land_level,
         "pull_count": pull_count
     }
-
     ref.set(user_data)
+
+    # ✅ 顯示冷卻倒數
+    remaining = harvest_time - now
+    total_hours = remaining.days * 24 + remaining.seconds // 3600
+    minutes = (remaining.seconds % 3600) // 60
+
     await current_channel.send(
-        f"🌱 你使用了 {fertilizer} 種下蘿蔔，預計收成時間：{harvest_time.strftime('%Y-%m-%d %H:%M')}"
+        f"🌱 你使用了 {fertilizer} 種下蘿蔔！\n"
+        f"📅 預計收成時間：{harvest_time.strftime('%Y-%m-%d %H:%M')}\n"
+        f"⏳ 剩餘時間：約 {total_hours} 小時 {minutes} 分鐘\n"
+        f"🧪 剩餘 {fertilizer}：{fertilizers[fertilizer]} 個\n"
+        f"🏕️ 土地等級 Lv.{land_level}，已縮短 {land_level * 2} 小時"
     )
 
+    # ✅ 啟動收成提醒
+    asyncio.create_task(schedule_harvest_reminder(user_id, current_channel, harvest_time))
+    
 # ===== 收成蘿蔔 =====
 async def handle_harvest_carrot(message, user_id, user_data, ref):
     from utils import get_now, parse_datetime, get_remaining_time_str, get_carrot_thumbnail, get_carrot_rarity_color
