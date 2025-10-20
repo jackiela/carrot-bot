@@ -185,9 +185,9 @@ async def on_message(message):
     elif content.startswith("!購買手套"):
         parts = content.split()
         if len(parts) == 2:
-        await handle_buy_glove(message, user_id, user_data, ref, parts[1])
-    else:
-        await message.channel.send("❓ 指令格式錯誤，請使用：`!購買手套 幸運手套`")
+            await handle_buy_glove(message, user_id, user_data, ref, parts[1])
+        else:
+            await message.channel.send("❓ 指令格式錯誤，請使用：`!購買手套 幸運手套`")
     elif content == "!手套圖鑑":
         await handle_glove_encyclopedia(message)  
     elif content == "!購買裝飾":
