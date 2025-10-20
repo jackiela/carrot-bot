@@ -17,7 +17,8 @@ from carrot_commands import (
     handle_buy_fertilizer,
     handle_upgrade_land,
     handle_land_progress,
-    show_farm_overview
+    show_farm_overview,
+    handle_give_coins
 )
 from utils import is_admin, get_today, get_now
 from fortune_data import fortunes
@@ -138,59 +139,6 @@ async def handle_shop(message, user_data, ref):
     embed.set_footer(text=f"💰 你目前擁有 {user_data['coins']} 金幣")
     await message.channel.send(embed=embed)
 
-
-# ===== 開運福袋 =====
-async def handle_lucky_bag(message, user_data, ref):
-    cost = 80
-    if user_data["coins"] < cost:
-        await message.channel.send("💸 金幣不足，無法購買開運福袋！")
-        return
-
-    user_data["coins"] -= cost
-    reward_type = random.choice(["coins", "fertilizer", "decoration"])
-    result = ""
-
-    if reward_type == "coins":
-        gain = random.randint(30, 100)
-        user_data["coins"] += gain
-        result = f"💰 {gain} 金幣"
-    elif reward_type == "fertilizer":
-        user_data["fertilizers"]["普通肥料"] += 1
-        result = "🧪 普通肥料 x1"
-    else:
-        decor = random.choice(["蘿蔔風鈴", "小木牌", "田園花圈"])
-        user_data["decorations"].append(decor)
-        result = f"🎀 {decor}"
-
-    ref.set(user_data)
-    await message.channel.send(f"🧧 你開啟了開運福袋，獲得：{result}！")
-
-
-# ===== 購買手套 =====
-async def handle_buy_gloves(message, user_data, ref):
-    cost = 150
-    if user_data["coins"] < cost:
-        await message.channel.send("💸 金幣不足，無法購買手套！")
-        return
-    user_data["coins"] -= cost
-    user_data["gloves"] += 1
-    ref.set(user_data)
-    await message.channel.send("🧤 購買成功！你的手套 +1，在抽到大吉時會掉出一根額外蘿蔔！")
-
-
-# ===== 購買裝飾 =====
-async def handle_buy_decoration(message, user_data, ref):
-    cost = 100
-    if user_data["coins"] < cost:
-        await message.channel.send("💸 金幣不足，無法購買裝飾！")
-        return
-    decor = random.choice(["南瓜燈", "木柵欄", "胡蘿蔔旗子", "花園石板"])
-    user_data["coins"] -= cost
-    user_data["decorations"].append(decor)
-    ref.set(user_data)
-    await message.channel.send(f"🎀 恭喜獲得新的農場裝飾：{decor}！")
-
-
 # ===== 指令分派 =====
 @client.event
 async def on_message(message):
@@ -274,7 +222,9 @@ async def on_message(message):
             await handle_buy_fertilizer(message, user_id, user_data, ref, parts[1])
         else:
             await message.channel.send("❓ 指令格式錯誤，請使用：`!購買肥料 普通肥料` 或 `!購買肥料 高級肥料`")
-
+    elif content.startswith("!給金幣"):
+        args = content.split()[1:]
+        await handle_give_coins(message, args)
 
 # ==========================================================
 # Flask + FastAPI 整合（防休眠 + Fortune API）
