@@ -5,7 +5,8 @@ from firebase_admin import db
 from utils import get_today, get_now, get_remaining_hours, get_carrot_thumbnail, get_carrot_rarity_color
 from carrot_data import common_carrots, rare_carrots, legendary_carrots, all_carrots
 from fortune_data import fortunes
-from datetime import datetime
+from datetime import datetime, timedelta
+
 
 # ✅ 通用工具：確認玩家是否在自己的田地
 async def ensure_player_thread(message):
@@ -258,7 +259,7 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
         )
         return
 
-    harvest_time = now + datetime.timedelta(days=1)
+    harvest_time = now + timedelta(days=1)
     if fertilizer == "神奇肥料":
         harvest_time -= datetime.timedelta(hours=6)
     elif fertilizer == "高級肥料":
