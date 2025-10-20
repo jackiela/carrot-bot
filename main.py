@@ -303,7 +303,7 @@ def keep_alive_loop():
             url = os.environ.get("RAILWAY_STATIC_URL", "https://carrot-bot-production.up.railway.app")
             if url and not url.startswith("http"):
                 url = "https://" + url
-            requests.get(f"{url}/api/ping", timeout=5)
+            requests.get("http://127.0.0.1:8080/api/ping", timeout=5)
             print("[KeepAlive] Pinged self successfully ✅")
         except Exception as e:
             print("[KeepAlive] Failed:", e)
