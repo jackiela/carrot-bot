@@ -123,10 +123,20 @@ async def get_or_create_farm_thread(parent_channel, author):
 # ===== 商店指令 =====
 async def handle_shop(message, user_data, ref):
     embed = discord.Embed(title="🏪 胡蘿蔔商店", color=discord.Color.orange())
-    embed.add_field(name="🧧 開運福袋", value="80 金幣｜隨機獲得金幣 / 肥料 / 裝飾", inline=False)
-    embed.add_field(name="🧤 農場手套", value="可購買：幸運手套、農夫手套、強化手套、神奇手套\n使用 `!購買手套 幸運手套`", inline=False)
-    embed.add_field(name="🎀 農場裝飾", value="100 金幣｜讓你的農場更漂亮", inline=False)
-    embed.set_footer(text=f"💰 你目前擁有 {user_data['coins']} 金幣")
+
+    # 🧧 開運福袋
+    embed.add_field(name="🧧 開運福袋", value="80 金幣｜隨機獲得金幣 / 肥料 / 裝飾\n使用 `!開運福袋`", inline=False)
+
+    # 🧤 手套
+    glove_text = "\n".join([f"• {name} — {info['price']} 金幣｜{info['desc']}" for name, info in GLOVE_SHOP.items()])
+    embed.add_field(name="🧤 農場手套", value=glove_text + "\n使用 `!購買手套 幸運手套`", inline=False)
+
+    # 🎀 裝飾
+    deco_text = "\n".join([f"• {name} — {price} 金幣" for name, price in DECORATION_SHOP.items()])
+    embed.add_field(name="🎀 農場裝飾", value=deco_text + "\n使用 `!購買裝飾 花圃`", inline=False)
+
+    # 💰 玩家金幣
+    embed.set_footer(text=f"💰 你目前擁有 {user_data.get('coins', 0)} 金幣")
     await message.channel.send(embed=embed)
 
 # ===== 指令分派 =====
