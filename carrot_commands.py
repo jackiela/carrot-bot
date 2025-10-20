@@ -846,3 +846,22 @@ async def handle_give_coins(message, args):
     else:
         await message.channel.send("❌ 指令格式錯誤。請使用：`!給金幣 數量` 或 `!給金幣 @玩家 數量`")
 
+# 🧤 手套圖鑑
+async def handle_glove_encyclopedia(message):
+    gloves = {
+        "幸運手套": "大吉時可多拔一根蘿蔔。",
+        "農夫手套": "收成金幣 +20%。",
+        "強化手套": "種植時間縮短 1 小時。",
+        "神奇手套": "提升稀有蘿蔔機率。",
+    }
+
+    embed = discord.Embed(
+        title="🧤 手套圖鑑",
+        description="這裡列出所有可收集的手套與其效果：",
+        color=discord.Color.orange()
+    )
+
+    for name, desc in gloves.items():
+        embed.add_field(name=name, value=desc, inline=False)
+
+    await message.channel.send(embed=embed)
