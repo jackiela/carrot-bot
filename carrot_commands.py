@@ -5,6 +5,7 @@ from firebase_admin import db
 from utils import get_today, get_now, get_remaining_hours, get_carrot_thumbnail, get_carrot_rarity_color
 from carrot_data import common_carrots, rare_carrots, legendary_carrots, all_carrots
 from fortune_data import fortunes
+from datetime import datetime
 
 # ✅ 通用工具：確認玩家是否在自己的田地
 async def ensure_player_thread(message):
@@ -439,7 +440,7 @@ async def handle_land_progress(message, user_id, user_data):
 
     await message.channel.send(embed=embed)
 
-    # ===== 農場總覽卡（Embed 顯示）=====
+# ===== 農場總覽卡（Embed 顯示）=====
 async def show_farm_overview(message, user_id, user_data):
     from utils import parse_datetime, get_remaining_time_str
     current_channel = await ensure_player_thread(message)
@@ -449,9 +450,15 @@ async def show_farm_overview(message, user_id, user_data):
     farm = user_data.get("farm", {})
     fertilizers = user_data.get("fertilizers", {})
     coins = user_data.get("coins", 0)
-    gloves = user_data.get("gloves", [])
-    decorations = user_data.get("decorations", [])
+    gloves = user_data.get("gloves")
+    decorations = user_data.get("decorations")
     lucky_bags = user_data.get("lucky_bag", 0)
+
+    # ✅ 修復格式
+    if not isinstance(gloves, list):
+        gloves = [gloves] if isinstance(gloves, str) else []
+    if not isinstance(decorations, list):
+        decorations = [decorations] if isinstance(decorations, str) else []
 
     fertilizer_used = farm.get("fertilizer", "未使用")
     land_level = farm.get("land_level", 1)
@@ -493,6 +500,7 @@ async def show_farm_overview(message, user_id, user_data):
     embed.add_field(name="🔁 今日剩餘拔蘿蔔次數", value=f"{remaining_pulls} 次", inline=False)
     embed.add_field(name="─" * 20, value="📦 農場資源狀況", inline=False)
 
+    # ✅ 肥料庫存
     embed.add_field(
         name="🧪 肥料庫存",
         value=(
@@ -502,16 +510,35 @@ async def show_farm_overview(message, user_id, user_data):
         ),
         inline=False
     )
-    embed.add_field(
-        name="🧤 擁有手套",
-        value="、".join(gloves) if isinstance(gloves, list) and gloves else "尚未擁有任何手套",
-        inline=False
-    )
-    embed.add_field(
-        name="🎍 農場裝飾",
-        value="、".join(decorations) if isinstance(decorations, list) and decorations else "尚未放置任何裝飾",
-        inline=False
-    )
+
+    # ✅ 手套效果顯示
+    glove_effects = {
+        "幸運手套": "🎯 大吉時掉出蘿蔔",
+        "農夫手套": "💰 收成金幣 +20%",
+        "強化手套": "⏳ 種植時間 -1 小時",
+        "神奇手套": "🌟 稀有機率提升"
+    }
+    if gloves:
+        glove_text = "\n".join(f"• {g} — {glove_effects.get(g, '未知效果')}" for g in gloves)
+    else:
+        glove_text = "尚未擁有任何手套"
+    embed.add_field(name="🧤 擁有手套", value=glove_text, inline=False)
+
+    # ✅ 裝飾風格顯示
+    decoration_styles = {
+        "花圃": "🌸 花園風格",
+        "木柵欄": "🪵 鄉村風格",
+        "竹燈籠": "🎋 和風夜景",
+        "鯉魚旗": "🎏 節慶裝飾",
+        "聖誕樹": "🎄 節慶奇蹟"
+    }
+    if decorations:
+        deco_text = "\n".join(f"• {d} — {decoration_styles.get(d, '未知風格')}" for d in decorations)
+    else:
+        deco_text = "尚未放置任何裝飾"
+    embed.add_field(name="🎍 農場裝飾", value=deco_text, inline=False)
+
+    # ✅ 福袋狀態
     embed.add_field(
         name="🧧 開運福袋",
         value=(
@@ -522,6 +549,7 @@ async def show_farm_overview(message, user_id, user_data):
         inline=False
     )
 
+    # ✅ 肥料不足提醒
     if sum(fertilizers.get(k, 0) for k in ["普通肥料", "高級肥料", "神奇肥料"]) == 0:
         embed.add_field(
             name="⚠️ 肥料不足",
@@ -578,7 +606,7 @@ async def handle_health_check(message):
 
     await message.channel.send(embed=embed)
 
-# 🧤 購買手套（購買後自動顯示農場總覽）
+# 🧤 購買手套（購買後自動顯示農場總覽，含手套效果）
 async def handle_buy_glove(message, user_id, user_data, ref, glove_name):
     glove_shop = {
         "幸運手套": {"price": 100, "desc": "抽到大吉時額外掉出一根蘿蔔"},
@@ -597,10 +625,16 @@ async def handle_buy_glove(message, user_id, user_data, ref, glove_name):
         await message.channel.send(f"💸 金幣不足！需要 {cost} 金幣，你目前只有 {coins}")
         return
 
+    # ✅ 修正手套欄位格式
+    gloves = user_data.get("gloves")
+    if not isinstance(gloves, list):
+        gloves = [gloves] if isinstance(gloves, str) else []
+    user_data["gloves"] = gloves
+
+    # ✅ 加入手套
     user_data["coins"] -= cost
-    user_data.setdefault("gloves", [])
-    if glove_name not in user_data["gloves"]:
-        user_data["gloves"].append(glove_name)
+    if glove_name not in gloves:
+        gloves.append(glove_name)
 
     ref.set(user_data)
 
@@ -726,3 +760,78 @@ async def handle_shop(message):
         "`!開福袋`"
     )
     await message.channel.send(text)
+
+    # ===== 給金幣 =====
+
+async def handle_give_coins(message, args, ref_lookup, log_ref):
+    # ✅ 管理員檢查
+    if not message.author.guild_permissions.administrator:
+        await message.channel.send("🚫 此指令僅限管理員使用。")
+        return
+
+    giver_id = str(message.author.id)
+    giver_name = message.author.display_name
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # ✅ 給自己
+    if len(args) == 1:
+        try:
+            amount = int(args[0])
+        except ValueError:
+            await message.channel.send("❌ 金幣數量必須是整數。")
+            return
+
+        ref = ref_lookup(giver_id)
+        user_data = ref.get()
+        user_data["coins"] = user_data.get("coins", 0) + amount
+        ref.set(user_data)
+
+        # ✅ 紀錄
+        log_ref.push({
+            "giver_id": giver_id,
+            "giver_name": giver_name,
+            "target_id": giver_id,
+            "target_name": giver_name,
+            "amount": amount,
+            "timestamp": timestamp,
+            "type": "self"
+        })
+
+        await message.channel.send(f"💰 已成功給予你 {amount} 金幣！目前餘額：{user_data['coins']} 金幣")
+        return
+
+    # ✅ 給其他人
+    elif len(args) == 2:
+        mention = args[0]
+        try:
+            amount = int(args[1])
+        except ValueError:
+            await message.channel.send("❌ 金幣數量必須是整數。")
+            return
+
+        if not mention.startswith("<@") or not mention.endswith(">"):
+            await message.channel.send("❌ 請使用 @玩家 來指定對象。")
+            return
+
+        target_id = mention.replace("<@", "").replace("!", "").replace(">", "")
+        ref = ref_lookup(target_id)
+        user_data = ref.get()
+        user_data["coins"] = user_data.get("coins", 0) + amount
+        ref.set(user_data)
+
+        # ✅ 紀錄
+        log_ref.push({
+            "giver_id": giver_id,
+            "giver_name": giver_name,
+            "target_id": target_id,
+            "target_name": f"<@{target_id}>",
+            "amount": amount,
+            "timestamp": timestamp,
+            "type": "admin"
+        })
+
+        await message.channel.send(f"💰 已成功給予 <@{target_id}> {amount} 金幣！目前餘額：{user_data['coins']} 金幣")
+        return
+
+    else:
+        await message.channel.send("❌ 指令格式錯誤。請使用：`!給金幣 數量` 或 `!給金幣 @玩家 數量`")
