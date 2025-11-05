@@ -1,19 +1,32 @@
 from flask import Flask, request
 from threading import Thread
+from datetime import datetime, timedelta, timezone
+import os
 
 app = Flask('')
+tz_taiwan = timezone(timedelta(hours=8))
+ping_count = 0
+last_log_time = None  # 記錄上次 log 時間
 
-# 支援 GET 與 HEAD，讓 UptimeRobot 免費方案能正常判斷
+
 @app.route("/", methods=["GET", "HEAD"])
 def home():
-    print(f"Ping received: {request.method}")  # Debug log，方便在 Render Logs 看到
+    global ping_count, last_log_time
+    ping_count += 1
+    now = datetime.now(tz_taiwan)
+    
+    # ✅ 只在第一 ping 或相隔超過 30 分鐘時印出
+    if ping_count == 1 or not last_log_time or (now - last_log_time).seconds > 1800:
+        print(f"[KEEPALIVE] {now.strftime('%Y-%m-%d %H:%M:%S')} - Ping received ({ping_count})")
+        last_log_time = now
+
     return "Bot is alive!", 200
 
+
 def run():
-    # Render 會自動提供 PORT 環境變數，預設 fallback 8080
-    import os
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
+
 
 def keep_alive():
     t = Thread(target=run)
