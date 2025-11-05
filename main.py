@@ -228,59 +228,41 @@ async def on_message(message):
         await handle_give_coins(message, args)
 
 # ==========================================================
-# Flask + FastAPI 整合（防休眠 + Fortune API）
+# ✅ Flask KeepAlive + Fortune API（Render / Railway 通用）
 # ==========================================================
-from flask import Flask
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
-from fastapi.middleware.wsgi import WSGIMiddleware
-from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
-import threading
-import time
-import requests
+from flask import Flask, request, jsonify
+from threading import Thread
+from datetime import datetime
+import random
 
-flask_app = Flask(__name__)
+app = Flask(__name__)
 
-@flask_app.route("/")
+@app.route("/", methods=["GET", "HEAD"])
 def home():
-    return "✅ Carrot Bot is alive and running on Railway."
+    print(f"Ping received: {request.method}")
+    return "✅ Carrot Bot is alive and running!", 200
 
-fastapi_app = FastAPI()
-
-fastapi_app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@fastapi_app.get("/api/ping")
+@app.route("/api/ping")
 def ping():
-    return {"status": "ok"}
+    return jsonify({"status": "ok"})
 
-@fastapi_app.get("/api/web_fortune")
-async def web_fortune(
-    user_id: str = None,
-    username: str = None,
-    force_random: bool = False
-):
+@app.route("/api/web_fortune")
+def web_fortune():
+    user_id = request.args.get("user_id")
+    username = request.args.get("username")
+    force_random = request.args.get("force_random", "false").lower() == "true"
+
     if not user_id or not username:
-        return JSONResponse({"status": "error", "message": "缺少 user_id 或 username"}, status_code=400)
+        return jsonify({"status": "error", "message": "缺少 user_id 或 username"}), 400
 
     today = datetime.now().strftime("%Y-%m-%d")
 
-    # 🌟 根據是否有 force_random 參數決定抽籤方式
     if not force_random:
-        # 每人每天固定籤
         seed = str(user_id) + today
         random.seed(seed)
     else:
-        # 每次重新隨機
         random.seed()
 
-    # 🍀 從 fortune_data.py 抽籤
     fortune_key = random.choice(list(fortunes.keys()))
     advice = random.choice(fortunes[fortune_key])
 
@@ -293,39 +275,37 @@ async def web_fortune(
     }
     emoji = emoji_map.get(fortune_key, "🥕")
 
-    return {
+    return jsonify({
         "status": "ok",
         "date": today,
         "user": username,
         "fortune": f"{emoji} {fortune_key}",
         "advice": advice
-    }
+    })
 
-fastapi_app.mount("/", WSGIMiddleware(flask_app))
-
-
-def start_web():
+def run():
+    import os
     port = int(os.environ.get("PORT", 8080))
-    uvicorn.run(fastapi_app, host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port)
 
-def keep_alive_loop():
-    while True:
-        try:
-            url = os.environ.get("RAILWAY_STATIC_URL", "https://carrot-bot-production.up.railway.app")
-            if url and not url.startswith("http"):
-                url = "https://" + url
-            requests.get("http://127.0.0.1:8080/api/ping", timeout=5)
-            print("[KeepAlive] Pinged self successfully ✅")
-        except Exception as e:
-            print("[KeepAlive] Failed:", e)
-        time.sleep(600)
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
 
 threading.Thread(target=start_web, daemon=False).start()
 threading.Thread(target=keep_alive_loop, daemon=False).start()
 
 
 # ==========================================================
+# 啟動 Flask 防休眠伺服器
+# ==========================================================
+keep_alive()
+
+# ==========================================================
 # 啟動 Discord Bot
 # ==========================================================
 TOKEN = os.getenv("DISCORD_TOKEN")
+if not TOKEN:
+    raise ValueError("❌ 缺少 DISCORD_TOKEN 環境變數！")
+print("🚀 Carrot Bot is starting...")
 client.run(TOKEN)
