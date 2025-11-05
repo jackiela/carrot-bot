@@ -233,7 +233,6 @@ async def on_message(message):
 from flask import Flask, request, jsonify
 from threading import Thread
 from datetime import datetime
-import random
 
 app = Flask(__name__)
 
@@ -291,9 +290,6 @@ def run():
 def keep_alive():
     t = Thread(target=run)
     t.start()
-
-threading.Thread(target=start_web, daemon=False).start()
-threading.Thread(target=keep_alive_loop, daemon=False).start()
 
 
 # ==========================================================
