@@ -305,20 +305,38 @@ fastapi_app.mount("/", WSGIMiddleware(flask_app))
 
 
 def start_web():
-    port = int(os.environ.get("PORT", 8080))
+    port = int(os.environ.get("PORT", 10000))  # Render 預設是 10000
     uvicorn.run(fastapi_app, host="0.0.0.0", port=port)
 
 def keep_alive_loop():
+    # 等待 20 秒確保 web 啟動完成
+    time.sleep(20)
     while True:
         try:
-            url = os.environ.get("RAILWAY_STATIC_URL", "https://carrot-bot-production.up.railway.app")
-            if url and not url.startswith("http"):
+            port = int(os.environ.get("PORT", 10000))
+            local_url = f"http://127.0.0.1:{port}/api/ping"
+
+            # ✅ 本機 ping（確認 web 還活著）
+            requests.get(local_url, timeout=5)
+            print(f"[KeepAlive] Local ping {local_url} ✅")
+
+            # 🌍 Render 公開網址（防止休眠）
+            url = (
+                os.environ.get("RENDER_EXTERNAL_URL")
+                or os.environ.get("RAILWAY_STATIC_URL")
+                or "https://carrot-bot.onrender.com"
+            )
+            if not url.startswith("http"):
                 url = "https://" + url
-            requests.get("http://127.0.0.1:8080/api/ping", timeout=5)
-            print("[KeepAlive] Pinged self successfully ✅")
+
+            requests.get(url, timeout=10)
+            print(f"[KeepAlive] Pinged {url} ✅")
+
         except Exception as e:
             print("[KeepAlive] Failed:", e)
+
         time.sleep(600)
+
 
 threading.Thread(target=start_web, daemon=False).start()
 threading.Thread(target=keep_alive_loop, daemon=False).start()
