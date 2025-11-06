@@ -10,6 +10,7 @@ def home():
     print(f"[KeepAlive] Ping received: {request.method}")
     return "✅ Carrot Bot is alive!", 200
 
+
 # =====================================
 # ✅ 啟動 Flask（Render/Railway 通用）
 # =====================================
@@ -17,30 +18,34 @@ def run():
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
 
+
 # =====================================
 # ✅ 定時 Ping 公開網址（防休眠）
 # =====================================
 def keep_alive_loop():
     while True:
         try:
-            # 優先使用 Render / Railway 的公網網址環境變數
-            url = os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("RAILWAY_STATIC_URL")
-
-            # 沒有設定時，預設你的 Render 專案網址（請改成你的實際網址）
-            if not url:
-                url = "https://carrot-bot.onrender.com"
+            # 優先使用 Render / Railway 的外部網址
+            url = (
+                os.environ.get("RENDER_EXTERNAL_URL")
+                or os.environ.get("RAILWAY_STATIC_URL")
+                or os.environ.get("SELF_URL")  # 可自定義環境變數
+                or "https://carrot-bot.onrender.com"  # 預設網址
+            )
 
             # 確保有加上 https://
             if not url.startswith("http"):
                 url = "https://" + url
 
-            requests.get(f"{url}/api/ping", timeout=5)
+            # 改成 ping "/"，因為你沒有 /api/ping 這條路由
+            requests.get(url, timeout=5)
             print(f"[KeepAlive] Pinged {url} ✅")
         except Exception as e:
             print(f"[KeepAlive] Ping failed: {e}")
 
-        # 每 10 分鐘 ping 一次
+        # 每 10 分鐘 ping 一次（600 秒）
         time.sleep(600)
+
 
 # =====================================
 # ✅ 同時啟動 Flask + 防休眠循環
