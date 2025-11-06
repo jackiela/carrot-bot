@@ -17,7 +17,7 @@ def home():
 # ✅ 啟動 Flask（Render / Railway 通用）
 # =====================================
 def run():
-    port = int(os.environ.get("PORT", 10000))  # Render 預設是 10000
+    port = int(os.environ.get("PORT", 10000))  # Render 通常給 10000 或 8080
     app.run(host="0.0.0.0", port=port)
 
 
@@ -34,12 +34,11 @@ def keep_alive_loop():
                 or os.environ.get("SELF_URL")
                 or "https://carrot-bot.onrender.com"
             )
-
             if not url.startswith("http"):
                 url = "https://" + url
 
             # 🌍 外部 Ping（防止 Render 睡眠）
-            requests.get(url, timeout=5)
+            requests.get(url, timeout=10)
             print(f"[KeepAlive] Pinged {url} ✅")
 
             # 💻 本機 Ping（確認伺服器運作正常）
@@ -51,7 +50,10 @@ def keep_alive_loop():
         except Exception as e:
             print(f"[KeepAlive] Failed: {e}")
 
-    # ⚡ 第一次啟動立即 Ping 一次
+    # 💤 延遲 15 秒後再開始第一次 ping（讓伺服器先穩定啟動）
+    print("[KeepAlive] Waiting 15 seconds before first ping...")
+    time.sleep(15)
+
     print("[KeepAlive] Performing initial ping...")
     do_ping()
 
