@@ -143,22 +143,36 @@ async def handle_shop(message, user_data, ref):
 # ===== 指令分派 =====
 @client.event
 async def on_message(message):
+    # 忽略機器人自己的訊息
     if message.author.bot:
         return
 
+    # 取得訊息內容，防止 None 或空白
+    content = (message.content or "").strip()
+    if not content:
+        return  # 🧱 空訊息（貼圖、圖片、Embed）直接忽略
+
     user_id = str(message.author.id)
     username = message.author.display_name
-    content = message.content.strip()
 
+    # 取得使用者資料
     user_data, ref = get_user_data(user_id, username)
     await check_daily_login_reward(message, user_id, user_data, ref)
 
-    if content.split()[0] in COMMAND_CHANNELS:
-        allowed_channel = COMMAND_CHANNELS[content.split()[0]]
+    # 解析指令字（例如 "!運勢"）
+    parts = content.split()
+    cmd = parts[0] if parts else None
+    if not cmd:
+        return
+
+    # ✅ 限制特定指令只能在指定頻道使用
+    if cmd in COMMAND_CHANNELS:
+        allowed_channel = COMMAND_CHANNELS[cmd]
         if message.channel.id != allowed_channel and getattr(message.channel, "parent_id", None) != allowed_channel:
             await message.channel.send(f"⚠️ 這個指令只能在 <#{allowed_channel}> 使用")
             return
 
+    # ✅ 農場系統相關指令
     farm_cmds = [
         "!種蘿蔔", "!收成蘿蔔", "!升級土地", "!土地進度",
         "!農場總覽", "!土地狀態", "!商店", "!開運福袋",
@@ -171,61 +185,62 @@ async def on_message(message):
             if not thread:
                 await message.channel.send("❌ 無法建立或找到你的田地串（可能缺少權限）。")
                 return
+
+            # 建立假的訊息物件傳遞進 overview 函數
             class _Msg:
                 def __init__(self, author, channel):
                     self.author = author
                     self.channel = channel
+
             fake_msg = _Msg(message.author, thread)
             await show_farm_overview(fake_msg, user_id, user_data)
             await message.channel.send(f"✅ 我已在你的田地串發送農場總覽：{thread.jump_url}")
             return
 
     # ===== 指令邏輯 =====
-    if content == "!運勢":
+    if cmd == "!運勢":
         await handle_fortune(message, user_id, username, user_data, ref)
-    elif content == "!拔蘿蔔":
+    elif cmd == "!拔蘿蔔":
         await handle_pull_carrot(message, user_id, username, user_data, ref)
-    elif content == "!蘿蔔圖鑑":
+    elif cmd == "!蘿蔔圖鑑":
         await handle_carrot_encyclopedia(message, user_id, user_data)
-    elif content == "!蘿蔔排行":
+    elif cmd == "!蘿蔔排行":
         await handle_carrot_ranking(message)
-    elif content == "!商店":
+    elif cmd == "!商店":
         await handle_shop(message, user_data, ref)
-    elif content == "!開運福袋":
+    elif cmd == "!開運福袋":
         await handle_lucky_bag(message, user_data, ref)
-    elif content.startswith("!購買手套"):
-        parts = content.split()
+    elif cmd.startswith("!購買手套"):
         if len(parts) == 2:
             await handle_buy_glove(message, user_id, user_data, ref, parts[1], show_farm_overview)
         else:
             await message.channel.send("❓ 指令格式錯誤，請使用：`!購買手套 幸運手套`")
-    elif content == "!手套圖鑑":
-        await handle_glove_encyclopedia(message)  
-    elif content == "!購買裝飾":
+    elif cmd == "!手套圖鑑":
+        await handle_glove_encyclopedia(message)
+    elif cmd == "!購買裝飾":
         await handle_buy_decoration(message, user_data, ref)
-    elif content.startswith("!種蘿蔔"):
-        parts = content.split()
+    elif cmd.startswith("!種蘿蔔"):
         if len(parts) == 2:
             await handle_plant_carrot(message, user_id, user_data, ref, parts[1])
         else:
             await message.channel.send("❓ 格式錯誤：`!種蘿蔔 普通肥料`")
-    elif content == "!收成蘿蔔":
+    elif cmd == "!收成蘿蔔":
         await handle_harvest_carrot(message, user_id, user_data, ref)
-    elif content == "!升級土地":
+    elif cmd == "!升級土地":
         await handle_upgrade_land(message, user_id, user_data, ref)
-    elif content == "!土地進度":
+    elif cmd == "!土地進度":
         await handle_land_progress(message, user_id, user_data)
-    elif content in ["!農場總覽", "!土地狀態"]:
+    elif cmd in ["!農場總覽", "!土地狀態"]:
         await show_farm_overview(message, user_id, user_data)
-    elif content.startswith("!購買肥料"):
-        parts = content.split()
+    elif cmd.startswith("!購買肥料"):
         if len(parts) == 2:
             await handle_buy_fertilizer(message, user_id, user_data, ref, parts[1])
         else:
             await message.channel.send("❓ 指令格式錯誤，請使用：`!購買肥料 普通肥料` 或 `!購買肥料 高級肥料`")
-    elif content.startswith("!給金幣"):
-        args = content.split()[1:]
+    elif cmd.startswith("!給金幣"):
+        args = parts[1:]
         await handle_give_coins(message, args)
+
 
 # ==========================================================
 # Flask + FastAPI 整合（防休眠 + Fortune API）
