@@ -147,7 +147,25 @@ async def handle_pull_carrot(message, user_id, username, user_data, ref):
         await message.channel.send(embed=embed)
         return
 
-    result = pull_carrot()
+    # ===== 特殊蘿蔔池判定 =====
+    gloves = user_data.get("gloves", [])
+    land_level = user_data.get("farm", {}).get("land_level", 1)
+    pool_type = "normal"
+
+    if "神奇手套" in gloves and random.random() < 0.2:
+        pool_type = "special"
+    elif land_level >= 4 and random.random() < 0.1:
+        pool_type = "special"
+
+    # ===== 特殊池抽卡邏輯 =====
+    if pool_type == "special":
+        result = random.choices(
+            ["彩虹蘿蔔", "黃金蘿蔔", "幸運蘿蔔", "冰晶蘿蔔"],
+            weights=[0.4, 0.3, 0.2, 0.1]
+        )[0]
+    else:
+        result = pull_carrot()
+
     is_new = result not in user_data.get("carrots", [])
     remaining = 2 - today_pulls
 
@@ -157,8 +175,62 @@ async def handle_pull_carrot(message, user_id, username, user_data, ref):
 
     user_data.setdefault("carrot_pulls", {})
     user_data["carrot_pulls"][today] = today_pulls + 1
+    user_data["carrot_pulls"]["last_pool"] = pool_type
+
+    # ===== 蘿蔔事件觸發 =====
+    triggered_event = None
+    event_roll = random.random()
+    now = datetime.now()
+
+    if land_level >= 5 and event_roll < 0.1:
+        triggered_event = random.choice([
+            "神秘訪客", "蘿蔔大逃亡", "蘿蔔爆彈", "鳥群來襲",
+            "蘿蔔占卜師", "蘿蔔金幣雨", "冰封蘿蔔"
+        ])
+
+        if triggered_event == "神秘訪客":
+            bonus = random.choice(["普通肥料", "高級肥料", "裝飾"])
+            user_data["coins"] += 20
+            await message.channel.send(f"🎁 神秘訪客出現！你獲得了 20 金幣與一份 {bonus}！")
+
+        elif triggered_event == "蘿蔔大逃亡":
+            user_data["coins"] = max(user_data.get("coins", 0) - 10, 0)
+            await message.channel.send("🐰 蘿蔔大逃亡！你花了 10 金幣追回它。")
+
+        elif triggered_event == "蘿蔔爆彈":
+            ferts = user_data.get("fertilizers", {})
+            if ferts:
+                unlucky = random.choice(list(ferts.keys()))
+                ferts[unlucky] = 0
+                await message.channel.send(f"💥 蘿蔔爆彈引爆！你的「{unlucky}」肥料被炸光了！")
+
+        elif triggered_event == "鳥群來襲":
+            farm = user_data.get("farm", {})
+            if farm.get("status") == "planted":
+                old_time = datetime.fromisoformat(farm["harvest_time"])
+                farm["harvest_time"] = (old_time + timedelta(hours=2)).isoformat()
+                await message.channel.send("🐦 鳥群來襲！你的蘿蔔收成時間延後了 2 小時。")
+
+        elif triggered_event == "蘿蔔占卜師":
+            prediction = random.choice(["普通蘿蔔", "大蘿蔔", "幸運蘿蔔", "壞運蘿蔔"])
+            await message.channel.send(f"🔮 蘿蔔占卜師預言：你下一次可能會拔出「{prediction}」！")
+
+        elif triggered_event == "蘿蔔金幣雨":
+            user_data["coins"] += 50
+            await message.channel.send("🪙 蘿蔔金幣雨降臨！你獲得了額外 50 金幣！")
+
+        elif triggered_event == "冰封蘿蔔":
+            if now.month in [12, 1, 2]:
+                farm = user_data.get("farm", {})
+                if farm.get("status") == "planted":
+                    old_time = datetime.fromisoformat(farm["harvest_time"])
+                    farm["harvest_time"] = (old_time + timedelta(hours=6)).isoformat()
+                    farm["frosted"] = True
+                    await message.channel.send("🧊 冰封蘿蔔出現！雖然收成延後，但品質更佳！")
+
     ref.set(user_data)
 
+    # ===== 結果 Embed =====
     color = get_carrot_rarity_color(result)
     embed = discord.Embed(
         title="💪 拔蘿蔔結果",
@@ -174,7 +246,13 @@ async def handle_pull_carrot(message, user_id, username, user_data, ref):
         value="你的圖鑑新增了一種蘿蔔！" if is_new else "這種蘿蔔你已經擁有囉！",
         inline=False
     )
-    embed.add_field(name="🔁 今日剩餘次數", value=f"{remaining} 次", inline=False)
+    embed.add_field(name="🔁 今日剩餘次數", value=f"{remaining} 次", inline=True)
+
+    if pool_type == "special":
+        embed.add_field(name="🎯 特殊蘿蔔池", value="你進入了特殊蘿蔔池，抽出稀有蘿蔔的機率大幅提升！", inline=False)
+
+    if triggered_event:
+        embed.add_field(name="🎉 事件觸發", value=f"你觸發了「{triggered_event}」事件！", inline=False)
 
     await message.channel.send(embed=embed)
     
