@@ -242,6 +242,9 @@ async def on_message(message):
         await handle_give_coins(message, args)
     elif content == "!蘿蔔說明":
         await handle_carrot_info(message)
+    elif content == "!特殊蘿蔔一覽":
+        await handle_special_carrots(message)
+
 
 # ==========================================================
 # Flask + FastAPI 整合（防休眠 + Fortune API）
