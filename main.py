@@ -240,7 +240,8 @@ async def on_message(message):
     elif cmd.startswith("!給金幣"):
         args = parts[1:]
         await handle_give_coins(message, args)
-
+    elif content == "!蘿蔔說明":
+        await handle_carrot_info(message)
 
 # ==========================================================
 # Flask + FastAPI 整合（防休眠 + Fortune API）
