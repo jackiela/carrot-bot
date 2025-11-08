@@ -21,6 +21,8 @@ from carrot_commands import (
     handle_give_coins,
     handle_buy_glove,  # ✅ 新增匯入
     handle_glove_encyclopedia
+    handle_carrot_info
+    handle_special_carrots
 )
 from utils import is_admin, get_today, get_now
 from fortune_data import fortunes
