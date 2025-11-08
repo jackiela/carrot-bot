@@ -20,8 +20,8 @@ from carrot_commands import (
     show_farm_overview,
     handle_give_coins,
     handle_buy_glove,  # ✅ 新增匯入
-    handle_glove_encyclopedia
-    handle_carrot_info
+    handle_glove_encyclopedia,
+    handle_carrot_info,
     handle_special_carrots
 )
 from utils import is_admin, get_today, get_now
