@@ -1124,39 +1124,33 @@ async def handle_carrot_info(message):
     embed.set_footer(text="🌱 使用 !土地進度 查看升級進度｜📘 使用 !拔蘿蔔 開始抽卡")
     await message.channel.send(embed=embed)
 
-    # ===== 特殊蘿蔔池一覽 =====
 
-async def handle_special_carrots(message):
-    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
+# ===== 特殊蘿蔔池一覽（含機率） =====
+
+async def handle_special_carrots(message, user_id, user_data, ref):
     user_data = sanitize_user_data(user_data)
-    
+
+    # 蘿蔔列表與機率（可隨時調整）
+    special_carrots = [
+        {"name": "🌈 彩虹蘿蔔", "rarity": "極稀有", "effect": "色彩繽紛的傳說級蘿蔔，收藏價值極高。", "chance": "1%"},
+        {"name": "🥇 黃金蘿蔔", "rarity": "稀有", "effect": "閃閃發亮的金色蘿蔔，象徵財富與幸運。", "chance": "5%"},
+        {"name": "🍀 幸運蘿蔔", "rarity": "稀有", "effect": "拔出後當日金幣獲得量 +20%。", "chance": "10%"},
+        {"name": "🧊 冰晶蘿蔔", "rarity": "季節限定", "effect": "冬季限定出現，外觀晶瑩剔透。", "chance": "3%"},
+    ]
+
     embed = discord.Embed(
-        title="🎯 特殊蘿蔔池一覽",
-        description="以下是目前可從特殊蘿蔔池中抽出的稀有蘿蔔與其特色：",
+        title=f"🎯 {message.author.display_name} 的特殊蘿蔔池一覽",
+        description=f"玩家 ID：{user_id}\nRef：{ref}\n以下是目前可從特殊蘿蔔池中抽出的稀有蘿蔔與其特色及出現機率：",
         color=discord.Color.purple()
     )
     embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
 
-    embed.add_field(
-        name="🌈 彩虹蘿蔔",
-        value="極稀有｜色彩繽紛的傳說級蘿蔔，收藏價值極高。",
-        inline=False
-    )
-    embed.add_field(
-        name="🥇 黃金蘿蔔",
-        value="稀有｜閃閃發亮的金色蘿蔔，象徵財富與幸運。",
-        inline=False
-    )
-    embed.add_field(
-        name="🍀 幸運蘿蔔",
-        value="稀有｜拔出後當日金幣獲得量 +20%。",
-        inline=False
-    )
-    embed.add_field(
-        name="🧊 冰晶蘿蔔",
-        value="季節限定｜冬季限定出現，外觀晶瑩剔透。",
-        inline=False
-    )
+    for carrot in special_carrots:
+        embed.add_field(
+            name=f"{carrot['name']} ({carrot['rarity']})",
+            value=f"{carrot['effect']}\n🎲 機率：{carrot['chance']}",
+            inline=False
+        )
 
     embed.add_field(
         name="🎯 如何進入特殊蘿蔔池？",
