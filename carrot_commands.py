@@ -7,10 +7,13 @@ from utils import get_today, get_now, get_remaining_hours, get_carrot_thumbnail,
 from carrot_data import common_carrots, rare_carrots, legendary_carrots, all_carrots
 from fortune_data import fortunes
 from datetime import datetime, timedelta
-
+from utils_sanitize import sanitize_user_data
 
 # ✅ 通用工具：確認玩家是否在自己的田地
 async def ensure_player_thread(message):
+    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
+    user_data = sanitize_user_data(user_data)
+    
     expected_name = f"{message.author.display_name} 的田地"
     current_channel = message.channel
 
@@ -74,6 +77,9 @@ def pull_carrot_by_farm(fertilizer="普通肥料", land_level=1):
 
 async def handle_fortune(message, user_id, username, user_data, ref, force=False):
     from utils import get_fortune_thumbnail
+    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
+    user_data = sanitize_user_data(user_data)
+        
     today = get_today()
     last_fortune_date = user_data.get("last_fortune_date")
     is_admin = message.author.guild_permissions.administrator
@@ -133,6 +139,9 @@ async def handle_fortune(message, user_id, username, user_data, ref, force=False
 
 # ===== 拔蘿蔔 =====
 async def handle_pull_carrot(message, user_id, username, user_data, ref):
+    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
+    user_data = sanitize_user_data(user_data)
+    
     today = get_today()
     pulls = user_data.get("carrot_pulls", {})
     today_pulls = pulls.get(today, 0)
@@ -271,6 +280,9 @@ async def handle_pull_carrot(message, user_id, username, user_data, ref):
     
     # ===== 蘿蔔圖鑑 =====
 async def handle_carrot_encyclopedia(message, user_id, user_data):
+    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
+    user_data = sanitize_user_data(user_data)
+    
     collected = user_data.get("carrots", [])
     if not collected:
         await message.channel.send("📖 你的圖鑑還是空的，快去拔蘿蔔吧！")
@@ -293,6 +305,9 @@ async def handle_carrot_encyclopedia(message, user_id, user_data):
 
 # ===== 蘿蔔排行榜 =====
 async def handle_carrot_ranking(message):
+    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
+    user_data = sanitize_user_data(user_data)
+    
     data = db.reference("/users").get()
     if not data:
         await message.channel.send("📊 目前還沒有任何玩家收集蘿蔔！")
@@ -313,6 +328,9 @@ async def handle_carrot_ranking(message):
 
 # ===== 胡蘿蔔小知識 =====
 async def handle_carrot_fact(message):
+    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
+    user_data = sanitize_user_data(user_data)
+    
     fact = random.choice(carrot_facts)
     await message.channel.send(f"🥕 胡蘿蔔小知識：{fact}")
 
@@ -326,11 +344,17 @@ async def handle_carrot_recipe(message):
 
 # ===== 種植小貼士 =====
 async def handle_carrot_tip(message):
+    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
+    user_data = sanitize_user_data(user_data)
+    
     tip = random.choice(carrot_tips)
     await message.channel.send(f"🌱 胡蘿蔔種植小貼士：{tip}")
     
 # ✅ 自動收成提醒
 async def schedule_harvest_reminder(user_id, channel, harvest_time):
+    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
+    user_data = sanitize_user_data(user_data)
+    
     now = datetime.now()
     delay = (harvest_time - now).total_seconds()
     if delay > 0:
@@ -339,6 +363,9 @@ async def schedule_harvest_reminder(user_id, channel, harvest_time):
 
 # ✅ 種蘿蔔主函式
 async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普通肥料"):
+    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
+    user_data = sanitize_user_data(user_data)
+    
     current_channel = await ensure_player_thread(message)
     if current_channel is None:
         return
@@ -397,6 +424,9 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
     
 # ===== 收成蘿蔔 =====
 async def handle_harvest_carrot(message, user_id, user_data, ref):
+    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
+    user_data = sanitize_user_data(user_data)
+    
     from utils import get_now, parse_datetime, get_remaining_time_str, get_carrot_thumbnail, get_carrot_rarity_color
     current_channel = await ensure_player_thread(message)
     if current_channel is None:
@@ -454,6 +484,9 @@ async def handle_harvest_carrot(message, user_id, user_data, ref):
 
 # ===== 購買肥料 =====
 async def handle_buy_fertilizer(message, user_id, user_data, ref, fertilizer):
+    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
+    user_data = sanitize_user_data(user_data)
+    
     prices = {
         "普通肥料": 10,
         "高級肥料": 30,
@@ -490,6 +523,9 @@ async def handle_buy_fertilizer(message, user_id, user_data, ref, fertilizer):
 
 # ===== 升級土地 =====
 async def handle_upgrade_land(message, user_id, user_data, ref):
+    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
+    user_data = sanitize_user_data(user_data)
+    
     farm = user_data.setdefault("farm", {})
     coins = user_data.get("coins", 0)
     level = farm.get("land_level", 1)
@@ -511,6 +547,9 @@ async def handle_upgrade_land(message, user_id, user_data, ref):
 
 # ===== 土地進度查詢（新版 Embed） =====
 async def handle_land_progress(message, user_id, user_data):
+    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
+    user_data = sanitize_user_data(user_data)
+    
     farm = user_data.get("farm", {})
     land_level = farm.get("land_level", 1)
     pull_count = farm.get("pull_count", 0)
@@ -557,6 +596,9 @@ async def handle_land_progress(message, user_id, user_data):
 
 # ===== 農場總覽卡（Embed 顯示）=====
 async def show_farm_overview(message, user_id, user_data):
+    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
+    user_data = sanitize_user_data(user_data)
+    
     from utils import parse_datetime, get_remaining_time_str
     current_channel = await ensure_player_thread(message)
     if current_channel is None:
@@ -677,6 +719,9 @@ async def show_farm_overview(message, user_id, user_data):
 
 # ===== 健康檢查 =====
 async def handle_health_check(message):
+    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
+    user_data = sanitize_user_data(user_data)
+    
     from utils import get_today, get_fortune_thumbnail, get_carrot_thumbnail, get_carrot_rarity_color
     today = get_today()
     is_admin = message.author.guild_permissions.administrator
@@ -769,6 +814,9 @@ async def handle_buy_glove(message, user_id, user_data, ref, glove_name, show_fa
 
 # 🎍 購買裝飾（購買後自動顯示農場總覽）
 async def handle_buy_decoration(message, user_id, user_data, ref, deco_name):
+    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
+    user_data = sanitize_user_data(user_data)
+    
     shop = {
         "花圃": 80,
         "木柵欄": 100,
@@ -802,6 +850,9 @@ async def handle_buy_decoration(message, user_id, user_data, ref, deco_name):
 
 # 🧧 開運福袋（含特效與農場總覽）
 async def handle_open_lucky_bag(message, user_id, user_data, ref):
+    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
+    user_data = sanitize_user_data(user_data)
+    
     cost = 80
     coins = user_data.get("coins", 0)
     if coins < cost:
@@ -865,6 +916,9 @@ async def handle_open_lucky_bag(message, user_id, user_data, ref):
     await show_farm_overview(message, user_id, updated_data)
 # 🏪 商店總覽
 async def handle_shop(message):
+    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
+    user_data = sanitize_user_data(user_data)
+    
     text = (
         "🏪 **農場商店**\n\n"
         "🧤 手套：\n"
@@ -963,6 +1017,9 @@ async def handle_give_coins(message, args):
 
 # 🧤 手套圖鑑
 async def handle_glove_encyclopedia(message):
+    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
+    user_data = sanitize_user_data(user_data)
+    
     gloves = {
         "幸運手套": "大吉時可多拔一根蘿蔔。",
         "農夫手套": "收成金幣 +20%。",
@@ -984,6 +1041,9 @@ async def handle_glove_encyclopedia(message):
     # ===== 蘿蔔系統說明 =====
 
 async def handle_carrot_info(message):
+    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
+    user_data = sanitize_user_data(user_data)
+    
     embed = discord.Embed(
         title="🥕 蘿蔔系統說明",
         description="探索蘿蔔世界的各種機制與驚喜！",
@@ -1050,6 +1110,9 @@ async def handle_carrot_info(message):
     # ===== 特殊蘿蔔池一覽 =====
 
 async def handle_special_carrots(message):
+    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
+    user_data = sanitize_user_data(user_data)
+    
     embed = discord.Embed(
         title="🎯 特殊蘿蔔池一覽",
         description="以下是目前可從特殊蘿蔔池中抽出的稀有蘿蔔與其特色：",
