@@ -3,29 +3,45 @@ import random
 import discord
 import asyncio
 from firebase_admin import db
-from utils import get_today, get_now, get_remaining_hours, get_carrot_thumbnail, get_carrot_rarity_color
+from datetime import datetime, timedelta
+
+# ===== 導入自訂工具 =====
+from utils import (
+    get_today, get_now, get_remaining_hours,
+    get_carrot_thumbnail, get_carrot_rarity_color
+)
+from utils_sanitize import sanitize_user_data
 from carrot_data import common_carrots, rare_carrots, legendary_carrots, all_carrots
 from fortune_data import fortunes
-from datetime import datetime, timedelta
-from utils_sanitize import sanitize_user_data
 
-# ✅ 通用工具：確認玩家是否在自己的田地
-async def ensure_player_thread(message):
-    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
-    user_data = sanitize_user_data(user_data)
-    
+
+# ======================================
+# ✅ 通用輔助：確認玩家是否在自己的田地
+# ======================================
+async def ensure_player_thread(message, user_data=None):
+    """
+    確保使用者在自己的田地串中使用指令；
+    若不在，則自動建立新串或提示跳轉。
+    """
+    # --- 安全檢查 ---
+    if user_data:
+        user_data = sanitize_user_data(user_data)
+
     expected_name = f"{message.author.display_name} 的田地"
     current_channel = message.channel
 
+    # 🔎 取得父頻道（避免 Thread 時出錯）
     parent_channel = current_channel.parent if isinstance(current_channel, discord.Thread) else current_channel
-    target_thread = next((t for t in parent_channel.threads if t.name == expected_name), None)
 
+    # 🔍 嘗試尋找現有田地串（含封存）
+    target_thread = next((t for t in parent_channel.threads if t.name == expected_name), None)
     if not target_thread:
         async for t in parent_channel.archived_threads(limit=None):
             if t.name == expected_name:
                 target_thread = t
                 break
 
+    # 🧭 若目前不是在自己的田地串
     if not isinstance(current_channel, discord.Thread) or current_channel.name != expected_name:
         if target_thread:
             await message.channel.send(f"⚠️ 請在你的田地串中使用此指令：{target_thread.jump_url}")
@@ -39,6 +55,7 @@ async def ensure_player_thread(message):
         return new_thread
 
     return current_channel
+
 
 def pull_carrot():
     roll = random.randint(1, 100)
