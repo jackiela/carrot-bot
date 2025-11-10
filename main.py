@@ -154,7 +154,7 @@ async def on_message(message):
     # 取得訊息內容，防止 None 或空白
     content = (message.content or "").strip()
     if not content:
-        return  # 🧱 空訊息（貼圖、圖片、Embed）直接忽略
+        return  # 空訊息直接忽略
 
     user_id = str(message.author.id)
     username = message.author.display_name
@@ -163,20 +163,20 @@ async def on_message(message):
     user_data, ref = get_user_data(user_id, username)
     await check_daily_login_reward(message, user_id, user_data, ref)
 
-    # 解析指令字（例如 "!運勢"）
+    # 解析指令字
     parts = content.split()
     cmd = parts[0] if parts else None
     if not cmd:
         return
 
-    # ✅ 限制特定指令只能在指定頻道使用
+    # 限制特定指令只能在指定頻道使用
     if cmd in COMMAND_CHANNELS:
         allowed_channel = COMMAND_CHANNELS[cmd]
         if message.channel.id != allowed_channel and getattr(message.channel, "parent_id", None) != allowed_channel:
             await message.channel.send(f"⚠️ 這個指令只能在 <#{allowed_channel}> 使用")
             return
 
-    # ✅ 農場系統相關指令
+    # 農場系統相關指令
     farm_cmds = [
         "!種蘿蔔", "!收成蘿蔔", "!升級土地", "!土地進度",
         "!農場總覽", "!土地狀態", "!商店", "!開運福袋",
@@ -190,7 +190,7 @@ async def on_message(message):
                 await message.channel.send("❌ 無法建立或找到你的田地串（可能缺少權限）。")
                 return
 
-            # 建立假的訊息物件傳遞進 overview 函數
+            # 建立假的訊息物件傳遞給 overview 函數
             class _Msg:
                 def __init__(self, author, channel):
                     self.author = author
@@ -207,11 +207,11 @@ async def on_message(message):
     elif cmd == "!拔蘿蔔":
         await handle_pull_carrot(message, user_id, username, user_data, ref)
     elif cmd == "!蘿蔔圖鑑":
-        await handle_carrot_encyclopedia(message, user_id, user_data)
+        await handle_carrot_encyclopedia(message, user_id, user_data, ref)
     elif cmd == "!蘿蔔排行":
-        await handle_carrot_ranking(message)
+        await handle_carrot_ranking(message, user_id, user_data, ref)
     elif cmd == "!商店":
-        await handle_shop(message, user_data, ref)
+        await handle_shop(message, user_id, user_data, ref)
     elif cmd == "!開運福袋":
         await handle_open_lucky_bag(message, user_id, user_data, ref)
     elif cmd.startswith("!購買手套"):
@@ -220,9 +220,9 @@ async def on_message(message):
         else:
             await message.channel.send("❓ 指令格式錯誤，請使用：`!購買手套 幸運手套`")
     elif cmd == "!手套圖鑑":
-        await handle_glove_encyclopedia(message)
+        await handle_glove_encyclopedia(message, user_id, user_data, ref)
     elif cmd == "!購買裝飾":
-        await handle_buy_decoration(message, user_data, ref)
+        await handle_buy_decoration(message, user_id, user_data, ref)
     elif cmd.startswith("!種蘿蔔"):
         if len(parts) == 2:
             await handle_plant_carrot(message, user_id, user_data, ref, parts[1])
@@ -233,9 +233,9 @@ async def on_message(message):
     elif cmd == "!升級土地":
         await handle_upgrade_land(message, user_id, user_data, ref)
     elif cmd == "!土地進度":
-        await handle_land_progress(message, user_id, user_data)
+        await handle_land_progress(message, user_id, user_data, ref)
     elif cmd in ["!農場總覽", "!土地狀態"]:
-        await show_farm_overview(message, user_id, user_data)
+        await show_farm_overview(message, user_id, user_data, ref)
     elif cmd.startswith("!購買肥料"):
         if len(parts) == 2:
             await handle_buy_fertilizer(message, user_id, user_data, ref, parts[1])
@@ -243,11 +243,11 @@ async def on_message(message):
             await message.channel.send("❓ 指令格式錯誤，請使用：`!購買肥料 普通肥料` 或 `!購買肥料 高級肥料`")
     elif cmd.startswith("!給金幣"):
         args = parts[1:]
-        await handle_give_coins(message, args)
+        await handle_give_coins(message, user_id, user_data, ref, args)
     elif content == "!蘿蔔說明":
-        await handle_carrot_info(message)
+        await handle_carrot_info(message, user_id, user_data, ref)
     elif content == "!特殊蘿蔔一覽":
-        await handle_special_carrots(message)
+        await handle_special_carrots(message, user_id, user_data, ref)
 
 
 # ==========================================================
