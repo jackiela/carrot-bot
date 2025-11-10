@@ -22,7 +22,8 @@ from carrot_commands import (
     handle_buy_glove,  # ✅ 新增匯入
     handle_glove_encyclopedia,
     handle_carrot_info,
-    handle_special_carrots
+    handle_special_carrots,
+    handle_open_lucky_bag
 )
 from utils import is_admin, get_today, get_now
 from fortune_data import fortunes
