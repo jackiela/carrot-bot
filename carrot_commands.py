@@ -1140,7 +1140,7 @@ async def handle_special_carrots(message, user_id, user_data, ref):
 
     embed = discord.Embed(
         title=f"🎯 {message.author.display_name} 的特殊蘿蔔池一覽",
-        description=f"玩家 ID：{user_id}\nRef：{ref}\n以下是目前可從特殊蘿蔔池中抽出的稀有蘿蔔與其特色及出現機率：",
+        description=f"以下是目前可從特殊蘿蔔池中抽出的稀有蘿蔔與其特色及出現機率：",
         color=discord.Color.purple()
     )
     embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
