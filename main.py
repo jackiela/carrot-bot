@@ -211,7 +211,7 @@ async def on_message(message):
     elif cmd == "!蘿蔔排行":
         await handle_carrot_ranking(message, user_id, user_data, ref)
     elif cmd == "!商店":
-        await handle_shop(message)
+        await handle_shop(message, user_id, user_data, ref)
     elif cmd == "!開運福袋":
         await handle_open_lucky_bag(message, user_id, user_data, ref)
     elif cmd.startswith("!購買手套"):
