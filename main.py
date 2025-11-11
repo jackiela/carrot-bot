@@ -126,7 +126,7 @@ async def get_or_create_farm_thread(parent_channel, author):
         return None
 
 # ===== 商店指令 =====
-async def handle_shop(message, user_data, ref):
+async def handle_shop(message, user_id, user_data, ref):
     embed = discord.Embed(title="🏪 胡蘿蔔商店", color=discord.Color.orange())
 
     # 🧧 開運福袋
