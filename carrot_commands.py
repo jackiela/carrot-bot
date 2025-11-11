@@ -296,29 +296,72 @@ async def handle_pull_carrot(message, user_id, username, user_data, ref):
 
     
     # ===== 蘿蔔圖鑑 =====
-async def handle_carrot_encyclopedia(message, user_id, user_data):
+async def handle_carrot_encyclopedia(message, user_id, user_data, ref):
+    """📖 顯示蘿蔔圖鑑進度"""
     # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
     user_data = sanitize_user_data(user_data)
-    
+
     collected = user_data.get("carrots", [])
     if not collected:
-        await message.channel.send("📖 你的圖鑑還是空的，快去拔蘿蔔吧！")
+        embed = discord.Embed(
+            title="📖 蘿蔔圖鑑",
+            description="你的圖鑑還是空的，快去拔蘿蔔吧！🌱",
+            color=discord.Color.light_gray()
+        )
+        embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
+        await message.channel.send(embed=embed)
         return
 
+    # --- 📊 統計 ---
     total = len(all_carrots)
     progress = len(collected)
-
     common_count = len([c for c in collected if c in common_carrots])
     rare_count = len([c for c in collected if c in rare_carrots])
     legendary_count = len([c for c in collected if c in legendary_carrots])
 
-    reply = f"📖 你的蘿蔔圖鑑：{progress}/{total} 種\n"
-    reply += f"🔹 普通：{common_count}/{len(common_carrots)} 種\n"
-    reply += f"🔸 稀有：{rare_count}/{len(rare_carrots)} 種\n"
-    reply += f"🌟 傳說：{legendary_count}/{len(legendary_carrots)} 種\n\n"
-    reply += "你已收集到的蘿蔔：\n" + "\n".join(collected)
+    # --- 🌈 進度條 ---
+    bar_length = 20
+    filled_length = int(progress / total * bar_length)
+    progress_bar = "█" * filled_length + "░" * (bar_length - filled_length)
 
-    await message.channel.send(reply)
+    # --- 🧡 Embed 設定 ---
+    embed = discord.Embed(
+        title="📖 蘿蔔圖鑑進度",
+        description=f"{progress}/{total} 種\n{progress_bar}",
+        color=discord.Color.orange()
+    )
+    embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
+
+    embed.add_field(
+        name="🌿 普通蘿蔔",
+        value=f"{common_count}/{len(common_carrots)} 種",
+        inline=True
+    )
+    embed.add_field(
+        name="🌸 稀有蘿蔔",
+        value=f"{rare_count}/{len(rare_carrots)} 種",
+        inline=True
+    )
+    embed.add_field(
+        name="🌟 傳說蘿蔔",
+        value=f"{legendary_count}/{len(legendary_carrots)} 種",
+        inline=True
+    )
+
+    # --- 🥕 已收集清單 ---
+    collected_list = "\n".join([f"・{c}" for c in collected])
+    if len(collected_list) > 1024:
+        collected_list = collected_list[:1020] + "..."
+
+    embed.add_field(
+        name="📚 已收集的蘿蔔",
+        value=collected_list,
+        inline=False
+    )
+
+    embed.set_footer(text="快去收集更多蘿蔔來完成圖鑑吧！")
+
+    await message.channel.send(embed=embed)
 
 # ===== 蘿蔔排行榜 =====
 async def handle_carrot_ranking(message):
