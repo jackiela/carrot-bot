@@ -976,7 +976,9 @@ async def handle_open_lucky_bag(message, user_id, user_data, ref):
     await show_farm_overview(message, user_id, updated_data)
     
 # 🏪 商店總覽
-async def handle_shop(message):
+async def handle_shop(message, user_id, user_data, ref):
+    user_data = sanitize_user_data(user_data)
+    
     text = (
         "🏪 **農場商店**\n\n"
         "🧤 手套：\n"
@@ -994,6 +996,7 @@ async def handle_shop(message):
         "`!開福袋`"
     )
     await message.channel.send(text)
+
 
 
     # ===== 給金幣 =====
