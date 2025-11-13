@@ -198,7 +198,7 @@ async def on_message(message):
                     self.channel = channel
 
             fake_msg = _Msg(message.author, thread)
-            await show_farm_overview(fake_msg, user_id, user_data)
+            await show_farm_overview(fake_msg, user_id, user_data, ref)
             await message.channel.send(f"✅ 我已在你的田地串發送農場總覽：{thread.jump_url}")
             return
 
