@@ -1102,7 +1102,7 @@ async def handle_glove_encyclopedia(message):
 
     # ===== 蘿蔔系統說明 =====
 
-async def handle_carrot_info(message):
+async def handle_carrot_info(message, user_id, user_data, ref):
     # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
     user_data = sanitize_user_data(user_data)
     
