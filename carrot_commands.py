@@ -606,7 +606,7 @@ async def handle_upgrade_land(message, user_id, user_data, ref):
     await message.channel.send(f"🛠️ 土地成功升級至 Lv.{level + 1}，花費 {cost} 金幣")
 
 # ===== 土地進度查詢（新版 Embed） =====
-async def handle_land_progress(message, user_id, user_data):
+async def handle_land_progress(message, user_id, user_data, ref):
     # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
     user_data = sanitize_user_data(user_data)
     
@@ -655,7 +655,7 @@ async def handle_land_progress(message, user_id, user_data):
     await message.channel.send(embed=embed)
 
 # ===== 農場總覽卡（Embed 顯示）=====
-async def show_farm_overview(message, user_id, user_data):
+async def show_farm_overview(message, user_id, user_data, ref):
     # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
     user_data = sanitize_user_data(user_data)
     
