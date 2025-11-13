@@ -145,7 +145,7 @@ async def handle_shop(message, user_id, user_data, ref):
     embed.set_footer(text=f"💰 你目前擁有 {user_data.get('coins', 0)} 金幣")
     await message.channel.send(embed=embed)
 
-# ===== 指令分派 =====
+# ===== 指令分派  =====
 @client.event
 async def on_message(message):
     # 忽略機器人自己的訊息
@@ -177,30 +177,29 @@ async def on_message(message):
             await message.channel.send(f"⚠️ 這個指令只能在 <#{allowed_channel}> 使用")
             return
 
-    # 農場系統相關指令
+    # 農場系統相關指令的導向邏輯
     farm_cmds = [
         "!種蘿蔔", "!收成蘿蔔", "!升級土地", "!土地進度",
         "!農場總覽", "!土地狀態", "!商店", "!開運福袋",
         "!購買手套", "!購買裝飾", "!特殊蘿蔔一覽"
     ]
-    if any(content.startswith(cmd) for cmd in farm_cmds):
+    if any(content.startswith(c) for c in farm_cmds):
         if not is_in_own_farm_thread(message):
+            # 如果不在自己的子頻道，則導向子頻道
             parent_channel = message.channel.parent if isinstance(message.channel, discord.Thread) else message.channel
             thread = await get_or_create_farm_thread(parent_channel, message.author)
             if not thread:
                 await message.channel.send("❌ 無法建立或找到你的田地串（可能缺少權限）。")
                 return
-
-            # 建立假的訊息物件傳遞給 overview 函數
-            class _Msg:
-                def __init__(self, author, channel):
-                    self.author = author
-                    self.channel = channel
-
-            fake_msg = _Msg(message.author, thread)
-            await show_farm_overview(fake_msg, user_id, user_data, ref)
-            await message.channel.send(f"✅ 我已在你的田地串發送農場總覽：{thread.jump_url}")
-            return
+            
+            # --- 關鍵修改 ---
+            # 1. 在原頻道發送提示訊息
+            await message.channel.send(f"✅ 我已將你的指令導向田地串：{thread.jump_url}，請稍候。")
+            
+            # 2. 將訊息的目標頻道改為子頻道 (thread)
+            #    這樣下方的所有指令邏輯都會在子頻道執行
+            message.channel = thread
+            # --- 關鍵修改結束 ---
 
     # ===== 指令邏輯 =====
     if cmd == "!運勢":
