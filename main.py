@@ -94,6 +94,9 @@ COMMAND_CHANNELS = {
     "!購買手套": 1423335407105343589,
     "!購買裝飾": 1423335407105343589,
     "!特殊蘿蔔一覽": 1423335407105343589,
+    "!胡蘿蔔": 1420254884581867647,
+    "!食譜": 1420254884581867647,
+    "!種植": 1420254884581867647,
 }
 
 # ===== 田地輔助 =====
@@ -248,7 +251,12 @@ async def on_message(message):
         await handle_carrot_info(message, user_id, user_data, ref)
     elif content == "!特殊蘿蔔一覽":
         await handle_special_carrots(message, user_id, user_data, ref)
-
+    elif content == "!胡蘿蔔":
+        await handle_carrot_tip(message, user_id, user_data, ref)        
+    elif content == "!食譜":
+        await handle_carrot_recipe(message, user_id, user_data, ref)
+    elif content == "!種植":
+        await handle_carrot_fact(message, user_id, user_data, ref)        
 
 # ==========================================================
 # Flask + FastAPI 整合（防休眠 + Fortune API）
