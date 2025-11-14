@@ -411,7 +411,7 @@ async def handle_carrot_tip(message):
     await message.channel.send(f"🌱 胡蘿蔔種植小貼士：{tip}")
     
 # ✅ 自動收成提醒
-async def schedule_harvest_reminder(user_id, channel, harvest_time):
+async def schedule_harvest_reminder(user_id, user_data, channel):
     # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
     user_data = sanitize_user_data(user_data)
     
