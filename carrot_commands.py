@@ -387,7 +387,7 @@ async def handle_carrot_ranking(message):
     await message.channel.send(reply)
 
 # ===== 胡蘿蔔小知識 =====
-async def handle_carrot_fact(message):
+async def handle_carrot_fact(message, user_id, user_data, ref):
     # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
     user_data = sanitize_user_data(user_data)
     
@@ -395,7 +395,7 @@ async def handle_carrot_fact(message):
     await message.channel.send(f"🥕 胡蘿蔔小知識：{fact}")
 
 # ===== 胡蘿蔔料理 =====
-async def handle_carrot_recipe(message):
+async def handle_carrot_recipe(message, user_id, user_data, ref):
     recipe_name = random.choice(list(recipes.keys()))
     detail = recipes[recipe_name]
     await message.channel.send(
@@ -403,7 +403,7 @@ async def handle_carrot_recipe(message):
     )
 
 # ===== 種植小貼士 =====
-async def handle_carrot_tip(message):
+async def handle_carrot_tip(message, user_id, user_data, ref):
     # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
     user_data = sanitize_user_data(user_data)
     
