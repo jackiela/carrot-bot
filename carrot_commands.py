@@ -11,9 +11,8 @@ from utils import (
     get_carrot_thumbnail, get_carrot_rarity_color
 )
 from utils_sanitize import sanitize_user_data
-from carrot_data import common_carrots, rare_carrots, legendary_carrots, all_carrots
+from carrot_data import common_carrots, rare_carrots, legendary_carrots, all_carrots, recipes, carrot_tips, carrot_facts
 from fortune_data import fortunes
-
 
 # ======================================
 # ✅ 通用輔助：確認玩家是否在自己的田地
