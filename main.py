@@ -28,6 +28,9 @@ from carrot_commands import (
 )
 from utils import is_admin, get_today, get_now
 from fortune_data import fortunes
+from carrot_data import carrot_facts
+from carrot_data import recipes
+from carrot_data import carrot_tips
 from fastapi.responses import JSONResponse
 from datetime import datetime
 from carrot_commands import GLOVE_SHOP, DECORATION_SHOP
