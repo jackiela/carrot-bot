@@ -450,9 +450,8 @@ async def schedule_harvest_reminder(user_id, user_data, channel):
     await channel.send(f"🥕 <@{user_id}> 你的蘿蔔已成熟，可以收成囉！使用 `!收成蘿蔔`")
 
 
-# ✅ 種蘿蔔主函式
+# --- 種蘿蔔主函式（修正版） ---
 async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普通肥料"):
-    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
     user_data = sanitize_user_data(user_data)
     
     current_channel = await ensure_player_thread(message)
@@ -465,51 +464,81 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
     land_level = farm.get("land_level", 1)
     pull_count = farm.get("pull_count", 0)
 
+    # 已經種過了
     if farm.get("status") == "planted":
         await current_channel.send("🌱 你已經種了一根蘿蔔，請先收成再種新的一根！")
         return
 
+    # 肥料不足
     if fertilizers.get(fertilizer, 0) <= 0:
         await current_channel.send(
-            f"❌ 你沒有 {fertilizer}，請先購買！\n💰 你目前金幣：{user_data.get('coins', 0)}\n🛒 使用 !購買肥料 {fertilizer} 來購買"
+            f"❌ 你沒有 {fertilizer}，請先購買！\n"
+            f"💰 目前金幣：{user_data.get('coins', 0)}"
         )
         return
 
-    # ✅ 計算收成時間
-    harvest_time = now + timedelta(days=1)
-    if fertilizer == "神奇肥料":
-        harvest_time -= timedelta(hours=6)
-    elif fertilizer == "高級肥料":
-        harvest_time -= timedelta(hours=2)
-    harvest_time -= timedelta(hours=land_level * 2)
+    # ------ 計算收成時間 ------
+    base_time = now + timedelta(days=1)
 
-    # ✅ 更新資料
+    # 肥料效果
+    if fertilizer == "神奇肥料":
+        base_time -= timedelta(hours=6)
+    elif fertilizer == "高級肥料":
+        base_time -= timedelta(hours=2)
+
+    # 土地等級效果
+    land_bonus = land_level * 2
+    base_time -= timedelta(hours=land_bonus)
+
+    # 裝備效果
+    glove_bonus = 0
+    glove = user_data.get("glove", "無")  # 例如：強化手套
+
+    if glove == "強化手套":
+        glove_bonus = 1  # 減少 1 小時
+
+    base_time -= timedelta(hours=glove_bonus)
+
+    harvest_time = base_time
+
+    # ------ 更新資料 ------
     fertilizers[fertilizer] -= 1
+
     user_data["farm"] = {
         "plant_time": now.isoformat(),
         "harvest_time": harvest_time.isoformat(),
         "status": "planted",
         "fertilizer": fertilizer,
         "land_level": land_level,
-        "pull_count": pull_count
+        "pull_count": pull_count,
     }
+
     ref.set(user_data)
 
-    # ✅ 顯示冷卻倒數
+    # ------ 計算剩餘時間 ------
     remaining = harvest_time - now
     total_hours = remaining.days * 24 + remaining.seconds // 3600
     minutes = (remaining.seconds % 3600) // 60
 
+    glove_text = f"🧤 強化手套：縮短 1 小時\n" if glove_bonus > 0 else ""
+
+    # ------ 回覆訊息 ------
     await current_channel.send(
         f"🌱 你使用了 {fertilizer} 種下蘿蔔！\n"
         f"📅 預計收成時間：{harvest_time.strftime('%Y-%m-%d %H:%M')}\n"
         f"⏳ 剩餘時間：約 {total_hours} 小時 {minutes} 分鐘\n"
         f"🧪 剩餘 {fertilizer}：{fertilizers[fertilizer]} 個\n"
-        f"🏕️ 土地等級 Lv.{land_level}，已縮短 {land_level * 2} 小時"
+        f"🏕️ 土地等級 Lv.{land_level}，縮短 {land_bonus} 小時\n"
+        f"{glove_text}"
     )
 
-    # ✅ 啟動收成提醒
-    asyncio.create_task(schedule_harvest_reminder(user_id, current_channel, harvest_time))
+    # ------ 啟動正確的收成提醒 ------
+    asyncio.create_task(schedule_harvest_reminder(
+        user_id=user_id,
+        user_data=user_data,
+        channel=current_channel
+    ))
+
     
 # ===== 收成蘿蔔 =====
 async def handle_harvest_carrot(message, user_id, user_data, ref):
