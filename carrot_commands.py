@@ -412,41 +412,19 @@ async def handle_carrot_tip(message, user_id, user_data, ref):
 
 # ✅ 自動收成提醒（最終版）
 async def schedule_harvest_reminder(user_id, user_data, channel):
-    # --- 防呆，避免 None / 型態錯誤 ---
     user_data = sanitize_user_data(user_data)
 
-    # --- ⬇⬇⬇ 重點：從 user_data 取得 harvest_time ---
-    harvest_time_raw = user_data.get("harvest_time")
-
-    if not harvest_time_raw:
-        print(f"[SKIP] User {user_id} 沒有 harvest_time，跳過提醒")
+    harvest_time_str = user_data["farm"].get("harvest_time")
+    if not harvest_time_str:
         return
 
-    # --- 若 harvest_time 是字串 → 轉成 datetime ---
-    if isinstance(harvest_time_raw, str):
-        try:
-            harvest_time = parse_datetime(harvest_time_raw)
-        except Exception:
-            print(f"[ERROR] 無法解析 harvest_time: {harvest_time_raw}")
-            return
-    elif isinstance(harvest_time_raw, datetime.datetime):
-        harvest_time = harvest_time_raw
-    else:
-        print(f"[ERROR] harvest_time 型態錯誤: {type(harvest_time_raw)}")
-        return
-
-    now = get_now()
+    harvest_time = datetime.fromisoformat(harvest_time_str)
+    now = datetime.now()
     delay = (harvest_time - now).total_seconds()
 
-    # --- 如果超時或剩餘時間 <= 0，直接發提醒不睡覺 ---
-    if delay <= 0:
-        await channel.send(f"🥕 <@{user_id}> 你的蘿蔔已成熟，可以收成囉！使用 `!收成蘿蔔`")
-        return
+    if delay > 0:
+        await asyncio.sleep(delay)
 
-    # --- ⏳ 等到成熟 ---
-    await asyncio.sleep(delay)
-
-    # --- 發送提醒 ---
     await channel.send(f"🥕 <@{user_id}> 你的蘿蔔已成熟，可以收成囉！使用 `!收成蘿蔔`")
 
 
