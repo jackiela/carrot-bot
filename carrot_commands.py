@@ -934,7 +934,7 @@ async def handle_buy_glove(message, user_id, user_data, ref, glove_name, show_fa
     
     # ✅ 重新讀取最新資料並顯示農場總覽卡
     updated_data = ref.get()
-    await show_farm_overview(message, user_id, updated_data)
+    await show_farm_overview(message, user_id, user_data, ref)
 
 # 🎍 購買裝飾（購買後自動顯示農場總覽）
 async def handle_buy_decoration(message, user_id, user_data, ref, deco_name):
