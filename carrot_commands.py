@@ -428,7 +428,7 @@ async def schedule_harvest_reminder(user_id, user_data, channel):
     await channel.send(f"🥕 <@{user_id}> 你的蘿蔔已成熟，可以收成囉！使用 `!收成蘿蔔`")
 
 
-# --- 種蘿蔔主函式（修正版） ---
+# --- 種蘿蔔主函式（修正版，多手套 + 肥料效果） ---
 async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普通肥料"):
     user_data = sanitize_user_data(user_data)
     
@@ -468,15 +468,20 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
     land_bonus = land_level * 2
     base_time -= timedelta(hours=land_bonus)
 
-    # 裝備效果
+    # 多手套效果疊加
     glove_bonus = 0
-    glove = user_data.get("glove", "無")  # 例如：強化手套
+    gloves = user_data.get("gloves", [])  # 改成 list
+    glove_text_list = []
 
-    if glove == "強化手套":
-        glove_bonus = 1  # 減少 1 小時
+    for glove in gloves:
+        if glove == "強化手套":
+            glove_bonus += 1  # 每個強化手套減少 1 小時
+            glove_text_list.append("🧤 強化手套：縮短 1 小時")
+        elif glove == "幸運手套":
+            glove_bonus += 0.5  # 每個幸運手套減少 30 分鐘
+            glove_text_list.append("🧤 幸運手套：縮短 30 分鐘")
 
     base_time -= timedelta(hours=glove_bonus)
-
     harvest_time = base_time
 
     # ------ 更新資料 ------
@@ -498,7 +503,7 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
     total_hours = remaining.days * 24 + remaining.seconds // 3600
     minutes = (remaining.seconds % 3600) // 60
 
-    glove_text = f"🧤 強化手套：縮短 1 小時\n" if glove_bonus > 0 else ""
+    glove_text = "\n".join(glove_text_list) if glove_text_list else ""
 
     # ------ 回覆訊息 ------
     await current_channel.send(
@@ -517,10 +522,11 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
         channel=current_channel
     ))
 
+
     
-# ===== 收成蘿蔔 =====
+# ===== 收成蘿蔔（修正版：肥料 + 手套效果） =====
 async def handle_harvest_carrot(message, user_id, user_data, ref):
-    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
+    # --- ✅ 使用者資料防呆 ---
     user_data = sanitize_user_data(user_data)
     
     from utils import get_now, parse_datetime, get_remaining_time_str, get_carrot_thumbnail, get_carrot_rarity_color
@@ -536,30 +542,49 @@ async def handle_harvest_carrot(message, user_id, user_data, ref):
     now = get_now()
     farm = user_data.get("farm", {})
     if farm.get("status") != "planted":
-        await message.channel.send("🪴 你還沒種蘿蔔喔，請先使用 `!種蘿蔔`！")
+        await current_channel.send("🪴 你還沒種蘿蔔喔，請先使用 `!種蘿蔔`！")
         return
 
     harvest_time = parse_datetime(farm["harvest_time"])
     if now < harvest_time:
         time_str = get_remaining_time_str(harvest_time)
-        await message.channel.send(f"⏳ 蘿蔔還在努力生長中！{time_str}才能收成喔～")
+        await current_channel.send(f"⏳ 蘿蔔還在努力生長中！{time_str}才能收成喔～")
         return
 
     fertilizer = farm.get("fertilizer", "普通肥料")
     land_level = farm.get("land_level", 1)
-    result, price = pull_carrot_by_farm(fertilizer, land_level)
+    gloves = user_data.get("gloves", [])
 
+    # ------ 計算手套金幣加成 ------
+    bonus_coins = 0
+    glove_text_list = []
+
+    for glove in gloves:
+        if glove == "幸運手套":
+            bonus_coins += 5  # 每個幸運手套 +5 金幣
+            glove_text_list.append("🧤 幸運手套：額外 +5 金幣")
+        elif glove == "黃金手套":
+            bonus_coins += 10  # 黃金手套 +10 金幣
+            glove_text_list.append("🧤 黃金手套：額外 +10 金幣")
+
+    # ------ 計算肥料與土地影響（已有 pull_carrot_by_farm 函式可用） ------
+    result, base_price = pull_carrot_by_farm(fertilizer, land_level)
+    price = base_price + bonus_coins
+
+    # ------ 新發現圖鑑 ------
     new_discovery = False
     user_data.setdefault("carrots", [])
     if result not in user_data["carrots"]:
         user_data["carrots"].append(result)
         new_discovery = True
 
+    # ------ 更新使用者資料 ------
     user_data["coins"] = user_data.get("coins", 0) + price
     user_data["farm"]["status"] = "harvested"
     user_data["farm"]["pull_count"] = user_data["farm"].get("pull_count", 0) + 1
     ref.set(user_data)
 
+    # ------ 建立嵌入訊息 ------
     color = get_carrot_rarity_color(result)
     embed = discord.Embed(
         title="🌾 收成成功！",
@@ -572,11 +597,14 @@ async def handle_harvest_carrot(message, user_id, user_data, ref):
     embed.add_field(name="🧪 使用肥料", value=fertilizer, inline=True)
     embed.add_field(name="🌾 土地等級", value=f"Lv.{land_level}", inline=True)
 
+    if glove_text_list:
+        embed.add_field(name="🧤 手套效果", value="\n".join(glove_text_list), inline=False)
+
     if new_discovery:
         embed.add_field(name="📖 新發現！", value="你的圖鑑新增了一種蘿蔔！", inline=False)
 
     embed.set_footer(text="📅 收成完成｜可再次種植新蘿蔔 🌱")
-    await message.channel.send(embed=embed)
+    await current_channel.send(embed=embed)
 
 # ===== 購買肥料 =====
 async def handle_buy_fertilizer(message, user_id, user_data, ref, fertilizer):
