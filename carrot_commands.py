@@ -3,7 +3,8 @@ import random
 import discord
 import asyncio
 from firebase_admin import db
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
+
 
 # ===== 導入自訂工具 =====
 from utils import (
@@ -364,26 +365,31 @@ async def handle_carrot_encyclopedia(message, user_id, user_data, ref):
 
 # ===== 蘿蔔排行榜 =====
 async def handle_carrot_ranking(message):
-    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
-    user_data = sanitize_user_data(user_data)
-    
+    # 從 Firebase 取得所有玩家資料
     data = db.reference("/users").get()
+
     if not data:
         await message.channel.send("📊 目前還沒有任何玩家收集蘿蔔！")
         return
 
+    # 排行資料整理
     ranking = sorted(
         data.items(),
         key=lambda x: len(x[1].get("carrots", [])),
         reverse=True
     )
 
-    reply = "🏆 蘿蔔收集排行榜 🥕\n"
+    total_carrots = len(all_carrots)
+
+    reply = "🏆 **蘿蔔收集排行榜** 🥕\n"
+
     for i, (uid, info) in enumerate(ranking[:5], start=1):
+        player_name = info.get("name", "未知玩家")
         count = len(info.get("carrots", []))
-        reply += f"{i}. {info.get('name', '未知玩家')} — {count}/{len(all_carrots)} 種\n"
+        reply += f"{i}. {player_name} — {count}/{total_carrots} 種\n"
 
     await message.channel.send(reply)
+
 
 # ===== 胡蘿蔔小知識 =====
 async def handle_carrot_fact(message, user_id, user_data, ref):
@@ -410,7 +416,7 @@ async def handle_carrot_tip(message, user_id, user_data, ref):
     await message.channel.send(f"🌱 胡蘿蔔種植小貼士：{tip}")
     
 
-# ✅ 自動收成提醒（最終版）
+# ✅ 自動收成提醒（帶剩餘時間與縮短效果）
 async def schedule_harvest_reminder(user_id, user_data, channel):
     user_data = sanitize_user_data(user_data)
 
@@ -418,16 +424,37 @@ async def schedule_harvest_reminder(user_id, user_data, channel):
     if not harvest_time_str:
         return
 
+    # 解析收成時間，統一轉 UTC
     harvest_time = datetime.fromisoformat(harvest_time_str)
-    now = datetime.now()
-    delay = (harvest_time - now).total_seconds()
+    if harvest_time.tzinfo is None:
+        harvest_time = harvest_time.replace(tzinfo=timezone.utc)
+    else:
+        harvest_time = harvest_time.astimezone(timezone.utc)
 
-    if delay > 0:
-        await asyncio.sleep(delay)
+    # 計算道具或土地效果縮短時間
+    # 假設 user_data 裡有土地等級與縮短效果
+    land_level = user_data["farm"].get("land_level", 1)
+    shorten_hours = land_level * 2  # 範例：每級土地縮短 2 小時
+    harvest_time -= timedelta(hours=shorten_hours)
 
-    await channel.send(f"🥕 <@{user_id}> 你的蘿蔔已成熟，可以收成囉！使用 `!收成蘿蔔`")
+    while True:
+        now = datetime.now(timezone.utc)
+        remaining = harvest_time - now
+        delay = remaining.total_seconds()
 
+        if delay <= 0:
+            await channel.send(
+                f"🥕 <@{user_id}> 你的蘿蔔已成熟，可以收成囉！使用 `!收成蘿蔔`"
+            )
+            break
 
+        # 顯示剩餘時間（小時與分鐘）
+        hours, remainder = divmod(int(delay), 3600)
+        minutes, _ = divmod(remainder, 60)
+
+        # 每分鐘更新一次剩餘時間
+        await asyncio.sleep(min(60, delay))
+        
 # --- 種蘿蔔主函式（完整修正版 + 顯示所有縮時） ---
 async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普通肥料"):
     user_data = sanitize_user_data(user_data)
