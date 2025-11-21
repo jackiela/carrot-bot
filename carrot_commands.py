@@ -1153,7 +1153,7 @@ def ref_lookup(user_id):
 def log_ref():
     return db.reference("/logs/coin_give")
 
-async def handle_give_coins(message, args):
+async def handle_give_coins(message, user_id, user_data, ref, args):
     if not message.author.guild_permissions.administrator:
         await message.channel.send("🚫 此指令僅限管理員使用。")
         return
