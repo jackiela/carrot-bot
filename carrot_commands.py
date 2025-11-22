@@ -416,44 +416,46 @@ async def handle_carrot_tip(message, user_id, user_data, ref):
     await message.channel.send(f"🌱 胡蘿蔔種植小貼士：{tip}")
     
 
-# ✅ 自動收成提醒（帶剩餘時間與縮短效果）
+# ✅ 自動收成提醒（只在玩家的田地 Thread 中提醒）
 async def schedule_harvest_reminder(user_id, user_data, channel):
     user_data = sanitize_user_data(user_data)
 
     harvest_time_str = user_data["farm"].get("harvest_time")
-    if not harvest_time_str:
+    thread_id = user_data["farm"].get("thread_id")
+
+    if not harvest_time_str or not thread_id:
         return
 
-    # 解析收成時間，統一轉 UTC
+    # 解析收成時間（統一為 UTC）
     harvest_time = datetime.fromisoformat(harvest_time_str)
     if harvest_time.tzinfo is None:
         harvest_time = harvest_time.replace(tzinfo=timezone.utc)
     else:
         harvest_time = harvest_time.astimezone(timezone.utc)
 
-    # 計算道具或土地效果縮短時間
-    # 假設 user_data 裡有土地等級與縮短效果
-    land_level = user_data["farm"].get("land_level", 1)
-    shorten_hours = land_level * 2  # 範例：每級土地縮短 2 小時
-    harvest_time -= timedelta(hours=shorten_hours)
+    # --- 等待收成時間 ---
+    now = datetime.now(timezone.utc)
+    delay = (harvest_time - now).total_seconds()
 
-    while True:
-        now = datetime.now(timezone.utc)
-        remaining = harvest_time - now
-        delay = remaining.total_seconds()
+    if delay > 0:
+        await asyncio.sleep(delay)
 
-        if delay <= 0:
-            await channel.send(
-                f"🥕 <@{user_id}> 你的蘿蔔已成熟，可以收成囉！使用 `!收成蘿蔔`"
-            )
-            break
+    # --- 收成時間到，取得當初的 thread ---
+    thread = channel.guild.get_thread(thread_id)
 
-        # 顯示剩餘時間（小時與分鐘）
-        hours, remainder = divmod(int(delay), 3600)
-        minutes, _ = divmod(remainder, 60)
+    # ❌ thread 刪除 → 不提醒
+    if thread is None:
+        return
 
-        # 每分鐘更新一次剩餘時間
-        await asyncio.sleep(min(60, delay))
+    # ❌ 玩家已重新種新的蘿蔔 → 舊提醒失效
+    current_harvest = sanitize_user_data(user_data)["farm"].get("harvest_time")
+    if current_harvest != harvest_time_str:
+        return
+
+    # ✅ 在專屬 thread 內提醒
+    await thread.send(
+        f"🥕 <@{user_id}> 你的蘿蔔已成熟！請使用 `!收成蘿蔔` 🌾"
+    )
         
 # --- 種蘿蔔主函式（完整修正版） ---
 async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普通肥料"):
@@ -515,6 +517,7 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
         "fertilizer": fertilizer,
         "land_level": land_level,
         "pull_count": pull_count,
+        "thread_id": message.channel.id  # ★★★ 記錄種植發生在哪個 thread ★★★
     })
     user_data["farm"] = farm
 
