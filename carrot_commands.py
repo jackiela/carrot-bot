@@ -805,7 +805,7 @@ async def handle_land_progress(message, user_id, user_data, ref):
 
 # ===== 農場總覽卡（Embed 顯示）=====
 async def show_farm_overview(message, user_id, user_data, ref):
-    # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
+    # --- 使用者資料防呆 ---
     user_data = sanitize_user_data(user_data)
     
     from utils import parse_datetime, get_remaining_time_str
@@ -820,7 +820,10 @@ async def show_farm_overview(message, user_id, user_data, ref):
     decorations = user_data.get("decorations")
     lucky_bags = user_data.get("lucky_bag", 0)
 
-    # ✅ 修復格式
+    # --- 新增方案A：目前裝備中的手套 ---
+    equipped_glove = user_data.get("equipped_glove", None)
+
+    # 防呆處理
     if not isinstance(gloves, list):
         gloves = [gloves] if isinstance(gloves, str) else []
     if not isinstance(decorations, list):
@@ -838,6 +841,7 @@ async def show_farm_overview(message, user_id, user_data, ref):
     }
     status_text = status_map.get(farm.get("status", "未知"), "未知")
 
+    # --- 收成時間格式化 ---
     harvest_display = "未種植"
     harvest_time_str = farm.get("harvest_time")
     if harvest_time_str:
@@ -847,7 +851,7 @@ async def show_farm_overview(message, user_id, user_data, ref):
             remaining_str = get_remaining_time_str(harvest_time)
             harvest_display = (
                 f"{formatted_time}（✅ 已可收成）"
-                if "✅" in remaining_str or "已到時間" in remaining_str
+                if "已可收成" in remaining_str or "已到時間" in remaining_str
                 else f"{formatted_time}（{remaining_str}）"
             )
         except Exception as e:
@@ -859,14 +863,16 @@ async def show_farm_overview(message, user_id, user_data, ref):
         color=discord.Color.green()
     )
     embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
+
     embed.add_field(name="🏷️ 土地狀態", value=f"Lv.{land_level} 的土地目前 {status_text}", inline=False)
     embed.add_field(name="🧪 使用肥料", value=fertilizer_used, inline=True)
     embed.add_field(name="⏳ 收成時間", value=harvest_display, inline=True)
     embed.add_field(name="💰 金幣餘額", value=f"{coins} 金幣", inline=False)
     embed.add_field(name="🔁 今日剩餘拔蘿蔔次數", value=f"{remaining_pulls} 次", inline=False)
+
     embed.add_field(name="─" * 20, value="📦 農場資源狀況", inline=False)
 
-    # ✅ 肥料庫存
+    # --- 肥料庫存 ---
     embed.add_field(
         name="🧪 肥料庫存",
         value=(
@@ -877,20 +883,33 @@ async def show_farm_overview(message, user_id, user_data, ref):
         inline=False
     )
 
-    # ✅ 手套效果顯示
+    # --- 手套效果表 ---
     glove_effects = {
         "幸運手套": "🎯 大吉時掉出蘿蔔",
         "農夫手套": "💰 收成金幣 +20%",
         "強化手套": "⏳ 種植時間 -1 小時",
         "神奇手套": "🌟 稀有機率提升"
     }
+
+    # --- 顯示目前裝備中手套（方案A）---
+    if equipped_glove:
+        embed.add_field(
+            name="🧤 裝備中手套",
+            value=f"• **{equipped_glove}** — {glove_effects.get(equipped_glove, '未知效果')}",
+            inline=False
+        )
+    else:
+        embed.add_field(name="🧤 裝備中手套", value="（未裝備）", inline=False)
+
+    # --- 顯示擁有的手套（倉庫） ---
     if gloves:
         glove_text = "\n".join(f"• {g} — {glove_effects.get(g, '未知效果')}" for g in gloves)
     else:
         glove_text = "尚未擁有任何手套"
+
     embed.add_field(name="🧤 擁有手套", value=glove_text, inline=False)
 
-    # ✅ 裝飾風格顯示
+    # --- 裝飾品 ---
     decoration_styles = {
         "花圃": "🌸 花園風格",
         "木柵欄": "🪵 鄉村風格",
@@ -902,9 +921,10 @@ async def show_farm_overview(message, user_id, user_data, ref):
         deco_text = "\n".join(f"• {d} — {decoration_styles.get(d, '未知風格')}" for d in decorations)
     else:
         deco_text = "尚未放置任何裝飾"
+
     embed.add_field(name="🎍 農場裝飾", value=deco_text, inline=False)
 
-    # ✅ 福袋狀態
+    # --- 福袋 ---
     embed.add_field(
         name="🧧 開運福袋",
         value=(
@@ -915,7 +935,7 @@ async def show_farm_overview(message, user_id, user_data, ref):
         inline=False
     )
 
-    # ✅ 肥料不足提醒
+    # --- 肥料不足提醒 ---
     if sum(fertilizers.get(k, 0) for k in ["普通肥料", "高級肥料", "神奇肥料"]) == 0:
         embed.add_field(
             name="⚠️ 肥料不足",
@@ -925,6 +945,7 @@ async def show_farm_overview(message, user_id, user_data, ref):
 
     embed.set_footer(text="📅 每日凌晨重置拔蘿蔔次數與運勢 🌙")
     await current_channel.send(embed=embed)
+
 
 # ===== 健康檢查 =====
 async def handle_health_check(message):
@@ -1004,21 +1025,36 @@ async def handle_buy_glove(message, user_id, user_data, ref, glove_name, show_fa
         await message.channel.send(f"💸 金幣不足！需要 {cost} 金幣，你目前只有 {coins}")
         return
 
-    gloves = user_data.get("gloves")
-    if not isinstance(gloves, list):
-        gloves = [gloves] if isinstance(gloves, str) else []
-    user_data["gloves"] = gloves
+    # ---------------------------------------
+    # 🧤 方案 A：強制統一為 list 型態
+    # ---------------------------------------
+    gloves = user_data.get("gloves", [])
 
+    # 若以前寫入錯誤 → 自動修正
+    if isinstance(gloves, str):  
+        gloves = [gloves]
+    elif not isinstance(gloves, list):
+        gloves = []
+
+    user_data["gloves"] = gloves  # 強制寫回標準格式
+
+    # 扣錢
     user_data["coins"] -= cost
+
+    # 加入手套，避免重複
     if glove_name not in gloves:
         gloves.append(glove_name)
 
+    # 寫回資料庫
     ref.set(user_data)
-        # ✅ 顯示購買成功訊息
-    await message.channel.send(f"🧤 你購買了 **{glove_name}**！\n📈 效果：{GLOVE_SHOP[glove_name]['desc']}")
+
+    # 顯示購買成功訊息
+    await message.channel.send(
+        f"🧤 你購買了 **{glove_name}**！\n"
+        f"📈 效果：{GLOVE_SHOP[glove_name]['desc']}"
+    )
     
-    # ✅ 重新讀取最新資料並顯示農場總覽卡
-    updated_data = ref.get()
+    # 更新並顯示農場總覽卡
     await show_farm_overview(message, user_id, user_data, ref)
 
 # 🎍 購買裝飾（購買後自動顯示農場總覽）
