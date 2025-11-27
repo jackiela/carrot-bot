@@ -572,30 +572,31 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
     )
 
     # --- 肥料庫存 ---
-embed.add_field(
-    name="🧪 肥料庫存",
-    value=f"{fertilizer}：剩餘 **{fertilizers[fertilizer]}** 個",
-    inline=False
-)
-
-# --- 顯示手套（如果有） ---
-glove = user_data.get("glove", "無")
-if glove == "強化手套":
     embed.add_field(
-        name="🧤 已擁有強化手套（效果生效）",
-        value="收成時間縮短 1 小時",
-        inline=False
-    )
-else:
-    embed.add_field(
-        name="🧤 手套",
-        value="無（沒有手套效果）",
+        name="🧪 肥料庫存",
+        value=f"{fertilizer}：剩餘 **{fertilizers[fertilizer]}** 個",
         inline=False
     )
 
-embed.set_footer(text="你可以隨時使用：!收成蘿蔔")
+    # --- 顯示手套（如果有） ---
+    glove = user_data.get("glove", "無")
+    if glove == "強化手套":
+        embed.add_field(
+            name="🧤 已擁有強化手套（效果生效）",
+            value="收成時間縮短 1 小時",
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="🧤 手套",
+            value="無（沒有手套效果）",
+            inline=False
+        )
 
-await current_channel.send(embed=embed)
+
+    embed.set_footer(text="你可以隨時使用：!收成蘿蔔")
+
+    await current_channel.send(embed=embed)
 
     # --- 自動提醒 ---
     asyncio.create_task(schedule_harvest_reminder(
