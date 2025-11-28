@@ -497,9 +497,19 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
     # --- 土地縮時（每級 -2 小時）---
     land_bonus = land_level * -2
 
-    # --- 手套縮時（只有強化手套 -1）---
-    glove = user_data.get("glove", "無")
-    glove_bonus = -1 if glove == "強化手套" else 0
+    # --- 手套缩時（修正版：從 equipment.gloves 讀取） ---
+    equipped_glove = user_data.get("equipment", {}).get("gloves", None)
+
+    glove_bonus = 0
+    glove_display_text = "無（沒有手套效果）"
+
+    if equipped_glove == "強化手套":
+        glove_bonus = -1
+        glove_display_text = "強化手套（⏳ 種植時間 -1 小時）"
+
+    elif equipped_glove == "幸運手套":
+        glove_bonus = 0
+        glove_display_text = "幸運手套（🎯 大吉掉出額外蘿蔔）"
 
     # --- 計算最終收成時間 ---
     total_hours = base_hours + fertilizer_bonus + land_bonus + glove_bonus
@@ -558,7 +568,7 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
     if land_bonus != 0:
         shorten_lines.append(f"🏕️ 土地 Lv.{land_level}：`-{abs(land_bonus)} 小時`")
 
-    # ★★★ 手套縮時顯示（你之前沒有顯示出來）★★★
+    # ★★★ 修好手套顯示 ★★★
     if glove_bonus != 0:
         shorten_lines.append(f"🧤 強化手套：`-{abs(glove_bonus)} 小時`")
 
@@ -578,21 +588,12 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
         inline=False
     )
 
-    # --- 顯示手套（如果有） ---
-    glove = user_data.get("glove", "無")
-    if glove == "強化手套":
-        embed.add_field(
-            name="🧤 已擁有強化手套（效果生效）",
-            value="收成時間縮短 1 小時",
-            inline=False
-        )
-    else:
-        embed.add_field(
-            name="🧤 手套",
-            value="無（沒有手套效果）",
-            inline=False
-        )
-
+    # --- 顯示手套（修正版：永遠正確顯示） ---
+    embed.add_field(
+        name="🧤 手套",
+        value=glove_display_text,
+        inline=False
+    )
 
     embed.set_footer(text="你可以隨時使用：!收成蘿蔔")
 
@@ -604,6 +605,7 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
         user_data=user_data,
         channel=current_channel
     ))
+
 
 
     
