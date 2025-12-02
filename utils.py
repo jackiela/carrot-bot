@@ -97,3 +97,22 @@ def get_fortune_thumbnail(fortune: str) -> str:
         return f"{base_url}/吉.png"  # 白色符咒風格    
     else:
         return f"{base_url}/凶.png" # 紅色符咒或厄運風格
+
+# ----------------------------------------------------
+# 🎁 裝飾圖片系統
+# ----------------------------------------------------
+
+def get_decoration_thumbnail(decoration_name: str) -> str:
+    """根據裝飾名稱回傳 GitHub Pages 圖片網址"""
+    base_url = "https://jackiela.github.io/carrot-bot/images"
+
+    mapping = {
+        "花圃": "花圃.png",
+        "木柵欄": "木柵欄.png",
+        "竹燈籠": "竹燈籠.png",
+        "鯉魚旗": "鯉魚旗.png",
+        "聖誕樹": "聖誕樹.png",
+    }
+
+    filename = mapping.get(decoration_name, "default.png")
+    return f"{base_url}/{filename}"
