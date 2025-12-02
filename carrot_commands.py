@@ -416,154 +416,121 @@ async def handle_carrot_tip(message, user_id, user_data, ref):
     await message.channel.send(f"🌱 胡蘿蔔種植小貼士：{tip}")
     
         
-# --- 種蘿蔔主函式（完整修正版 + 手套顯示版） ---
+# --- 種蘿蔔主函式（手套買了就有效 + 整合效果表） ---
+
 async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普通肥料"):
-    user_data = sanitize_user_data(user_data)
+user_data = sanitize_user_data(user_data)
 
-    current_channel = await ensure_player_thread(message)
-    if current_channel is None:
-        return
+```
+current_channel = await ensure_player_thread(message)
+if current_channel is None:
+    return
 
-    now = get_now()   # <-- offset-aware datetime
-    farm = user_data.get("farm", {})
-    fertilizers = user_data.get("fertilizers", {})
-    land_level = farm.get("land_level", 1)
-    pull_count = farm.get("pull_count", 0)
+now = get_now()
+farm = user_data.get("farm", {})
+fertilizers = user_data.get("fertilizers", {})
+land_level = farm.get("land_level", 1)
+pull_count = farm.get("pull_count", 0)
+gloves = user_data.get("gloves", [])
 
-    # --- 已種過 ---
-    if farm.get("status") == "planted":
-        await current_channel.send("🌱 你已經種了一根蘿蔔，請先收成再種新的！")
-        return
+# --- 已種過 ---
+if farm.get("status") == "planted":
+    await current_channel.send("🌱 你已經種了一根蘿蔔，請先收成再種新的！")
+    return
 
-    # --- 肥料不足 ---
-    if fertilizers.get(fertilizer, 0) <= 0:
-        await current_channel.send(
-            f"❌ 你沒有 {fertilizer}\n"
-            f"💰 金幣：{user_data.get('coins', 0)}"
-        )
-        return
-
-    # ------------ 計算收成時間 ------------
-    base_hours = 24  # 基本 24 小時
-
-    # --- 肥料縮時 ---
-    fertilizer_bonus = {
-        "神奇肥料": -6,
-        "高級肥料": -2,
-        "普通肥料": 0
-    }.get(fertilizer, 0)
-
-    # --- 土地縮時（每級 -2 小時）---
-    land_bonus = land_level * -2
-
-    # --- 手套缩時（修正版：從 equipment.gloves 讀取） ---
-    equipped_glove = user_data.get("equipped_glove", None)
-
-    glove_bonus = 0
-    glove_display_text = "無（沒有手套效果）"
-
-    if equipped_glove == "強化手套":
-        glove_bonus = -1
-        glove_display_text = "強化手套（⏳ 種植時間 -1 小時）"
-
-    elif equipped_glove == "幸運手套":
-        glove_bonus = 0
-        glove_display_text = "幸運手套（🎯 大吉掉出額外蘿蔔）"
-
-    # --- 計算最終收成時間 ---
-    total_hours = base_hours + fertilizer_bonus + land_bonus + glove_bonus
-    harvest_time = now + timedelta(hours=total_hours)
-
-    # --- 扣肥料 ---
-    fertilizers[fertilizer] = fertilizers.get(fertilizer, 0) - 1
-    user_data["fertilizers"] = fertilizers
-
-    # --- 更新 farm 資料 ---
-    farm.update({
-        "plant_time": now.isoformat(),
-        "harvest_time": harvest_time.isoformat(),
-        "status": "planted",
-        "fertilizer": fertilizer,
-        "land_level": land_level,
-        "pull_count": pull_count,
-        "thread_id": message.channel.id  # 記錄現在的 thread
-    })
-    user_data["farm"] = farm
-
-    ref.set(user_data)
-
-    # --- 計算剩餘時間 ---
-    remaining = harvest_time - now
-    left_hours = remaining.days * 24 + remaining.seconds // 3600
-    minutes = (remaining.seconds % 3600) // 60
-
-    # --- 建立漂亮的 Embed ---
-    embed = discord.Embed(
-        title="🌱 成功種下蘿蔔！",
-        description=f"你使用 **{fertilizer}** 種下了一根蘿蔔！準備等待收成吧！",
-        color=discord.Color.green()
+# --- 肥料不足 ---
+if fertilizers.get(fertilizer, 0) <= 0:
+    await current_channel.send(
+        f"❌ 你沒有 {fertilizer}\n💰 金幣：{user_data.get('coins', 0)}"
     )
+    return
 
-    embed.set_thumbnail(url="https://jackiela.github.io/carrot-bot/images/plant.png")
+# --- 收成時間計算 ---
+base_hours = 24
+fertilizer_bonus = {"神奇肥料": -6, "高級肥料": -2, "普通肥料": 0}.get(fertilizer, 0)
+land_bonus = land_level * -2
 
-    embed.add_field(
-        name="📅 預計收成時間",
-        value=f"**{harvest_time.strftime('%Y-%m-%d %H:%M')}**",
-        inline=False
-    )
+# --- 手套效果表 ---
+glove_effects = {
+    "幸運手套": "🎯 大吉時掉出蘿蔔",
+    "農夫手套": "💰 收成金幣 +20%",
+    "強化手套": "⏳ 種植時間 -1 小時",
+    "神奇手套": "🌟 稀有機率提升"
+}
 
-    embed.add_field(
-        name="⏳ 剩餘時間",
-        value=f"**約 {left_hours} 小時 {minutes} 分鐘**",
-        inline=False
-    )
+glove_bonus = 0
+glove_display_list = []
 
-    # --- 時間縮減顯示 ---
-    shorten_lines = []
+if "強化手套" in gloves:
+    glove_bonus -= 1
+    glove_display_list.append(glove_effects["強化手套"])
+for g in gloves:
+    if g != "強化手套":
+        glove_display_list.append(glove_effects.get(g, g))
+if not glove_display_list:
+    glove_display_list.append("無（沒有手套效果）")
+glove_display_text = "\n".join(glove_display_list)
 
-    if fertilizer_bonus != 0:
-        shorten_lines.append(f"🧪 {fertilizer}：`-{abs(fertilizer_bonus)} 小時`")
+total_hours = base_hours + fertilizer_bonus + land_bonus + glove_bonus
+harvest_time = now + timedelta(hours=total_hours)
 
-    if land_bonus != 0:
-        shorten_lines.append(f"🏕️ 土地 Lv.{land_level}：`-{abs(land_bonus)} 小時`")
+# --- 扣肥料 ---
+fertilizers[fertilizer] = fertilizers.get(fertilizer, 0) - 1
+user_data["fertilizers"] = fertilizers
 
-    # ★★★ 修好手套顯示 ★★★
-    if glove_bonus != 0:
-        shorten_lines.append(f"🧤 強化手套：`-{abs(glove_bonus)} 小時`")
+# --- 更新 farm 資料 ---
+farm.update({
+    "plant_time": now.isoformat(),
+    "harvest_time": harvest_time.isoformat(),
+    "status": "planted",
+    "fertilizer": fertilizer,
+    "land_level": land_level,
+    "pull_count": pull_count,
+    "thread_id": message.channel.id
+})
+user_data["farm"] = farm
+ref.set(user_data)
 
-    total_short = abs(fertilizer_bonus + land_bonus + glove_bonus)
-    shorten_text = "\n".join(shorten_lines) if shorten_lines else "（無縮時加成）"
+# --- 剩餘時間計算 ---
+remaining = harvest_time - now
+left_hours = remaining.days * 24 + remaining.seconds // 3600
+minutes = (remaining.seconds % 3600) // 60
 
-    embed.add_field(
-        name=f"✂ 時間縮減（共 `{total_short}` 小時）",
-        value=shorten_text,
-        inline=False
-    )
+# --- 建立 Embed ---
+embed = discord.Embed(
+    title="🌱 成功種下蘿蔔！",
+    description=f"你使用 **{fertilizer}** 種下了一根蘿蔔！準備等待收成吧！",
+    color=discord.Color.green()
+)
+embed.set_thumbnail(url="https://jackiela.github.io/carrot-bot/images/plant.png")
+embed.add_field(name="📅 預計收成時間", value=f"**{harvest_time.strftime('%Y-%m-%d %H:%M')}**", inline=False)
+embed.add_field(name="⏳ 剩餘時間", value=f"**約 {left_hours} 小時 {minutes} 分鐘**", inline=False)
 
-    # --- 肥料庫存 ---
-    embed.add_field(
-        name="🧪 肥料庫存",
-        value=f"{fertilizer}：剩餘 **{fertilizers[fertilizer]}** 個",
-        inline=False
-    )
+# --- 時間縮減顯示 ---
+shorten_lines = []
+if fertilizer_bonus != 0:
+    shorten_lines.append(f"🧪 {fertilizer}：`-{abs(fertilizer_bonus)} 小時`")
+if land_bonus != 0:
+    shorten_lines.append(f"🏕️ 土地 Lv.{land_level}：`-{abs(land_bonus)} 小時`")
+if glove_bonus != 0:
+    shorten_lines.append(f"🧤 強化手套：`-{abs(glove_bonus)} 小時`")
+total_short = abs(fertilizer_bonus + land_bonus + glove_bonus)
+shorten_text = "\n".join(shorten_lines) if shorten_lines else "（無縮時加成）"
+embed.add_field(name=f"✂ 時間縮減（共 `{total_short}` 小時）", value=shorten_text, inline=False)
 
-    # --- 顯示手套（修正版：永遠正確顯示） ---
-    embed.add_field(
-        name="🧤 手套",
-        value=glove_display_text,
-        inline=False
-    )
+# --- 肥料庫存 ---
+embed.add_field(name="🧪 肥料庫存", value=f"{fertilizer}：剩餘 **{fertilizers[fertilizer]}** 個", inline=False)
 
-    embed.set_footer(text="你可以隨時使用：!收成蘿蔔")
+# --- 顯示手套 ---
+embed.add_field(name="🧤 手套", value=glove_display_text, inline=False)
+embed.set_footer(text="你可以隨時使用：!收成蘿蔔")
 
-    await current_channel.send(embed=embed)
+await current_channel.send(embed=embed)
 
-    # --- 自動提醒 ---
-    asyncio.create_task(schedule_harvest_reminder(
-        user_id=user_id,
-        user_data=user_data,
-        channel=current_channel
-    ))
+# --- 自動提醒 ---
+asyncio.create_task(schedule_harvest_reminder(user_id=user_id, user_data=user_data, channel=current_channel))
+```
+
     
     # --- 自動收成提醒 ---    
 async def harvest_loop(bot):
