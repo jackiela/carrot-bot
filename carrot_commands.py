@@ -565,40 +565,41 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
         channel=current_channel
     ))
     
-async def schedule_harvest_reminder(user_id, user_data, channel):
-    """
-    安全可靠的自動收成提醒
-    - user_id: Discord 使用者 ID
-    - user_data: 玩家資料 dict
-    - channel: 要發送提醒的 thread / channel
-    """
-    from utils import parse_datetime, get_now
-    import asyncio
-
-    try:
-        farm = user_data.get("farm", {})
-        harvest_time_str = farm.get("harvest_time")
-        if not harvest_time_str:
-            print(f"DEBUG: {user_id} 沒有 harvest_time")
-            return
-
-        harvest_time = parse_datetime(harvest_time_str)
-        now = get_now()
-        remaining_seconds = (harvest_time - now).total_seconds()
-
-        if remaining_seconds <= 0:
-            remaining_seconds = 0
-
-        print(f"DEBUG: {user_id} 的蘿蔔還剩 {remaining_seconds:.2f} 秒收成")
-        await asyncio.sleep(remaining_seconds)
-
+    # --- 自動收成提醒 ---    
+async def harvest_loop(bot):
+    while True:
         try:
-            await channel.send(f"🌱 <@{user_id}> 你的蘿蔔可以收成啦！使用 `!收成蘿蔔` 收取吧～")
-        except Exception as e:
-            print(f"ERROR: 無法發送收成提醒給 {user_id}: {e}")
+            for user_id, user_data in all_users.items():  # all_users 可從 DB / Realtime cache
+                user_data = sanitize_user_data(user_data)
+                farm = user_data.get("farm", {})
+                harvest_time_str = farm.get("harvest_time")
+                thread_id = farm.get("thread_id")
 
-    except Exception as e:
-        print(f"ERROR: schedule_harvest_reminder 發生錯誤: {e}")
+                if not harvest_time_str or not thread_id:
+                    continue
+
+                try:
+                    harvest_time = datetime.fromisoformat(harvest_time_str)
+                    if harvest_time.tzinfo is None:
+                        harvest_time = harvest_time.replace(tzinfo=timezone.utc)
+                    else:
+                        harvest_time = harvest_time.astimezone(timezone.utc)
+                except Exception as e:
+                    print(f"[WARN] {user_id} harvest_time 格式錯誤: {e}")
+                    continue
+
+                now = datetime.now(timezone.utc)
+                if now >= harvest_time:
+                    thread = bot.get_guild(GUILD_ID).get_thread(thread_id)
+                    if thread:
+                        try:
+                            await thread.send(f"🥕 <@{user_id}> 你的蘿蔔已成熟！請使用 `!收成蘿蔔` 🌾")
+                        except Exception as e:
+                            print(f"[ERROR] 發送收成提醒失敗: {e}")
+        except Exception as e:
+            print(f"[ERROR] harvest_loop 發生錯誤: {e}")
+
+        await asyncio.sleep(60)  # 每分鐘檢查一次
 
 
     
