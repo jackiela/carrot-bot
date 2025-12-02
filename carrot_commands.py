@@ -498,7 +498,7 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
     land_bonus = land_level * -2
 
     # --- 手套缩時（修正版：從 equipment.gloves 讀取） ---
-    equipped_glove = user_data.get("equipment", {}).get("gloves", None)
+    equipped_glove = user_data.get("equipped_glove", None)
 
     glove_bonus = 0
     glove_display_text = "無（沒有手套效果）"
