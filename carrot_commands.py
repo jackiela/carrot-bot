@@ -605,6 +605,45 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
         user_data=user_data,
         channel=current_channel
     ))
+    
+    # --- 自動收成提醒 ---
+async def schedule_harvest_reminder(user_id, user_data, channel):
+"""
+安全可靠的自動收成提醒
+- user_id: Discord 使用者 ID
+- user_data: 玩家資料 dict
+- channel: 要發送提醒的 thread / channel
+"""
+from utils import parse_datetime, get_now
+
+```
+try:
+    farm = user_data.get("farm", {})
+    harvest_time_str = farm.get("harvest_time")
+    if not harvest_time_str:
+        print(f"DEBUG: {user_id} 沒有 harvest_time")
+        return
+
+    harvest_time = parse_datetime(harvest_time_str)
+    now = get_now()
+    remaining_seconds = (harvest_time - now).total_seconds()
+
+    # 如果時間已過，立即提醒
+    if remaining_seconds <= 0:
+        remaining_seconds = 0
+
+    print(f"DEBUG: {user_id} 的蘿蔔還剩 {remaining_seconds:.2f} 秒收成")
+    await asyncio.sleep(remaining_seconds)
+
+    # 發送提醒
+    try:
+        await channel.send(f"🌱 <@{user_id}> 你的蘿蔔可以收成啦！使用 `!收成蘿蔔` 收取吧～")
+    except Exception as e:
+        print(f"ERROR: 無法發送收成提醒給 {user_id}: {e}")
+
+except Exception as e:
+    print(f"ERROR: schedule_harvest_reminder 發生錯誤: {e}")
+```
 
 
 
