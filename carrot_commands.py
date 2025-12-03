@@ -5,11 +5,11 @@ import asyncio
 from firebase_admin import db
 from datetime import datetime, timezone, timedelta
 
-
 # ===== 導入自訂工具 =====
 from utils import (
     get_today, get_now, get_remaining_hours,
     get_carrot_thumbnail, get_carrot_rarity_color
+    get_decoration_thumbnail
 )
 from utils_sanitize import sanitize_user_data
 from carrot_data import common_carrots, rare_carrots, legendary_carrots, all_carrots, recipes, carrot_tips, carrot_facts
@@ -1076,9 +1076,7 @@ async def handle_buy_glove(message, user_id, user_data, ref, glove_name, show_fa
 
 # 🎍 購買裝飾（購買後自動顯示農場總覽）
 async def handle_buy_decoration(message, user_id, user_data, ref, deco_name):
-    from utils import sanitize_user_data, get_decoration_thumbnail
-
-    user_data = sanitize_user_data(user_data)
+        user_data = sanitize_user_data(user_data)
 
     shop = {
         "花圃": 80,
