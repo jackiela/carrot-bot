@@ -1132,7 +1132,7 @@ async def handle_buy_decoration(message, user_id, user_data, ref, deco_name):
 
     # 🌾 顯示農場總覽
     updated_data = ref.get()
-    await show_farm_overview(message, user_id, updated_data)
+    await show_farm_overview(message, user_id, updated_data, ref)
 
 
 # 🧧 開運福袋（含特效與農場總覽）
@@ -1200,7 +1200,7 @@ async def handle_open_lucky_bag(message, user_id, user_data, ref):
 
     # ✅ 顯示最新農場總覽卡
     updated_data = ref.get()
-    await show_farm_overview(message, user_id, updated_data)
+    await show_farm_overview(message, user_id, updated_data, ref)
     
 # 🏪 商店總覽
 async def handle_shop(message, user_id, user_data, ref):
