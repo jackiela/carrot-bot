@@ -1076,7 +1076,7 @@ async def handle_buy_glove(message, user_id, user_data, ref, glove_name, show_fa
 
 # 🎍 購買裝飾（購買後自動顯示農場總覽）
 async def handle_buy_decoration(message, user_id, user_data, ref, deco_name):
-        user_data = sanitize_user_data(user_data)
+    user_data = sanitize_user_data(user_data)
 
     shop = {
         "花圃": 80,
@@ -1133,6 +1133,7 @@ async def handle_buy_decoration(message, user_id, user_data, ref, deco_name):
     # 🌾 顯示農場總覽
     updated_data = ref.get()
     await show_farm_overview(message, user_id, updated_data)
+
 
 # 🧧 開運福袋（含特效與農場總覽）
 async def handle_open_lucky_bag(message, user_id, user_data, ref):
