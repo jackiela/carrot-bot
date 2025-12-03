@@ -225,8 +225,11 @@ async def on_message(message):
             await message.channel.send("❓ 指令格式錯誤，請使用：`!購買手套 幸運手套`")
     elif cmd == "!手套圖鑑":
         await handle_glove_encyclopedia(message, user_id, user_data, ref)
-    elif cmd == "!購買裝飾":
-        await handle_buy_decoration(message, user_id, user_data, ref)
+    elif cmd.startswith("!購買裝飾"):
+        if len(parts) == 2:  # 代表玩家有輸入名稱
+            await handle_buy_decoration(message, user_id, user_data, ref, parts[1])
+        else:
+            await message.channel.send("❓ 指令格式錯誤，請使用：`!購買裝飾 花圃`")
     elif cmd.startswith("!種蘿蔔"):
         if len(parts) == 2:
             await handle_plant_carrot(message, user_id, user_data, ref, parts[1])
