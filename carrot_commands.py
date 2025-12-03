@@ -566,6 +566,39 @@ async def harvest_loop(bot):
         await asyncio.sleep(60)  # 每分鐘檢查一次
 
 
+# --- 單次提醒（種下時排程） ---
+async def schedule_harvest_reminder(user_id, user_data, channel):
+    farm = user_data.get("farm", {})
+    harvest_time_str = farm.get("harvest_time")
+
+    if not harvest_time_str:
+        return
+
+    try:
+        harvest_time = datetime.fromisoformat(harvest_time_str)
+        if harvest_time.tzinfo is None:
+            harvest_time = harvest_time.replace(tzinfo=timezone.utc)
+        else:
+            harvest_time = harvest_time.astimezone(timezone.utc)
+    except:
+        return
+
+    # 計算剩餘時間
+    now = datetime.now(timezone.utc)
+    delay = (harvest_time - now).total_seconds()
+
+    if delay <= 0:
+        await channel.send(f"🥕 <@{user_id}> 你的蘿蔔已成熟！請使用 `!收成蘿蔔` 🌾")
+        return
+
+    # 等待
+    await asyncio.sleep(delay)
+
+    # 發提醒
+    try:
+        await channel.send(f"🥕 <@{user_id}> 你的蘿蔔已成熟！請使用 `!收成蘿蔔` 🌾")
+    except:
+        pass
     
 # ===== 收成蘿蔔（修正版：肥料 + 手套效果） =====
 async def handle_harvest_carrot(message, user_id, user_data, ref):
