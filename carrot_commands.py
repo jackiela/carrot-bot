@@ -529,12 +529,11 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
     asyncio.create_task(schedule_harvest_reminder(user_id=user_id, user_data=user_data, channel=current_channel))
 
 
-    
-    # --- 自動收成提醒 ---    
+# --- 自動收成提醒（獨立 function，要放在最左邊！） ---
 async def harvest_loop(bot):
     while True:
         try:
-            for user_id, user_data in all_users.items():  # all_users 可從 DB / Realtime cache
+            for user_id, user_data in all_users.items():  
                 user_data = sanitize_user_data(user_data)
                 farm = user_data.get("farm", {})
                 harvest_time_str = farm.get("harvest_time")
