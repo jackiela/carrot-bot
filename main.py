@@ -3,6 +3,7 @@ import os
 import json
 import random
 import firebase_admin
+import asyncio
 from firebase_admin import credentials, db
 from carrot_commands import (
     handle_fortune,
@@ -24,7 +25,8 @@ from carrot_commands import (
     handle_carrot_info,
     handle_special_carrots,
     handle_open_lucky_bag,
-    handle_buy_decoration
+    handle_buy_decoration,
+    harvest_loop
 )
 from utils import is_admin, get_today, get_now
 from fortune_data import fortunes
@@ -381,4 +383,11 @@ threading.Thread(target=keep_alive_loop, daemon=False).start()
 # 啟動 Discord Bot
 # ==========================================================
 TOKEN = os.getenv("DISCORD_TOKEN")
+
+@client.event
+async def on_ready():
+    print(f"🔧 Bot 已登入：{client.user}")
+    client.loop.create_task(harvest_loop(client))
+    print("🌱 自動收成推播系統已啟動")
+
 client.run(TOKEN)
