@@ -3,7 +3,6 @@ import os
 import json
 import random
 import firebase_admin
-import asyncio
 from firebase_admin import credentials, db
 from carrot_commands import (
     handle_fortune,
