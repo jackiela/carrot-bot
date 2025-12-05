@@ -33,7 +33,6 @@ from carrot_data import recipes, carrot_tips, carrot_facts
 from fastapi.responses import JSONResponse
 from datetime import datetime
 from carrot_commands import GLOVE_SHOP, DECORATION_SHOP
-GUILD_ID = 1420254884581867642
 
 # ===== Discord Bot 初始化 =====
 intents = discord.Intents.default()
@@ -387,7 +386,7 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 @client.event
 async def on_ready():
     print(f"🔧 Bot 已登入：{client.user}")
-    client.loop.create_task(harvest_loop(client, db, GUILD_ID))
+    client.loop.create_task(harvest_loop(client, db))
     print("🌱 自動收成推播系統已啟動")
 
 client.run(TOKEN)
