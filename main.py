@@ -386,7 +386,7 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 @client.event
 async def on_ready():
     print(f"🔧 Bot 已登入：{client.user}")
-    client.loop.create_task(harvest_loop(client))
+    client.loop.create_task(harvest_loop(client, db, GUILD_ID))
     print("🌱 自動收成推播系統已啟動")
 
 client.run(TOKEN)
