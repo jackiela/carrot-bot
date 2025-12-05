@@ -529,14 +529,17 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
     asyncio.create_task(schedule_harvest_reminder(user_id=user_id, user_data=user_data, channel=current_channel))
 
 # --- 自動收成提醒：會發到玩家農田的 Thread ---
-async def harvest_loop(bot, db, guild_id):
+async def harvest_loop(bot, db_module):
     print("[INFO] harvest_loop 啟動")
 
     tz = timezone(timedelta(hours=8))  # 台灣時間
 
     while True:
         try:
-            all_users = db.get() or {}
+            # 正確讀取 Firebase
+            ref = db_module.reference("/")   # 讀取整個資料庫
+            all_users = ref.get() or {}
+
             now = datetime.now(tz)
 
             for user_id, user_data in all_users.items():
@@ -558,9 +561,12 @@ async def harvest_loop(bot, db, guild_id):
                 # --- 時間到 ---
                 if now >= harvest_time:
 
-                    # 找 Thread
-                    guild = bot.get_guild(guild_id)
-                    thread = guild.get_thread(thread_id)
+                    # 找到 thread（注意 guild_id 可能不同，因此抓所有 guild）
+                    thread = None
+                    for guild in bot.guilds:
+                        thread = guild.get_thread(thread_id)
+                        if thread:
+                            break
 
                     if thread:
                         try:
@@ -574,7 +580,7 @@ async def harvest_loop(bot, db, guild_id):
 
                     # 避免重複提醒：清掉時間
                     farm["harvest_time"] = None
-                    db.child(user_id).child("farm").set(farm)
+                    db_module.reference(f"/{user_id}/farm").set(farm)
 
         except Exception as e:
             print(f"[ERROR] harvest_loop 主體錯誤：{e}")
