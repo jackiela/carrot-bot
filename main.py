@@ -33,6 +33,7 @@ from carrot_data import recipes, carrot_tips, carrot_facts
 from fastapi.responses import JSONResponse
 from datetime import datetime
 from carrot_commands import GLOVE_SHOP, DECORATION_SHOP
+GUILD_ID = 1420254884581867642
 
 # ===== Discord Bot 初始化 =====
 intents = discord.Intents.default()
