@@ -525,10 +525,9 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
 
     await current_channel.send(embed=embed)
 
-    # --- 自動提醒 ---
-    asyncio.create_task(schedule_harvest_reminder(user_id=user_id, user_data=user_data, channel=current_channel))
-
-# --- 自動收成提醒：會發到玩家農田的 Thread ---
+# =========================================
+# 自動收成提醒：發送到玩家農田 Thread
+# =========================================
 async def harvest_loop(bot, db_module):
     print("[INFO] harvest_loop 啟動")
 
@@ -536,10 +535,8 @@ async def harvest_loop(bot, db_module):
 
     while True:
         try:
-            # 正確讀取 Firebase
-            ref = db_module.reference("/")   # 讀取整個資料庫
+            ref = db_module.reference("/")  # 讀取資料庫
             all_users = ref.get() or {}
-
             now = datetime.now(tz)
 
             for user_id, user_data in all_users.items():
@@ -550,7 +547,7 @@ async def harvest_loop(bot, db_module):
                 if not harvest_time_str or not thread_id:
                     continue
 
-                # --- 時間處理 ---
+                # 時間解析
                 try:
                     harvest_time = datetime.fromisoformat(harvest_time_str)
                     if harvest_time.tzinfo is None:
@@ -558,10 +555,8 @@ async def harvest_loop(bot, db_module):
                 except:
                     continue
 
-                # --- 時間到 ---
+                # 到時間了：提醒
                 if now >= harvest_time:
-
-                    # 找到 thread（注意 guild_id 可能不同，因此抓所有 guild）
                     thread = None
                     for guild in bot.guilds:
                         thread = guild.get_thread(thread_id)
@@ -574,53 +569,19 @@ async def harvest_loop(bot, db_module):
                                 f"🥕 <@{user_id}> 你的蘿蔔成熟啦！快來使用 `!收成蘿蔔` 🌾"
                             )
                         except Exception as e:
-                            print(f"[ERROR] Thread 發送失敗：{e}")
+                            print(f"[ERROR] Thread 發送失敗: {e}")
                     else:
                         print(f"[WARN] 找不到 Thread（ID: {thread_id}）")
 
-                    # 避免重複提醒：清掉時間
+                    # 避免重複提醒 → 把收成時間清除
                     farm["harvest_time"] = None
                     db_module.reference(f"/{user_id}/farm").set(farm)
 
         except Exception as e:
             print(f"[ERROR] harvest_loop 主體錯誤：{e}")
 
+        # 每 60 秒掃描一次
         await asyncio.sleep(60)
-
-
-# --- 單次提醒（種下時排程） ---
-async def schedule_harvest_reminder(user_id, user_data, channel):
-    farm = user_data.get("farm", {})
-    harvest_time_str = farm.get("harvest_time")
-
-    if not harvest_time_str:
-        return
-
-    try:
-        harvest_time = datetime.fromisoformat(harvest_time_str)
-        if harvest_time.tzinfo is None:
-            harvest_time = harvest_time.replace(tzinfo=timezone.utc)
-        else:
-            harvest_time = harvest_time.astimezone(timezone.utc)
-    except:
-        return
-
-    # 計算剩餘時間
-    now = datetime.now(timezone.utc)
-    delay = (harvest_time - now).total_seconds()
-
-    if delay <= 0:
-        await channel.send(f"🥕 <@{user_id}> 你的蘿蔔已成熟！請使用 `!收成蘿蔔` 🌾")
-        return
-
-    # 等待
-    await asyncio.sleep(delay)
-
-    # 發提醒
-    try:
-        await channel.send(f"🥕 <@{user_id}> 你的蘿蔔已成熟！請使用 `!收成蘿蔔` 🌾")
-    except:
-        pass
     
 # ===== 收成蘿蔔（修正版：肥料 + 手套效果） =====
 async def handle_harvest_carrot(message, user_id, user_data, ref):
