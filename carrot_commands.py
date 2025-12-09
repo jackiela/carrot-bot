@@ -5,7 +5,7 @@ import random
 import discord
 import asyncio
 from datetime import datetime, timezone, timedelta
-
+from firebase_admin import db
 # ===== 導入自訂工具 =====
 from utils import (
     get_today, get_now, get_remaining_hours,
@@ -16,13 +16,18 @@ from utils_sanitize import sanitize_user_data
 from carrot_data import common_carrots, rare_carrots, legendary_carrots, all_carrots, recipes, carrot_tips, carrot_facts
 from fortune_data import fortunes
 
-# ===== Firebase 透過 firebase_init.py 管理 =====
-from firebase_init import get_user_ref, get_all_users_ref
 
 # ===== 範例：取得某個使用者資料 =====
 # user_ref = get_user_ref(user_id)
 # user_data = user_ref.get() or {}
 
+def get_user_ref(user_id):
+    """取得使用者資料的 Firebase 參考，若不存在會自動建立"""
+    return db.reference(f"users/{user_id}")
+
+def get_all_users_ref():
+    """取得所有使用者資料的 Firebase 參考"""
+    return db.reference("/")
 
 # ======================================
 # ✅ 通用輔助：確認玩家是否在自己的田地
