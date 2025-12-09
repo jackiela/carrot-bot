@@ -2,6 +2,7 @@ import datetime
 import random
 import discord
 import asyncio
+import firebase_admin
 from firebase_admin import db
 from datetime import datetime, timezone, timedelta
 
@@ -15,6 +16,17 @@ from utils_sanitize import sanitize_user_data
 from carrot_data import common_carrots, rare_carrots, legendary_carrots, all_carrots, recipes, carrot_tips, carrot_facts
 from fortune_data import fortunes
 
+# --- Firebase 初始化（只會執行一次） ---
+if not firebase_admin._apps:
+    cred = credentials.Certificate("path/to/your/serviceAccountKey.json")
+    firebase_admin.initialize_app(cred, {
+        "databaseURL": "https://your-project-id.firebaseio.com"
+    })
+
+def get_user_ref(user_id):
+    """取得使用者資料的 Firebase 參考，若不存在會自動建立"""
+    return db.reference(f"users/{user_id}")
+    
 # ======================================
 # ✅ 通用輔助：確認玩家是否在自己的田地
 # ======================================
@@ -416,13 +428,17 @@ async def handle_carrot_tip(message, user_id, user_data, ref):
     await message.channel.send(f"🌱 胡蘿蔔種植小貼士：{tip}")
     
         
-# --- 種蘿蔔主函式（手套買了就有效 + 整合效果表） ---
-async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普通肥料"):
+# --- 種蘿蔔主函式 ---
+async def handle_plant_carrot(message, user_id, user_data, ref=None, fertilizer="普通肥料"):
     user_data = sanitize_user_data(user_data)
 
     current_channel = await ensure_player_thread(message)
     if current_channel is None:
         return
+
+    # --- Firebase 自動建立 ref ---
+    if ref is None:
+        ref = get_user_ref(user_id)
 
     now = get_now()
     farm = user_data.get("farm", {})
@@ -448,7 +464,6 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
     fertilizer_bonus = {"神奇肥料": -6, "高級肥料": -2, "普通肥料": 0}.get(fertilizer, 0)
     land_bonus = land_level * -2
 
-    # --- 手套效果表 ---
     glove_effects = {
         "幸運手套": "🎯 大吉時掉出蘿蔔",
         "農夫手套": "💰 收成金幣 +20%",
@@ -494,7 +509,6 @@ async def handle_plant_carrot(message, user_id, user_data, ref, fertilizer="普�
     left_hours = remaining.days * 24 + remaining.seconds // 3600
     minutes = (remaining.seconds % 3600) // 60
 
-    # --- 建立 Embed ---
     embed = discord.Embed(
         title="🌱 成功種下蘿蔔！",
         description=f"你使用 **{fertilizer}** 種下了一根蘿蔔！準備等待收成吧！",
