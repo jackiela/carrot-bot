@@ -4,8 +4,6 @@ import datetime
 import random
 import discord
 import asyncio
-import firebase_admin
-from firebase_admin import credentials, db
 from datetime import datetime, timezone, timedelta
 
 # ===== 導入自訂工具 =====
@@ -18,24 +16,12 @@ from utils_sanitize import sanitize_user_data
 from carrot_data import common_carrots, rare_carrots, legendary_carrots, all_carrots, recipes, carrot_tips, carrot_facts
 from fortune_data import fortunes
 
-# --- Firebase 初始化（只會執行一次） ---
-if not firebase_admin._apps:
-    # 從環境變數讀取 Firebase 金鑰 JSON 字串
-    firebase_key_str = os.environ.get("FIREBASE_CREDENTIAL_JSON")
-    if not firebase_key_str:
-        raise ValueError("請在環境變數中設定 FIREBASE_CREDENTIAL_JSON")
-    
-    # 解析 JSON 字串
-    firebase_key_json = json.loads(firebase_key_str)
-    cred = credentials.Certificate(firebase_key_json)
-    
-    firebase_admin.initialize_app(cred, {
-        "databaseURL": os.environ.get("FIREBASE_DATABASE_URL")
-    })
+# ===== Firebase 透過 firebase_init.py 管理 =====
+from firebase_init import get_user_ref, get_all_users_ref
 
-def get_user_ref(user_id):
-    """取得使用者資料的 Firebase 參考，若不存在會自動建立"""
-    return db.reference(f"users/{user_id}")
+# ===== 範例：取得某個使用者資料 =====
+# user_ref = get_user_ref(user_id)
+# user_data = user_ref.get() or {}
 
 
 # ======================================
@@ -441,6 +427,8 @@ async def handle_carrot_tip(message, user_id, user_data, ref):
         
 # --- 種蘿蔔主函式 ---
 async def handle_plant_carrot(message, user_id, user_data, ref=None, fertilizer="普通肥料"):
+    from firebase_init import get_user_ref  # 確保使用統一初始化
+
     user_data = sanitize_user_data(user_data)
 
     current_channel = await ensure_player_thread(message)
@@ -513,7 +501,7 @@ async def handle_plant_carrot(message, user_id, user_data, ref=None, fertilizer=
         "thread_id": message.channel.id
     })
     user_data["farm"] = farm
-    ref.set(user_data)
+    ref.set(user_data)  # 寫入 Firebase
 
     # --- 剩餘時間計算 ---
     remaining = harvest_time - now
@@ -553,13 +541,14 @@ async def handle_plant_carrot(message, user_id, user_data, ref=None, fertilizer=
 # =========================================
 # 自動收成提醒：發送到玩家農田 Thread（Firebase 版）
 # =========================================
-async def harvest_loop(bot, db_module):
+async def harvest_loop(bot):
+    from firebase_init import get_all_users_ref  # 統一 Firebase 初始化工具
     print("[INFO] harvest_loop 啟動")
     tz = timezone(timedelta(hours=8))  # 台灣時間
 
     while True:
         try:
-            ref = db_module.reference("/")  # 讀取資料庫
+            ref = get_all_users_ref()  # 取得整個 users 節點
             all_users = ref.get() or {}
             now = datetime.now(tz)
 
@@ -582,7 +571,7 @@ async def harvest_loop(bot, db_module):
 
                 # 到時間了：提醒
                 if now >= harvest_time:
-                    thread = bot.get_channel(thread_id)  # ← 直接用 get_channel
+                    thread = bot.get_channel(thread_id)  # 直接用 get_channel
                     if thread:
                         try:
                             await thread.send(
@@ -595,12 +584,13 @@ async def harvest_loop(bot, db_module):
 
                     # 避免重複提醒
                     farm["harvest_time"] = None
-                    db_module.reference(f"/{user_id}/farm").set(farm)
+                    db.reference(f"/users/{user_id}/farm").set(farm)
 
         except Exception as e:
             print(f"[ERROR] harvest_loop 主體錯誤：{e}")
 
-        await asyncio.sleep(60)
+        await asyncio.sleep(60)  # 每 60 秒掃描一次
+
     
 # ===== 收成蘿蔔（修正版：肥料 + 手套效果） =====
 async def handle_harvest_carrot(message, user_id, user_data, ref):
