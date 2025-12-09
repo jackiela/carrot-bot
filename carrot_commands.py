@@ -546,14 +546,13 @@ async def handle_plant_carrot(message, user_id, user_data, ref=None, fertilizer=
 # =========================================
 # 自動收成提醒：發送到玩家農田 Thread（Firebase 版）
 # =========================================
-async def harvest_loop(bot):
-    from firebase_init import get_all_users_ref  # 統一 Firebase 初始化工具
+async def harvest_loop(bot, db_module):
     print("[INFO] harvest_loop 啟動")
     tz = timezone(timedelta(hours=8))  # 台灣時間
 
     while True:
         try:
-            ref = get_all_users_ref()  # 取得整個 users 節點
+            ref = db_module.reference("/")  # 讀取資料庫
             all_users = ref.get() or {}
             now = datetime.now(tz)
 
