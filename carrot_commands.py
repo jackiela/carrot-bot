@@ -565,7 +565,7 @@ async def harvest_loop(bot, db_module):
 
     while True:
         try:
-            ref = db_module.reference("/")  # 讀取資料庫
+            ref = db_module.reference("/")  # 讀取資料庫根目錄
             all_users = ref.get() or {}
             now = datetime.now(tz)
 
@@ -577,7 +577,9 @@ async def harvest_loop(bot, db_module):
                 if not harvest_time_str or not thread_id:
                     continue
 
+                # -----------------------------------
                 # 時間解析
+                # -----------------------------------
                 try:
                     harvest_time = datetime.fromisoformat(harvest_time_str)
                     if harvest_time.tzinfo is None:
@@ -586,9 +588,12 @@ async def harvest_loop(bot, db_module):
                     print(f"[WARN] harvest_time 解析失敗 ({user_id}): {e}")
                     continue
 
-                # 到時間了：提醒
+                # -----------------------------------
+                # 到時間 → 發送提醒
+                # -----------------------------------
                 if now >= harvest_time:
-                    thread = bot.get_channel(thread_id)  # 直接用 get_channel
+
+                    thread = bot.get_channel(thread_id)
                     if thread:
                         try:
                             await thread.send(
@@ -599,14 +604,21 @@ async def harvest_loop(bot, db_module):
                     else:
                         print(f"[WARN] 找不到 Thread（ID: {thread_id}）")
 
-                    # 避免重複提醒
+                    # -----------------------------------
+                    # 清除收成狀態，避免重複提醒 + 無法重新種植
+                    # -----------------------------------
                     farm["harvest_time"] = None
-                    db.reference(f"/users/{user_id}/farm").set(farm)
+                    farm["status"] = None
+                    user_data["farm"] = farm
+
+                    # 寫回正確路徑
+                    db_module.reference(f"/{user_id}").set(user_data)
 
         except Exception as e:
             print(f"[ERROR] harvest_loop 主體錯誤：{e}")
 
         await asyncio.sleep(60)  # 每 60 秒掃描一次
+
 
     
 # ===== 收成蘿蔔（修正版：肥料 + 手套效果） =====
