@@ -6,6 +6,7 @@ import discord
 import asyncio
 from datetime import datetime, timezone, timedelta
 from firebase_admin import db
+from firebase_init import get_user_ref
 # ===== 導入自訂工具 =====
 from utils import (
     get_today, get_now, get_remaining_hours,
@@ -432,8 +433,8 @@ async def handle_carrot_tip(message, user_id, user_data, ref):
         
 # --- 種蘿蔔主函式 ---
 async def handle_plant_carrot(message, user_id, user_data, ref=None, fertilizer="普通肥料"):
-    from firebase_init import get_user_ref  # 確保使用統一初始化
 
+    # --- 保證 user_data 必備欄位存在（避免 ref.set() 覆蓋資料時缺欄位）---
     user_data = sanitize_user_data(user_data)
 
     current_channel = await ensure_player_thread(message)
@@ -444,7 +445,10 @@ async def handle_plant_carrot(message, user_id, user_data, ref=None, fertilizer=
     if ref is None:
         ref = get_user_ref(user_id)
 
-    now = get_now()
+    # --- 時區統一（台灣）---
+    tz = timezone(timedelta(hours=8))
+    now = datetime.now(tz)
+
     farm = user_data.get("farm", {})
     fertilizers = user_data.get("fertilizers", {})
     land_level = farm.get("land_level", 1)
@@ -481,14 +485,21 @@ async def handle_plant_carrot(message, user_id, user_data, ref=None, fertilizer=
     if "強化手套" in gloves:
         glove_bonus -= 1
         glove_display_list.append(glove_effects["強化手套"])
+
     for g in gloves:
         if g != "強化手套":
             glove_display_list.append(glove_effects.get(g, g))
+
     if not glove_display_list:
         glove_display_list.append("無（沒有手套效果）")
+
     glove_display_text = "\n".join(glove_display_list)
 
     total_hours = base_hours + fertilizer_bonus + land_bonus + glove_bonus
+
+    # --- 確保至少 1 小時（避免未來土地太強變成 0 小時收成）---
+    total_hours = max(1, total_hours)
+
     harvest_time = now + timedelta(hours=total_hours)
 
     # --- 扣肥料 ---
@@ -505,10 +516,13 @@ async def handle_plant_carrot(message, user_id, user_data, ref=None, fertilizer=
         "pull_count": pull_count,
         "thread_id": message.channel.id
     })
-    user_data["farm"] = farm
-    ref.set(user_data)  # 寫入 Firebase
 
-    # --- 剩餘時間計算 ---
+    user_data["farm"] = farm
+
+    # --- 寫入 Firebase（✔ 安全）---
+    ref.set(user_data)
+
+    # --- 顯示剩餘時間 ---
     remaining = harvest_time - now
     left_hours = remaining.days * 24 + remaining.seconds // 3600
     minutes = (remaining.seconds % 3600) // 60
@@ -530,14 +544,13 @@ async def handle_plant_carrot(message, user_id, user_data, ref=None, fertilizer=
         shorten_lines.append(f"🏕️ 土地 Lv.{land_level}：`-{abs(land_bonus)} 小時`")
     if glove_bonus != 0:
         shorten_lines.append(f"🧤 強化手套：`-{abs(glove_bonus)} 小時`")
+
     total_short = abs(fertilizer_bonus + land_bonus + glove_bonus)
     shorten_text = "\n".join(shorten_lines) if shorten_lines else "（無縮時加成）"
+
     embed.add_field(name=f"✂ 時間縮減（共 `{total_short}` 小時）", value=shorten_text, inline=False)
 
-    # --- 肥料庫存 ---
     embed.add_field(name="🧪 肥料庫存", value=f"{fertilizer}：剩餘 **{fertilizers[fertilizer]}** 個", inline=False)
-
-    # --- 顯示手套 ---
     embed.add_field(name="🧤 手套", value=glove_display_text, inline=False)
     embed.set_footer(text="你可以隨時使用：!收成蘿蔔")
 
