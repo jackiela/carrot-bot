@@ -30,6 +30,64 @@ def get_all_users_ref():
     """取得所有使用者資料的 Firebase 參考"""
     return db.reference("/")
 
+# 📌 請設定您的版本號和頻道 ID
+# 假設這是您修復 bug (2.0.1) 和修復 Port 衝突 (2.0.2) 之後的下一個版本
+CURRENT_VERSION = "2.0.3" 
+# ⚠️ 請替換成您實際要發布「更新通知」的頻道 ID！
+UPDATE_CHANNEL_ID = 1428618044992913448
+
+async def check_and_post_update(bot: discord.Client):
+    """檢查版本並發布更新日誌"""
+    try:
+        # 1. 取得 Firebase 記錄的上次版本
+        version_ref = db.reference("/bot_config/last_version")
+        last_version = version_ref.get()
+        
+        # 2. 比較版本號
+        if last_version != CURRENT_VERSION:
+            
+            # --- 版本更新內容 (請在這裡撰寫您的更新日誌) ---
+            update_notes = [
+                f"**🚀 胡蘿蔔機器人更新至 {CURRENT_VERSION} 囉！**",
+                "本次更新主要根據玩家反饋，對農場肥料系統進行了強化：",
+                "",
+                "### ✨ 高級肥料 CP 值大提升！",
+                "由於收到玩家反饋高級肥料（30 金幣）性價比偏低，我們調整了它的效果，讓它成為中期種植的最佳選擇！",
+                "",
+                "**🌱 高級肥料（30 金幣）強化內容：**",
+                f"1. **收成時間縮減**：從 -2 小時 $\\to$ **-4 小時** (24h 變成 20h) ⏳",
+                f"2. **稀有度加成**：從 +5 $\\to$ **+10** (大幅提升稀有蘿蔔和高額金幣的獲得機率) 💰",
+                "",
+                "### 🐛 其他修復與優化",
+                "• **【系統優化】**：改善了 Web 服務啟動邏輯，減少 Port 衝突（Render 部署穩定性提升）。",
+                "",
+                "✨ 祝大家早日種出稀有蘿蔔！`!農場總覽`"
+            ]
+            # --- 結束更新日誌 ---
+
+            # 3. 發送更新通知
+            channel = bot.get_channel(UPDATE_CHANNEL_ID)
+            if channel:
+                embed = discord.Embed(
+                    title=f"📢 機器人更新通知 {CURRENT_VERSION}",
+                    description="\n".join(update_notes),
+                    color=discord.Color.blue()
+                )
+                embed.set_footer(text=f"上次版本: {last_version or 'N/A'}")
+                await channel.send(embed=embed)
+                await channel.send("="*20) # 方便區隔
+                
+                # 4. 更新 Firebase 紀錄的版本號
+                version_ref.set(CURRENT_VERSION)
+            else:
+                print(f"[WARN] 無法找到 ID 為 {UPDATE_CHANNEL_ID} 的更新通知頻道。")
+
+        else:
+            print(f"[INFO] 當前版本 {CURRENT_VERSION} 與上次紀錄版本一致，不發布通知。")
+
+    except Exception as e:
+        print(f"[ERROR] 版本檢查與更新發布失敗: {e}")
+
 # ======================================
 # ✅ 通用輔助：確認玩家是否在自己的田地
 # ======================================
@@ -85,9 +143,10 @@ def pull_carrot_by_farm(fertilizer="普通肥料", land_level=1):
     base_roll = random.randint(1, 100)
     bonus = 0
     if fertilizer == "高級肥料":
-        bonus += 5
+        # 從 5 調整為 10
+        bonus += 10 
     elif fertilizer == "神奇肥料":
-        bonus += 15
+        bonus += 20
     if land_level >= 3:
         bonus += (land_level - 2) * 5
 
@@ -467,9 +526,10 @@ async def handle_plant_carrot(message, user_id, user_data, ref=None, fertilizer=
         )
         return
 
-    # --- 收成時間計算 ---
+   # --- 收成時間計算 ---
     base_hours = 24
-    fertilizer_bonus = {"神奇肥料": -6, "高級肥料": -2, "普通肥料": 0}.get(fertilizer, 0)
+    # 從 -2 調整為 -4
+    fertilizer_bonus = {"神奇肥料": -8, "高級肥料": -4, "普通肥料": 0}.get(fertilizer, 0)
     land_bonus = land_level * -2
 
     glove_effects = {
