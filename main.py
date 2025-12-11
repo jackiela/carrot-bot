@@ -295,7 +295,26 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 @client.event
 async def on_ready():
     print(f"🔧 Bot 已登入：{client.user}")
+    # 注意：這裡的 harvest_loop 還是由 Bot 的 loop 管理
     client.loop.create_task(harvest_loop(client, db))
     print("🌱 自動收成推播系統已啟動")
 
-client.run(TOKEN)
+def run_bot():
+    """在背景執行緒啟動 Discord Bot (會阻塞該執行緒)"""
+    client.run(TOKEN)
+
+# ===================== 執行啟動 =====================
+if __name__ == '__main__':
+    print("Bot 啟動中...")
+
+    # 1. 將 Discord Bot 移到一個新的背景執行緒中執行
+    #    Bot 現在是次要任務，讓主執行緒空出來給 Web Server
+    threading.Thread(target=run_bot, daemon=True).start()
+    
+    # 2. 啟動 Keep Alive loop
+    threading.Thread(target=keep_alive_loop, daemon=True).start()
+
+    # 3. 讓 Web Server 在主執行緒中啟動並**阻塞**
+    #    uvicorn.run() 會在這裡阻塞，讓 Render 偵測到 Port 綁定成功
+    print("🌐 啟動 Web 服務 (主執行緒)")
+    start_web()
