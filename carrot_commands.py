@@ -514,7 +514,8 @@ async def handle_plant_carrot(message, user_id, user_data, ref=None, fertilizer=
         "fertilizer": fertilizer,
         "land_level": land_level,
         "pull_count": pull_count,
-        "thread_id": message.channel.id
+        "thread_id": message.channel.id,
+        "reminded": False  # <--- 🔥 加入這一行
     })
 
     user_data["farm"] = farm
@@ -557,25 +558,46 @@ async def handle_plant_carrot(message, user_id, user_data, ref=None, fertilizer=
     await current_channel.send(embed=embed)
 
 # =========================================
-# 自動收成提醒：發送到玩家農田 Thread（Firebase 版）
+# 自動收成提醒：發送到玩家農田 Thread（修正版）
 # =========================================
 async def harvest_loop(bot, db_module):
     print("[INFO] harvest_loop 啟動")
     tz = timezone(timedelta(hours=8))  # 台灣時間
 
-    while True:
+    await bot.wait_until_ready()  # 確保機器人準備好
+
+    while not bot.is_closed():
         try:
-            ref = db_module.reference("/")  # 讀取資料庫根目錄
-            all_users = ref.get() or {}
+            # 1. 修正路徑為 /users
+            ref = db_module.reference("/users")
+            all_users = ref.get()
+
+            if not all_users:
+                await asyncio.sleep(60)
+                continue
+
             now = datetime.now(tz)
 
             for user_id, user_data in all_users.items():
+                # 防呆：確保 user_data 是字典
+                if not isinstance(user_data, dict):
+                    continue
+
                 farm = user_data.get("farm", {})
+                
+                # --- 取得必要欄位 ---
                 harvest_time_str = farm.get("harvest_time")
                 thread_id = farm.get("thread_id")
+                status = farm.get("status")
+                
+                # ✨✨✨ 【這段就是您要加的位置】 ✨✨✨
+                # 讀取是否已經提醒過的標記 (預設為 False)
+                is_reminded = farm.get("reminded", False)
 
-                if not harvest_time_str or not thread_id:
+                # 檢查：如果 沒時間 OR 沒頻道ID OR 狀態不是已種植 OR 已經提醒過 -> 就跳過
+                if not harvest_time_str or not thread_id or status != "planted" or is_reminded:
                     continue
+                # ✨✨✨ -------------------------- ✨✨✨
 
                 # -----------------------------------
                 # 時間解析
@@ -592,33 +614,37 @@ async def harvest_loop(bot, db_module):
                 # 到時間 → 發送提醒
                 # -----------------------------------
                 if now >= harvest_time:
-
                     thread = bot.get_channel(thread_id)
+                    
+                    # 嘗試重新抓取頻道
+                    if not thread:
+                        try:
+                            thread = await bot.fetch_channel(thread_id)
+                        except:
+                            pass
+
                     if thread:
                         try:
                             await thread.send(
                                 f"🥕 <@{user_id}> 你的蘿蔔成熟啦！快來使用 `!收成蘿蔔` 🌾"
                             )
+                            print(f"[SUCCESS] 已發送提醒給 {user_id}")
                         except Exception as e:
                             print(f"[ERROR] Thread 發送失敗 ({user_id}): {e}")
-                    else:
-                        print(f"[WARN] 找不到 Thread（ID: {thread_id}）")
-
+                    
                     # -----------------------------------
-                    # 清除收成狀態，避免重複提醒 + 無法重新種植
+                    # ✅ 標記為「已提醒」，防止重複發送
                     # -----------------------------------
-                    farm["harvest_time"] = None
-                    farm["status"] = None
+                    farm["reminded"] = True  # 設定標記
                     user_data["farm"] = farm
-
-                    # 寫回正確路徑
-                    db_module.reference(f"/{user_id}").set(user_data)
+                    
+                    # 寫回正確的使用者路徑
+                    db_module.reference(f"/users/{user_id}").update({"farm": farm})
 
         except Exception as e:
             print(f"[ERROR] harvest_loop 主體錯誤：{e}")
 
         await asyncio.sleep(60)  # 每 60 秒掃描一次
-
 
     
 # ===== 收成蘿蔔（修正版：肥料 + 手套效果） =====
