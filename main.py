@@ -27,7 +27,8 @@ from carrot_commands import (
     handle_buy_decoration,
     harvest_loop,
     GLOVE_SHOP,
-    DECORATION_SHOP
+    DECORATION_SHOP,
+    check_and_post_update
 )
 from utils import get_today
 from fortune_data import fortunes
@@ -292,6 +293,11 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 @client.event
 async def on_ready():
     print(f"🔧 Bot 已登入：{client.user}")
+    
+    # 🌟 新增這一行：啟動版本檢查與更新通知
+    # 傳入 client (Bot 物件) 和 db (Firebase 參考)
+    client.loop.create_task(check_and_post_update(client, db)) 
+    
     # 注意：這裡的 harvest_loop 還是由 Bot 的 loop 管理
     client.loop.create_task(harvest_loop(client, db))
     print("🌱 自動收成推播系統已啟動")
