@@ -286,9 +286,6 @@ def keep_alive_loop():
             print("[KeepAlive] Failed:", e)
         time.sleep(600)
 
-threading.Thread(target=start_web, daemon=True).start()
-threading.Thread(target=keep_alive_loop, daemon=True).start()
-
 # ===================== 啟動 Discord Bot =====================
 TOKEN = os.getenv("DISCORD_TOKEN")
 
