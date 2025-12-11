@@ -36,11 +36,12 @@ CURRENT_VERSION = "2.0.3"
 # ⚠️ 請替換成您實際要發布「更新通知」的頻道 ID！
 UPDATE_CHANNEL_ID = 1428618044992913448
 
-async def check_and_post_update(bot: discord.Client):
+async def check_and_post_update(bot: discord.Client, db_module):
     """檢查版本並發布更新日誌"""
     try:
         # 1. 取得 Firebase 記錄的上次版本
-        version_ref = db.reference("/bot_config/last_version")
+        # ⚠️ 使用傳入的 db_module 存取 Firebase
+        version_ref = db_module.reference("/bot_config/last_version")
         last_version = version_ref.get()
         
         # 2. 比較版本號
