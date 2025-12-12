@@ -82,12 +82,19 @@ async def check_and_post_update(bot: discord.Client, db_module):
             ]
             # --- 結束更新日誌 ---
 
-            # 3. 發送更新通知
+             # 3. 發送更新通知
             channel = bot.get_channel(UPDATE_CHANNEL_ID)
             if not channel:
                  channel = await bot.fetch_channel(UPDATE_CHANNEL_ID)
                  
             if channel:
+                # 🌟 修正點：先發送一個帶有 @everyone 的簡短訊息
+                try:
+                    await channel.send(f"@everyone 📢 **胡蘿蔔農場更新至 V{CURRENT_VERSION} 囉！** 🚀 點擊查看新功能和修復內容：")
+                except Exception as e:
+                    print(f"[WARN] 無法發送 @everyone 提及: {e}")
+                
+                # 接著發送詳細的 Embed
                 embed = discord.Embed(
                     title=f"📢 機器人更新通知 {CURRENT_VERSION}",
                     description="\n".join(update_notes),
