@@ -992,15 +992,6 @@ async def show_farm_overview(message, user_id, user_data, ref):
         "神奇手套": "🌟 稀有機率提升"
     }
 
-    if equipped_glove:
-        embed.add_field(
-            name="🧤 裝備中手套",
-            value=f"• **{equipped_glove}** — {glove_effects.get(equipped_glove, '未知效果')}",
-            inline=False
-        )
-    else:
-        embed.add_field(name="🧤 裝備中手套", value="（未裝備）", inline=False)
-
     if gloves:
         glove_text = "\n".join(f"• {g} — {glove_effects.get(g, '未知效果')}" for g in gloves)
     else:
