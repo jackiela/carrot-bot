@@ -30,9 +30,21 @@ def get_all_users_ref():
     """取得所有使用者資料的 Firebase 參考"""
     return db.reference("/")
 
+# 💰 裝飾品被動金幣收益（每日 Coins/Day）
+# 數值已調整以符合每日的期望收益
+DECORATION_PASSIVE_BONUS = {
+    "花圃": 5,   # 每日 5 金幣
+    "木柵欄": 10,  # 每日 10 金幣
+    "竹燈籠": 15,  # 每日 15 金幣
+    "鯉魚旗": 20, # 每日 20 金幣
+    "聖誕樹": 25  # 每日 25 金幣
+}
+
+
+
 # 📌 請設定您的版本號和頻道 ID
 # 假設這是您修復 bug (2.0.1) 和修復 Port 衝突 (2.0.2) 之後的下一個版本
-CURRENT_VERSION = "2.0.3" 
+CURRENT_VERSION = "2.0.4" 
 # ⚠️ 請替換成您實際要發布「更新通知」的頻道 ID！
 UPDATE_CHANNEL_ID = 1428618044992913448
 
@@ -41,33 +53,40 @@ async def check_and_post_update(bot: discord.Client, db_module):
     try:
         # 1. 取得 Firebase 記錄的上次版本
         # ⚠️ 使用傳入的 db_module 存取 Firebase
-        version_ref = db_module.reference("/bot_config/last_version")
+        # 注意：路徑從 /bot_config/last_version 改為 /bot_status/last_posted_version 更通用
+        version_ref = db_module.reference("/bot_status/last_posted_version")
         last_version = version_ref.get()
         
         # 2. 比較版本號
         if last_version != CURRENT_VERSION:
             
-            # --- 版本更新內容 (請在這裡撰寫您的更新日誌) ---
+            # --- 版本更新內容 (這次的主要更新內容) ---
             update_notes = [
                 f"**🚀 胡蘿蔔機器人更新至 {CURRENT_VERSION} 囉！**",
-                "本次更新主要根據玩家反饋，對農場肥料系統進行了強化：",
+                "本次更新主要引入了**裝飾品被動收益**功能，並對遊戲體驗進行了優化：",
                 "",
-                "### ✨ 高級肥料 CP 值大提升！",
-                "由於收到玩家反饋高級肥料（30 金幣）性價比偏低，我們調整了它的效果，讓它成為中期種植的最佳選擇！",
-                "",
-                "**🌱 高級肥料（30 金幣）強化內容：**",
-                f"1. **收成時間縮減**：從 -2 小時 $\\to$ **-4 小時** (24h 變成 20h) ⏳",
-                f"2. **稀有度加成**：從 +5 $\\to$ **+10** (大幅提升稀有蘿蔔和高額金幣的獲得機率) 💰",
+                "### 💰 裝飾品每日金幣收益系統 (新功能)",
+                "現在，你擁有的農場裝飾品會自動為你累積被動金幣收入！系統會每天計算一次金幣（離線也能累積）。",
+                "目前的裝飾品每日收益如下：",
+                f"• 花圃: **{DECORATION_PASSIVE_BONUS['花圃']}** 金幣/日",
+                f"• 木柵欄: **{DECORATION_PASSIVE_BONUS['木柵欄']}** 金幣/日",
+                f"• 竹燈籠: **{DECORATION_PASSIVE_BONUS['竹燈籠']}** 金幣/日",
+                f"• 鯉魚旗: **{DECORATION_PASSIVE_BONUS['鯉魚旗']}** 金幣/日",
+                f"• 聖誕樹: **{DECORATION_PASSIVE_BONUS['聖誕樹']}** 金幣/日",
                 "",
                 "### 🐛 其他修復與優化",
-                "• **【系統優化】**：改善了 Web 服務啟動邏輯，減少 Port 衝突（Render 部署穩定性提升）。",
+                "• **【修復】裝飾品圖片：** 修復了 `!農場總覽` 或購買裝飾品後，裝飾品圖片無法正常載入顯示的問題。",
+                "• **【優化】**：改善了 Web 服務啟動邏輯，減少 Port 衝突（Render 部署穩定性提升）。",
                 "",
-                "✨ 祝大家早日種出稀有蘿蔔！`!農場總覽`"
+                "✨ 祝大家早日種出稀有蘿蔔！別忘了使用 `!農場總覽` 看看你的被動收益喔！"
             ]
             # --- 結束更新日誌 ---
 
             # 3. 發送更新通知
             channel = bot.get_channel(UPDATE_CHANNEL_ID)
+            if not channel:
+                 channel = await bot.fetch_channel(UPDATE_CHANNEL_ID)
+                 
             if channel:
                 embed = discord.Embed(
                     title=f"📢 機器人更新通知 {CURRENT_VERSION}",
@@ -88,7 +107,7 @@ async def check_and_post_update(bot: discord.Client, db_module):
 
     except Exception as e:
         print(f"[ERROR] 版本檢查與更新發布失敗: {e}")
-
+        
 # ======================================
 # ✅ 通用輔助：確認玩家是否在自己的田地
 # ======================================
@@ -619,17 +638,24 @@ async def handle_plant_carrot(message, user_id, user_data, ref=None, fertilizer=
     await current_channel.send(embed=embed)
 
 # =========================================
-# 自動收成提醒：發送到玩家農田 Thread（修正版）
+# 自動收成提醒與裝飾品金幣發放
 # =========================================
+# 確保您在檔案頂部有匯入：
+# from datetime import datetime, timezone, timedelta
+# from firebase_admin import db
+# from utils import get_now, parse_datetime (假設這兩個 helper 函式已定義)
+
 async def harvest_loop(bot, db_module):
     print("[INFO] harvest_loop 啟動")
-    tz = timezone(timedelta(hours=8))  # 台灣時間
+    # 這裡的 tz 必須與 get_now/parse_datetime 函式中使用的時區一致，
+    # 確保所有時間戳記都基於台灣時區。
+    tz_taipei = timezone(timedelta(hours=8)) 
+    from utils import get_now, parse_datetime # 假設這些函式已匯入
 
     await bot.wait_until_ready()  # 確保機器人準備好
 
     while not bot.is_closed():
         try:
-            # 1. 修正路徑為 /users
             ref = db_module.reference("/users")
             all_users = ref.get()
 
@@ -637,47 +663,91 @@ async def harvest_loop(bot, db_module):
                 await asyncio.sleep(60)
                 continue
 
-            now = datetime.now(tz)
+            now = get_now() # 使用統一的 get_now() 確保時區一致
 
             for user_id, user_data in all_users.items():
-                # 防呆：確保 user_data 是字典
                 if not isinstance(user_data, dict):
                     continue
-
-                farm = user_data.get("farm", {})
                 
-                # --- 取得必要欄位 ---
+                # -----------------------------------
+                # 💰 邏輯 A: 裝飾品被動金幣生成 (每日計算)
+                # -----------------------------------
+                
+                # 1. 取得上次更新時間
+                last_update_str = user_data.get("last_passive_coin_update")
+                
+                # 首次啟動：設置為 1 天前
+                if not last_update_str:
+                    last_update = now - timedelta(days=1) 
+                else:
+                    try:
+                        last_update = parse_datetime(last_update_str)
+                    except Exception:
+                        last_update = now - timedelta(days=1)
+
+                # 2. 計算時間差（天數）
+                time_elapsed = now - last_update
+                days_elapsed = time_elapsed.total_seconds() / 86400.0
+                
+                # 如果經過時間不到 23 小時 (約 0.958 天)，跳過金幣計算
+                if days_elapsed >= 0.958:
+                    
+                    # 3. 計算總收益率 (Coins/Day)
+                    total_daily_rate = 0
+                    decorations = user_data.get("decorations", [])
+                    
+                    for deco in decorations:
+                        total_daily_rate += DECORATION_PASSIVE_BONUS.get(deco, 0)
+                    
+                    # 4. 計算總共獲得金幣
+                    full_days_to_award = int(days_elapsed)
+                    coins_gained = full_days_to_award * total_daily_rate
+                    
+                    if coins_gained > 0:
+                        # 5. 更新金幣和時間戳
+                        current_coins = user_data.get("coins", 0)
+                        new_coins = current_coins + coins_gained
+                        
+                        user_ref = db_module.reference(f"/users/{user_id}")
+                        new_last_update = last_update + timedelta(days=full_days_to_award)
+                        
+                        user_ref.update({
+                            "coins": new_coins,
+                            "last_passive_coin_update": new_last_update.isoformat() 
+                        })
+                        
+                        print(f"[PASSIVE] User {user_id} gained {coins_gained} coins from decorations ({full_days_to_award} full days). New total: {new_coins}")
+                    
+                    # 即使沒有收益，如果時間差已經超過 1 天，也應該更新時間戳
+                    elif full_days_to_award > 0:
+                        user_ref = db_module.reference(f"/users/{user_id}")
+                        new_last_update = last_update + timedelta(days=full_days_to_award)
+                        user_ref.update({
+                            "last_passive_coin_update": new_last_update.isoformat()
+                        })
+
+                # -----------------------------------
+                # 🥕 邏輯 B: 蘿蔔收成提醒 (原功能)
+                # -----------------------------------
+                farm = user_data.get("farm", {})
                 harvest_time_str = farm.get("harvest_time")
                 thread_id = farm.get("thread_id")
                 status = farm.get("status")
-                
-                # ✨✨✨ 【這段就是您要加的位置】 ✨✨✨
-                # 讀取是否已經提醒過的標記 (預設為 False)
                 is_reminded = farm.get("reminded", False)
 
-                # 檢查：如果 沒時間 OR 沒頻道ID OR 狀態不是已種植 OR 已經提醒過 -> 就跳過
                 if not harvest_time_str or not thread_id or status != "planted" or is_reminded:
                     continue
-                # ✨✨✨ -------------------------- ✨✨✨
 
-                # -----------------------------------
-                # 時間解析
-                # -----------------------------------
                 try:
-                    harvest_time = datetime.fromisoformat(harvest_time_str)
-                    if harvest_time.tzinfo is None:
-                        harvest_time = harvest_time.replace(tzinfo=tz)
+                    harvest_time = parse_datetime(harvest_time_str)
                 except Exception as e:
                     print(f"[WARN] harvest_time 解析失敗 ({user_id}): {e}")
                     continue
 
-                # -----------------------------------
                 # 到時間 → 發送提醒
-                # -----------------------------------
                 if now >= harvest_time:
                     thread = bot.get_channel(thread_id)
                     
-                    # 嘗試重新抓取頻道
                     if not thread:
                         try:
                             thread = await bot.fetch_channel(thread_id)
@@ -693,19 +763,15 @@ async def harvest_loop(bot, db_module):
                         except Exception as e:
                             print(f"[ERROR] Thread 發送失敗 ({user_id}): {e}")
                     
-                    # -----------------------------------
-                    # ✅ 標記為「已提醒」，防止重複發送
-                    # -----------------------------------
-                    farm["reminded"] = True  # 設定標記
-                    user_data["farm"] = farm
-                    
-                    # 寫回正確的使用者路徑
-                    db_module.reference(f"/users/{user_id}").update({"farm": farm})
+                    # 標記為「已提醒」
+                    farm["reminded"] = True
+                    db_module.reference(f"/users/{user_id}/farm").update({"reminded": True})
+
 
         except Exception as e:
             print(f"[ERROR] harvest_loop 主體錯誤：{e}")
 
-        await asyncio.sleep(60)  # 每 60 秒掃描一次
+        await asyncio.sleep(60) # 每 60 秒掃描一次
 
     
 # ===== 收成蘿蔔（修正版：肥料 + 手套效果） =====
