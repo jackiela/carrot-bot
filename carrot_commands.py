@@ -906,7 +906,12 @@ async def handle_land_progress(message, user_id, user_data, ref):
 async def show_farm_overview(message, user_id, user_data, ref):
     from utils_sanitize import sanitize_user_data
     from utils import parse_datetime, get_remaining_time_str, get_decoration_thumbnail
+    import io # 📌 確保您有匯入 io 模組！
 
+    # 🌟 修正點 A：在函式開始處取得 client 物件 🌟
+    # Bot 物件通常可以從 message.channel._state.client 取得
+    client = message.channel._state.client
+    
     user_data = sanitize_user_data(user_data)
     
     current_channel = await ensure_player_thread(message)
@@ -1047,8 +1052,9 @@ async def show_farm_overview(message, user_id, user_data, ref):
         for d in decorations:
             url = get_decoration_thumbnail(d)
             try:
-                # 下載外部圖片 → 建立 File 物件
-                async with message.client.http._HTTPClient__session.get(url) as resp:
+                # 🌟 修正點 B：將 message.client 替換為上面定義的 client 🌟
+                # 使用 client 物件的 session 來下載圖片
+                async with client.http._HTTPClient__session.get(url) as resp:
                     if resp.status == 200:
                         img_bytes = await resp.read()
                         files.append(discord.File(
