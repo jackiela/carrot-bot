@@ -1290,15 +1290,14 @@ async def handle_buy_decoration(message, user_id, user_data, ref, deco_name):
     user_data["decorations"].append(deco_name)
     ref.set(user_data)
 
-    # --- 🎨 購買成功 Embed ---
+    # --- 🎨 購買成功 Embed --- 
     embed = discord.Embed(
         title="🎍 裝飾購買成功！",
         description=f"你購入了 **{deco_name}**！農場變得更漂亮了 🌾",
         color=discord.Color.green()
     )
-
-    # 🌟 顯示裝飾圖片
-    embed.set_thumbnail(url=get_decoration_thumbnail(deco_name))
+    # 🌟 顯示裝飾圖片 
+    embed.set_thumbnail(url=get_decoration_thumbnail(deco_name))    
 
     embed.add_field(
         name="💰 剩餘金幣",
@@ -1306,11 +1305,9 @@ async def handle_buy_decoration(message, user_id, user_data, ref, deco_name):
         inline=False
     )
 
-    await message.channel.send(embed=embed)
-
-    # 🌾 顯示農場總覽
-    updated_data = ref.get()
-    await show_farm_overview(message, user_id, updated_data, ref)
+    await message.channel.send(embed=embed) 
+    # 🌾 顯示農場總覽 updated_data = ref.get() 
+    await show_farm_overview(message, user_id, updated_data, ref) # 👈 這裡調用 show_farm_overview
 
 
 # 🧧 開運福袋（含特效與農場總覽）
