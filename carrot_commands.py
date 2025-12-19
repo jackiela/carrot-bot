@@ -45,7 +45,7 @@ DECORATION_PASSIVE_BONUS = {
 
 # 📌 請設定您的版本號和頻道 ID
 # 假設這是您修復 bug (2.0.1) 和修復 Port 衝突 (2.0.2) 之後的下一個版本
-CURRENT_VERSION = "2.0.4" 
+CURRENT_VERSION = "2.0.5" 
 # ⚠️ 請替換成您實際要發布「更新通知」的頻道 ID！
 UPDATE_CHANNEL_ID = 1428618044992913448
 
@@ -64,23 +64,11 @@ async def check_and_post_update(bot: discord.Client, db_module):
             # --- 版本更新內容 (這次的主要更新內容) ---
             update_notes = [
                 f"**🚀 胡蘿蔔機器人更新至 {CURRENT_VERSION} 囉！**",
-                "本次更新主要引入了**裝飾品被動收益**功能，並對遊戲體驗進行了優化：",
-                "",
-                "### 💰 裝飾品每日金幣收益系統 (新功能)",
-                "現在，你擁有的農場裝飾品會自動為你累積被動金幣收入！系統會每天計算一次金幣（離線也能累積）。",
-                "目前的裝飾品每日收益如下：",
-                f"• 花圃: **{DECORATION_PASSIVE_BONUS['花圃']}** 金幣/日",
-                f"• 木柵欄: **{DECORATION_PASSIVE_BONUS['木柵欄']}** 金幣/日",
-                f"• 竹燈籠: **{DECORATION_PASSIVE_BONUS['竹燈籠']}** 金幣/日",
-                f"• 鯉魚旗: **{DECORATION_PASSIVE_BONUS['鯉魚旗']}** 金幣/日",
-                f"• 聖誕樹: **{DECORATION_PASSIVE_BONUS['聖誕樹']}** 金幣/日",
-                "",
-                "### 🐛 其他修復與優化",
-                "• **【修復】裝飾品圖片：** 修復了 `!農場總覽` 或購買裝飾品後，裝飾品圖片無法正常載入顯示的問題。",
-                "• **【優化】**：改善了 Web 服務啟動邏輯，減少 Port 衝突（Render 部署穩定性提升）。",
-                "",
-                "✨ 祝大家早日種出稀有蘿蔔！別忘了使用 `!農場總覽` 看看你的被動收益喔！"
-            ]
+           "### 🐛 系統修復",
+            "• **【修復】** 修正了「農場總覽」在擁有裝飾品時會導致指令崩潰的問題。",
+            "• **【優化】** 提升了圖片載入的穩定性。",
+            "",
+            "✨ 祝大家種植愉快！輸入 `!農場總覽` 查看新收益！"
             # --- 結束更新日誌 ---
 
              # 3. 發送更新通知
@@ -978,25 +966,27 @@ async def handle_land_progress(message, user_id, user_data, ref):
 
 # ===== 農場總覽卡（Embed 顯示）=====
 async def show_farm_overview(message, user_id, user_data, ref):
-    import io 
-    import discord
-    # 確保從正確的模組導入工具
+    # 內部匯入確保工具可用
     from utils_sanitize import sanitize_user_data
     from utils import parse_datetime, get_remaining_time_str, get_decoration_thumbnail
-    # 假設 ensure_player_thread 定義在 carrot_commands.py 內
-    
-    # 🌟 【修正重點】獲取 Bot Client 物件的正確路徑 🌟
-    # message.channel._state 指向的是 ConnectionState，需再接 .client
-    bot_client = message.channel._state.client
+    import io
+    import discord
+
+    # 🌟 修正點 A：使用最穩定的方式獲取 Bot Client 實體
+    # 統一變數名稱為 bot_client
+    try:
+        bot_client = message._state.client
+    except AttributeError:
+        # 備用方案：如果上述路徑失敗，嘗試從 channel 取得
+        bot_client = message.channel._state.client
     
     user_data = sanitize_user_data(user_data)
     
-    # 確保玩家在自己的田地 Thread 中執行
     current_channel = await ensure_player_thread(message)
     if current_channel is None:
         return
 
-    # --- 資料讀取 ---
+    # --- 資料讀取與防呆 ---
     farm = user_data.get("farm", {})
     fertilizers = user_data.get("fertilizers", {})
     coins = user_data.get("coins", 0)
@@ -1004,104 +994,51 @@ async def show_farm_overview(message, user_id, user_data, ref):
     decorations = user_data.get("decorations", [])
     lucky_bags = user_data.get("lucky_bag", 0)
 
-    # --- 資料格式處理 (防呆) ---
-    if isinstance(gloves, str): gloves = [gloves]
-    if isinstance(decorations, str): decorations = [decorations]
+    if not isinstance(gloves, list): gloves = []
+    if not isinstance(decorations, list): decorations = []
 
     fertilizer_used = farm.get("fertilizer", "未使用")
     land_level = farm.get("land_level", 1)
     pull_count = farm.get("pull_count", 0)
     remaining_pulls = max(0, 3 - pull_count)
 
-    status_map = {
-        "planted": "🌱 已種植，請等待收成",
-        "harvested": "🥕 已收成，可種植新蘿蔔",
-        "未種植": "🌾 尚未種植，可開始新的輪作",
-    }
+    # --- 狀態與時間 ---
+    status_map = {"planted": "🌱 已種植", "harvested": "🥕 已收成", "未種植": "🌾 未種植"}
     status_text = status_map.get(farm.get("status", "未知"), "未知")
 
-    # --- 收成時間格式化 ---
-    harvest_display = "未種植"
-    harvest_time_str = farm.get("harvest_time")
-
-    if harvest_time_str:
-        try:
-            harvest_time = parse_datetime(harvest_time_str)
-            formatted_time = harvest_time.strftime("%Y/%m/%d %H:%M")
-            remaining_str = get_remaining_time_str(harvest_time)
-            
-            if "已可收成" in remaining_str or "已到時間" in remaining_str:
-                harvest_display = f"{formatted_time}（✅ 已可收成）"
-            else:
-                harvest_display = f"{formatted_time}（{remaining_str}）"
-        except Exception as e:
-            harvest_display = f"⚠️ 時間格式錯誤：{e}"
-
-    # --- Embed 主體建立 ---
+    # --- Embed 製作 ---
     embed = discord.Embed(
         title="🌾 農場總覽卡",
         description=f"👤 玩家：{message.author.display_name}",
         color=discord.Color.green()
     )
-    embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
-
-    # 狀態資訊
-    embed.add_field(name="🏷️ 土地狀態", value=f"Lv.{land_level} 的土地目前 {status_text}", inline=False)
-    embed.add_field(name="🧪 使用肥料", value=fertilizer_used, inline=True)
-    embed.add_field(name="⏳ 收成時間", value=harvest_display, inline=True)
-    embed.add_field(name="💰 金幣餘額", value=f"{coins} 金幣", inline=False)
-    embed.add_field(name="🔁 今日剩餘拔蘿蔔次數", value=f"{remaining_pulls} 次", inline=False)
-
-    embed.add_field(name="─" * 20, value="📦 農場資源狀況", inline=False)
-
-    # 肥料庫存
-    embed.add_field(
-        name="🧪 肥料庫存",
-        value=(
-            f"• 普通肥料：{fertilizers.get('普通肥料', 0)} 個\n"
-            f"• 高級肥料：{fertilizers.get('高級肥料', 0)} 個\n"
-            f"• 神奇肥料：{fertilizers.get('神奇肥料', 0)} 個"
-        ),
-        inline=False
+    embed.add_field(name="🏷️ 土地狀態", value=f"Lv.{land_level} {status_text}", inline=True)
+    embed.add_field(name="💰 金幣餘額", value=f"{coins} 金幣", inline=True)
+    embed.add_field(name="🧪 使用肥料", value=fertilizer_used, inline=False)
+    
+    # 倉庫摘要
+    repo_text = (
+        f"🧪 肥料：{sum(fertilizers.values()) if isinstance(fertilizers, dict) else 0}\n"
+        f"🧤 手套：{len(gloves)} 件\n"
+        f"🧧 福袋：{lucky_bags} 個"
     )
+    embed.add_field(name="📦 農場資源", value=repo_text, inline=False)
 
-    # 手套效果
-    glove_effects = {
-        "幸運手套": "🎯 大吉時掉出蘿蔔",
-        "農夫手套": "💰 收成金幣 +20%",
-        "強化手套": "⏳ 種植時間 -1 小時",
-        "神奇手套": "🌟 稀有機率提升"
-    }
-    glove_text = "\n".join(f"• {g} — {glove_effects.get(g, '未知效果')}" for g in gloves) if gloves else "尚未擁有任何手套"
-    embed.add_field(name="🧤 擁有手套", value=glove_text, inline=False)
+    if decorations:
+        embed.add_field(name="🎍 已放置裝飾", value=", ".join(decorations), inline=False)
 
-    # 裝飾品文字列表
-    decoration_styles = {
-        "花圃": "🌸 花園風格",
-        "木柵欄": "🪵 鄉村風格",
-        "竹燈籠": "🎋 和風夜景",
-        "鯉魚旗": "🎏 節慶裝飾",
-        "聖誕樹": "🎄 節慶奇蹟"
-    }
-    deco_text = "\n".join(f"• {d} — {decoration_styles.get(d, '未知風格')}" for d in decorations) if decorations else "尚未放置任何裝飾"
-    embed.add_field(name="🎍 農場裝飾", value=deco_text, inline=False)
+    embed.set_footer(text="📅 每日凌晨重置次數 🌙")
 
-    # 福袋
-    bag_text = f"你擁有 {lucky_bags} 個，可以使用 `!開運福袋` 來開啟！" if lucky_bags > 0 else "尚未擁有，可以花費 80 金幣購買。"
-    embed.add_field(name="🧧 開運福袋", value=bag_text, inline=False)
-
-    embed.set_footer(text="📅 每日凌晨重置拔蘿蔔次數與運勢 🌙")
-
-    # ---- 發送主要 Embed ----
+    # 1. 先發送 Embed
     await current_channel.send(embed=embed)
 
-    # --- 若玩家有裝飾 → 顯示裝飾圖片 ---
+    # 2. 🌟 修正點 B：下載圖片邏輯 🌟
     if decorations:
         files = []
         for d in decorations:
             url = get_decoration_thumbnail(d)
             try:
-                # 🌟 使用修正後的 bot_client 進行 HTTP 請求 🌟
+                # 使用剛才定義的 bot_client
                 async with bot_client.http._HTTPClient__session.get(url) as resp:
                     if resp.status == 200:
                         img_bytes = await resp.read()
@@ -1110,10 +1047,11 @@ async def show_farm_overview(message, user_id, user_data, ref):
                             filename=f"deco_{d}.png"
                         ))
             except Exception as e:
-                print(f"[ERROR] 裝飾圖片載入失敗 ({d}): {e}")
+                print(f"[DEBUG] 圖片下載失敗 ({d}): {e}")
 
         if files:
-            await current_channel.send(content="🎍 **你的裝飾一覽：**", files=files)
+            # 異步發送圖片，不影響主 Embed
+            await current_channel.send(content="🎍 **農場裝飾實況：**", files=files)
 
 
 
