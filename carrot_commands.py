@@ -978,33 +978,35 @@ async def handle_land_progress(message, user_id, user_data, ref):
 
 # ===== 農場總覽卡（Embed 顯示）=====
 async def show_farm_overview(message, user_id, user_data, ref):
+    import io 
+    import discord
+    # 確保從正確的模組導入工具
     from utils_sanitize import sanitize_user_data
     from utils import parse_datetime, get_remaining_time_str, get_decoration_thumbnail
-    import io # 📌 確保您有匯入 io 模組！
-
-    # 🌟 修正點 A：在函式開始處取得 client 物件 🌟
-    # Bot 物件通常可以從 message.channel._state.client 取得
-    client = message.channel._state.client
+    # 假設 ensure_player_thread 定義在 carrot_commands.py 內
+    
+    # 🌟 【修正重點】獲取 Bot Client 物件的正確路徑 🌟
+    # message.channel._state 指向的是 ConnectionState，需再接 .client
+    bot_client = message.channel._state.client
     
     user_data = sanitize_user_data(user_data)
     
+    # 確保玩家在自己的田地 Thread 中執行
     current_channel = await ensure_player_thread(message)
     if current_channel is None:
         return
 
+    # --- 資料讀取 ---
     farm = user_data.get("farm", {})
     fertilizers = user_data.get("fertilizers", {})
     coins = user_data.get("coins", 0)
-    gloves = user_data.get("gloves")
-    decorations = user_data.get("decorations")
+    gloves = user_data.get("gloves", [])
+    decorations = user_data.get("decorations", [])
     lucky_bags = user_data.get("lucky_bag", 0)
-    equipped_glove = user_data.get("equipped_glove", None)
 
-    # --- 防呆 ---
-    if not isinstance(gloves, list):
-        gloves = [gloves] if isinstance(gloves, str) else []
-    if not isinstance(decorations, list):
-        decorations = [decorations] if isinstance(decorations, str) else []
+    # --- 資料格式處理 (防呆) ---
+    if isinstance(gloves, str): gloves = [gloves]
+    if isinstance(decorations, str): decorations = [decorations]
 
     fertilizer_used = farm.get("fertilizer", "未使用")
     land_level = farm.get("land_level", 1)
@@ -1027,15 +1029,15 @@ async def show_farm_overview(message, user_id, user_data, ref):
             harvest_time = parse_datetime(harvest_time_str)
             formatted_time = harvest_time.strftime("%Y/%m/%d %H:%M")
             remaining_str = get_remaining_time_str(harvest_time)
-            harvest_display = (
-                f"{formatted_time}（✅ 已可收成）"
-                if "已可收成" in remaining_str or "已到時間" in remaining_str
-                else f"{formatted_time}（{remaining_str}）"
-            )
+            
+            if "已可收成" in remaining_str or "已到時間" in remaining_str:
+                harvest_display = f"{formatted_time}（✅ 已可收成）"
+            else:
+                harvest_display = f"{formatted_time}（{remaining_str}）"
         except Exception as e:
             harvest_display = f"⚠️ 時間格式錯誤：{e}"
 
-    # --- Embed 主體 ---
+    # --- Embed 主體建立 ---
     embed = discord.Embed(
         title="🌾 農場總覽卡",
         description=f"👤 玩家：{message.author.display_name}",
@@ -1043,7 +1045,7 @@ async def show_farm_overview(message, user_id, user_data, ref):
     )
     embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
 
-    # --- 各種狀態 ---
+    # 狀態資訊
     embed.add_field(name="🏷️ 土地狀態", value=f"Lv.{land_level} 的土地目前 {status_text}", inline=False)
     embed.add_field(name="🧪 使用肥料", value=fertilizer_used, inline=True)
     embed.add_field(name="⏳ 收成時間", value=harvest_display, inline=True)
@@ -1052,7 +1054,7 @@ async def show_farm_overview(message, user_id, user_data, ref):
 
     embed.add_field(name="─" * 20, value="📦 農場資源狀況", inline=False)
 
-    # --- 肥料庫存 ---
+    # 肥料庫存
     embed.add_field(
         name="🧪 肥料庫存",
         value=(
@@ -1063,22 +1065,17 @@ async def show_farm_overview(message, user_id, user_data, ref):
         inline=False
     )
 
-    # --- 手套效果 ---
+    # 手套效果
     glove_effects = {
         "幸運手套": "🎯 大吉時掉出蘿蔔",
         "農夫手套": "💰 收成金幣 +20%",
         "強化手套": "⏳ 種植時間 -1 小時",
         "神奇手套": "🌟 稀有機率提升"
     }
-
-    if gloves:
-        glove_text = "\n".join(f"• {g} — {glove_effects.get(g, '未知效果')}" for g in gloves)
-    else:
-        glove_text = "尚未擁有任何手套"
-
+    glove_text = "\n".join(f"• {g} — {glove_effects.get(g, '未知效果')}" for g in gloves) if gloves else "尚未擁有任何手套"
     embed.add_field(name="🧤 擁有手套", value=glove_text, inline=False)
 
-    # --- 裝飾品（文字列表） ---
+    # 裝飾品文字列表
     decoration_styles = {
         "花圃": "🌸 花園風格",
         "木柵欄": "🪵 鄉村風格",
@@ -1086,60 +1083,37 @@ async def show_farm_overview(message, user_id, user_data, ref):
         "鯉魚旗": "🎏 節慶裝飾",
         "聖誕樹": "🎄 節慶奇蹟"
     }
-
-    if decorations:
-        deco_text = "\n".join(
-            f"• {d} — {decoration_styles.get(d, '未知風格')}" for d in decorations
-        )
-    else:
-        deco_text = "尚未放置任何裝飾"
-
+    deco_text = "\n".join(f"• {d} — {decoration_styles.get(d, '未知風格')}" for d in decorations) if decorations else "尚未放置任何裝飾"
     embed.add_field(name="🎍 農場裝飾", value=deco_text, inline=False)
 
-    # --- 福袋 ---
-    embed.add_field(
-        name="🧧 開運福袋",
-        value=(
-            f"你擁有 {lucky_bags} 個，可以使用 !開福袋 來開啟！"
-            if lucky_bags > 0
-            else "尚未擁有，可以花費 80 金幣購買。"
-        ),
-        inline=False
-    )
-
-    # --- 肥料不足提醒 ---
-    if sum(fertilizers.get(k, 0) for k in ["普通肥料", "高級肥料", "神奇肥料"]) == 0:
-        embed.add_field(
-            name="⚠️ 肥料不足",
-            value="你目前沒有任何肥料，請使用 !購買肥料 普通肥料 來補充！",
-            inline=False
-        )
+    # 福袋
+    bag_text = f"你擁有 {lucky_bags} 個，可以使用 `!開運福袋` 來開啟！" if lucky_bags > 0 else "尚未擁有，可以花費 80 金幣購買。"
+    embed.add_field(name="🧧 開運福袋", value=bag_text, inline=False)
 
     embed.set_footer(text="📅 每日凌晨重置拔蘿蔔次數與運勢 🌙")
 
-    # ---- 發送主要 embed ----
+    # ---- 發送主要 Embed ----
     await current_channel.send(embed=embed)
 
-    # --- 若玩家有裝飾 → 顯示裝飾圖片（多張） ---
+    # --- 若玩家有裝飾 → 顯示裝飾圖片 ---
     if decorations:
         files = []
         for d in decorations:
             url = get_decoration_thumbnail(d)
             try:
-                # 🌟 修正點 B：將 message.client 替換為上面定義的 client 🌟
-                # 使用 client 物件的 session 來下載圖片
-                async with client.http._HTTPClient__session.get(url) as resp:
+                # 🌟 使用修正後的 bot_client 進行 HTTP 請求 🌟
+                async with bot_client.http._HTTPClient__session.get(url) as resp:
                     if resp.status == 200:
                         img_bytes = await resp.read()
                         files.append(discord.File(
                             fp=io.BytesIO(img_bytes),
-                            filename=f"{d}.png"
+                            filename=f"deco_{d}.png"
                         ))
             except Exception as e:
-                print(f"裝飾圖片載入失敗：{d} — {e}")
+                print(f"[ERROR] 裝飾圖片載入失敗 ({d}): {e}")
 
         if files:
-            await current_channel.send(content="🎍 你的裝飾一覽：", files=files)
+            await current_channel.send(content="🎍 **你的裝飾一覽：**", files=files)
 
 
 
