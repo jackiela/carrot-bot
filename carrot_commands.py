@@ -4,6 +4,7 @@ import datetime
 import random
 import discord
 import asyncio
+import io
 from datetime import datetime, timezone, timedelta
 from firebase_admin import db
 from firebase_init import get_user_ref
