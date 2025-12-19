@@ -153,7 +153,9 @@ async def on_message(message):
         return
     user_id = str(message.author.id)
     username = message.author.display_name
+    
     try:
+        # 🌟 這裡你定義的名稱是 'ref'
         user_data, ref = get_user_data(user_id, username)
         await check_daily_login_reward(message, user_id, user_data, ref)
     except Exception as e:
@@ -163,7 +165,7 @@ async def on_message(message):
 
     parts = content.split()
     cmd = parts[0]
-
+    
     # 指令頻道檢查
     if cmd in COMMAND_CHANNELS:
         allowed_channel = COMMAND_CHANNELS[cmd]
@@ -215,7 +217,7 @@ async def on_message(message):
         elif cmd == "!土地進度":
             await handle_land_progress(message, user_id, user_data, ref)
         elif cmd in ["!農場總覽","!土地狀態"]:
-            await show_farm_overview(client, message, user_id, user_data, user_ref)
+            await show_farm_overview(client, message, user_id, user_data, ref)
         elif cmd.startswith("!購買肥料") and len(parts) == 2:
             await handle_buy_fertilizer(message, user_id, user_data, ref, parts[1])
         elif cmd.startswith("!給金幣"):
