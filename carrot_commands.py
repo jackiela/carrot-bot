@@ -966,25 +966,15 @@ async def handle_land_progress(message, user_id, user_data, ref):
     await message.channel.send(embed=embed)
 
 # ===== 農場總覽卡（Embed 顯示）=====
-async def show_farm_overview(message, user_id, user_data, ref):
+# 🌟 修改：第一個參數改為接收 bot (由 main.py 傳入)
+async def show_farm_overview(bot, message, user_id, user_data, ref):
     import io 
     import discord
-    import asyncio
     from utils_sanitize import sanitize_user_data
     from utils import parse_datetime, get_remaining_time_str, get_decoration_thumbnail
     
-    # 🌟 核心修正：最強力的 Bot Client 獲取方式
-    # 這裡我們不依賴 message.channel._state，直接從 message 物件本身回溯
-    try:
-        if hasattr(message, '_state') and message._state:
-            bot_client = message._state.client
-        else:
-            # 備用方案
-            bot_client = message.guild.me._state.client
-    except Exception as e:
-        print(f"[CRITICAL] 無法獲取 Bot Client: {e}")
-        # 如果真的拿不到 client，至少要讓文字 Embed 能發出來
-        bot_client = None
+    # 🌟 直接使用傳入的 bot，不再從 message 裡面翻找
+    bot_client = bot
     
     user_data = sanitize_user_data(user_data)
     
@@ -1001,7 +991,7 @@ async def show_farm_overview(message, user_id, user_data, ref):
     decorations = user_data.get("decorations", [])
     lucky_bags = user_data.get("lucky_bag", 0)
 
-    # 防呆：確保 list 格式
+    # 防呆
     if isinstance(gloves, str): gloves = [gloves]
     if not isinstance(decorations, list): decorations = []
 
@@ -1031,22 +1021,22 @@ async def show_farm_overview(message, user_id, user_data, ref):
 
     embed.set_footer(text="📅 每日金幣收益自動累計中 🌙")
 
-    # ✅ 1. 先發送文字 Embed (這步成功就不會跳「指令錯誤」了)
+    # ✅ 1. 先發送文字 Embed (這步成功後，就不會顯示執行錯誤)
     await current_channel.send(embed=embed)
 
-    # ✅ 2. 下載並發送裝飾圖片 (放在完全隔離的 try 中)
+    # ✅ 2. 下載並發送裝飾圖片 (使用正確的 bot 進行下載)
     if decorations and bot_client:
         files = []
         for d in decorations:
             url = get_decoration_thumbnail(d)
             try:
-                # 這裡統一使用 bot_client 變數，並加上超時保護
+                # 使用傳入的 bot_client 進行請求
                 async with bot_client.http._HTTPClient__session.get(url, timeout=5) as resp:
                     if resp.status == 200:
                         img_data = await resp.read()
                         files.append(discord.File(fp=io.BytesIO(img_data), filename=f"deco_{d}.png"))
             except Exception as e:
-                print(f"[DEBUG] 圖片下載略過: {d} - {e}")
+                print(f"[DEBUG] 裝飾圖片下載略過: {d} - {e}")
 
         if files:
             try:
