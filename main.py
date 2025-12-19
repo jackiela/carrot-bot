@@ -215,7 +215,7 @@ async def on_message(message):
         elif cmd == "!土地進度":
             await handle_land_progress(message, user_id, user_data, ref)
         elif cmd in ["!農場總覽","!土地狀態"]:
-            await show_farm_overview(message, user_id, user_data, ref)
+            await show_farm_overview(client, message, user_id, user_data, user_ref)
         elif cmd.startswith("!購買肥料") and len(parts) == 2:
             await handle_buy_fertilizer(message, user_id, user_data, ref, parts[1])
         elif cmd.startswith("!給金幣"):
