@@ -965,47 +965,68 @@ async def handle_land_progress(message, user_id, user_data, ref):
 
     await message.channel.send(embed=embed)
 
-# ===== 農場總覽卡（完全修正版）=====
-async def show_farm_overview(bot, message, user_id, user_data, ref):
+# ===== 農場總覽卡（最強相容修正版）=====
+async def show_farm_overview(*args, **kwargs):
+    """
+    使用 *args 接收參數，防止 main.py 傳入參數數量不一導致的崩潰
+    預期參數順序: (bot, message, user_id, user_data, ref) 或 (message, user_id, user_data, ref)
+    """
     import io 
     import discord
     from utils_sanitize import sanitize_user_data
-    from utils import parse_datetime, get_remaining_time_str, get_decoration_thumbnail
-    
-    user_data = sanitize_user_data(user_data)
-    current_channel = await ensure_player_thread(message)
-    if current_channel is None: return
+    from utils import get_decoration_thumbnail
 
-    # --- 建立 Embed ---
-    embed = discord.Embed(
-        title="🌾 農場總覽卡",
-        description=f"👤 玩家：{message.author.display_name}\n💰 金幣：{user_data.get('coins', 0)}",
-        color=discord.Color.green()
-    )
-    # ... (保留您其他的 add_field) ...
-    embed.add_field(name="🏷️ 土地狀態", value=f"{user_data.get('farm', {}).get('status', '未知')}", inline=True)
-    embed.set_footer(text="📅 每日金幣收益自動累計中 🌙")
+    # --- 參數自動解析邏輯 ---
+    if len(args) == 5:
+        bot, message, user_id, user_data, ref = args
+    elif len(args) == 4:
+        message, user_id, user_data, ref = args
+        bot = message._state.client # 嘗試從 message 抓取
+    else:
+        print("[ERROR] 農場總覽參數數量錯誤")
+        return
 
-    # ✅ 先發送文字，保證玩家看得到
-    await current_channel.send(embed=embed)
+    try:
+        user_data = sanitize_user_data(user_data)
+        current_channel = await ensure_player_thread(message)
+        if current_channel is None: return
 
-    # ✅ 處理圖片
-    decorations = user_data.get("decorations", [])
-    if decorations and bot:
-        files = []
-        for d in decorations:
-            url = get_decoration_thumbnail(d)
-            try:
-                # 直接使用傳入的 bot 下載
-                async with bot.http._HTTPClient__session.get(url, timeout=5) as resp:
-                    if resp.status == 200:
-                        img_data = await resp.read()
-                        files.append(discord.File(fp=io.BytesIO(img_data), filename=f"deco_{d}.png"))
-            except Exception as e:
-                print(f"[DEBUG] 圖片下載略過: {e}")
+        # --- 建立 Embed ---
+        coins = user_data.get("coins", 0)
+        farm = user_data.get("farm", {})
+        land_level = farm.get("land_level", 1)
+        
+        embed = discord.Embed(
+            title="🌾 農場總覽卡",
+            description=f"👤 玩家：{message.author.display_name}\n💰 金幣餘額：{coins} 金幣",
+            color=discord.Color.green()
+        )
+        embed.add_field(name="🏷️ 土地狀態", value=f"Lv.{land_level} {farm.get('status', '未知')}", inline=True)
+        # ... (您可以自行補上其他 add_field)
+        embed.set_footer(text="📅 每日金幣收益自動累計中 🌙")
 
-        if files:
-            await current_channel.send(content="🎍 **農場裝飾實況：**", files=files)
+        # ✅ 1. 先發送文字 (保證玩家一定看得到訊息)
+        await current_channel.send(embed=embed)
+
+        # ✅ 2. 處理裝飾圖片 (安全性隔離)
+        decorations = user_data.get("decorations", [])
+        if decorations and bot:
+            files = []
+            for d in decorations:
+                url = get_decoration_thumbnail(d)
+                try:
+                    async with bot.http._HTTPClient__session.get(url, timeout=5) as resp:
+                        if resp.status == 200:
+                            data = await resp.read()
+                            files.append(discord.File(fp=io.BytesIO(data), filename=f"deco_{d}.png"))
+                except:
+                    continue # 圖片抓不到就跳過，不影響主程式
+
+            if files:
+                await current_channel.send(content="🎍 **農場裝飾實況：**", files=files)
+
+    except Exception as e:
+        print(f"[CRITICAL ERROR] show_farm_overview 執行失敗: {e}")
 
 # ===== 健康檢查 =====
 async def handle_health_check(message):
