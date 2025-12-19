@@ -45,7 +45,7 @@ DECORATION_PASSIVE_BONUS = {
 
 # 📌 請設定您的版本號和頻道 ID
 # 假設這是您修復 bug (2.0.1) 和修復 Port 衝突 (2.0.2) 之後的下一個版本
-CURRENT_VERSION = "2.0.5" 
+CURRENT_VERSION = "2.0.4" 
 # ⚠️ 請替換成您實際要發布「更新通知」的頻道 ID！
 UPDATE_CHANNEL_ID = 1428618044992913448
 
@@ -69,6 +69,7 @@ async def check_and_post_update(bot: discord.Client, db_module):
             "• **【優化】** 提升了圖片載入的穩定性。",
             "",
             "✨ 祝大家種植愉快！輸入 `!農場總覽` 查看新收益！"
+            ]
             # --- 結束更新日誌 ---
 
              # 3. 發送更新通知
@@ -966,14 +967,13 @@ async def handle_land_progress(message, user_id, user_data, ref):
 
 # ===== 農場總覽卡（Embed 顯示）=====
 async def show_farm_overview(message, user_id, user_data, ref):
-    # 內部匯入確保工具可用
+    # 內部匯入
     from utils_sanitize import sanitize_user_data
     from utils import parse_datetime, get_remaining_time_str, get_decoration_thumbnail
     import io
     import discord
 
-    # 🌟 修正點 A：使用最穩定的方式獲取 Bot Client 實體
-    # 統一變數名稱為 bot_client
+    # 🌟 修正點：使用最穩定的方式獲取 Bot Client 實體
     try:
         bot_client = message._state.client
     except AttributeError:
@@ -986,7 +986,7 @@ async def show_farm_overview(message, user_id, user_data, ref):
     if current_channel is None:
         return
 
-    # --- 資料讀取與防呆 ---
+    # --- 資料讀取與處理 ---
     farm = user_data.get("farm", {})
     fertilizers = user_data.get("fertilizers", {})
     coins = user_data.get("coins", 0)
@@ -999,47 +999,41 @@ async def show_farm_overview(message, user_id, user_data, ref):
 
     fertilizer_used = farm.get("fertilizer", "未使用")
     land_level = farm.get("land_level", 1)
-    pull_count = farm.get("pull_count", 0)
-    remaining_pulls = max(0, 3 - pull_count)
-
-    # --- 狀態與時間 ---
     status_map = {"planted": "🌱 已種植", "harvested": "🥕 已收成", "未種植": "🌾 未種植"}
     status_text = status_map.get(farm.get("status", "未知"), "未知")
 
     # --- Embed 製作 ---
     embed = discord.Embed(
         title="🌾 農場總覽卡",
-        description=f"👤 玩家：{message.author.display_name}",
+        description=f"👤 玩家：{message.author.display_name}\n💰 金幣：{coins}",
         color=discord.Color.green()
     )
     embed.add_field(name="🏷️ 土地狀態", value=f"Lv.{land_level} {status_text}", inline=True)
-    embed.add_field(name="💰 金幣餘額", value=f"{coins} 金幣", inline=True)
-    embed.add_field(name="🧪 使用肥料", value=fertilizer_used, inline=False)
+    embed.add_field(name="🧪 使用肥料", value=fertilizer_used, inline=True)
     
-    # 倉庫摘要
     repo_text = (
-        f"🧪 肥料：{sum(fertilizers.values()) if isinstance(fertilizers, dict) else 0}\n"
-        f"🧤 手套：{len(gloves)} 件\n"
-        f"🧧 福袋：{lucky_bags} 個"
+        f"🧪 肥料總數：{sum(fertilizers.values()) if isinstance(fertilizers, dict) else 0}\n"
+        f"🧤 擁有手套：{len(gloves)} 件\n"
+        f"🧧 剩餘福袋：{lucky_bags} 個"
     )
-    embed.add_field(name="📦 農場資源", value=repo_text, inline=False)
+    embed.add_field(name="📦 倉庫資源", value=repo_text, inline=False)
 
     if decorations:
         embed.add_field(name="🎍 已放置裝飾", value=", ".join(decorations), inline=False)
 
-    embed.set_footer(text="📅 每日凌晨重置次數 🌙")
+    embed.set_footer(text="📅 每日金幣收益自動累計中 🌙")
 
-    # 1. 先發送 Embed
+    # 1. 先發送主要資料
     await current_channel.send(embed=embed)
 
-    # 2. 🌟 修正點 B：下載圖片邏輯 🌟
+    # 2. 下載並發送裝飾圖片
     if decorations:
         files = []
         for d in decorations:
             url = get_decoration_thumbnail(d)
             try:
-                # 使用剛才定義的 bot_client
-                async with bot_client.http._HTTPClient__session.get(url) as resp:
+                # 使用剛才獲取的 bot_client
+                async with bot_client.http._HTTPClient__session.get(url, timeout=10) as resp:
                     if resp.status == 200:
                         img_bytes = await resp.read()
                         files.append(discord.File(
@@ -1047,12 +1041,10 @@ async def show_farm_overview(message, user_id, user_data, ref):
                             filename=f"deco_{d}.png"
                         ))
             except Exception as e:
-                print(f"[DEBUG] 圖片下載失敗 ({d}): {e}")
+                print(f"[DEBUG] 圖片載入略過 ({d}): {e}")
 
         if files:
-            # 異步發送圖片，不影響主 Embed
             await current_channel.send(content="🎍 **農場裝飾實況：**", files=files)
-
 
 
 # ===== 健康檢查 =====
