@@ -1184,10 +1184,10 @@ async def handle_buy_glove(message, user_id, user_data, ref, glove_name, show_fa
     )
     
     # 更新並顯示農場總覽卡
-    await show_farm_overview(message, user_id, user_data, ref)
+    await show_farm_overview(bot, message, user_id, updated_data, ref)
 
 # 🎍 購買裝飾（購買後自動顯示農場總覽）
-async def handle_buy_decoration(message, user_id, user_data, ref, deco_name):
+async def handle_buy_decoration(bot, message, user_id, user_data, decoration_name):
     user_data = sanitize_user_data(user_data)
 
     shop = {
@@ -1241,7 +1241,8 @@ async def handle_buy_decoration(message, user_id, user_data, ref, deco_name):
 
     await message.channel.send(embed=embed) 
     # 🌾 顯示農場總覽 updated_data = ref.get() 
-    await show_farm_overview(message, user_id, updated_data, ref) # 👈 這裡調用 show_farm_overview
+    updated_data = ref.get()
+    await show_farm_overview(bot, message, user_id, updated_data, ref) # 👈 這裡調用 show_farm_overview
 
 
 # 🧧 開運福袋（含特效與農場總覽）
@@ -1309,7 +1310,7 @@ async def handle_open_lucky_bag(message, user_id, user_data, ref):
 
     # ✅ 顯示最新農場總覽卡
     updated_data = ref.get()
-    await show_farm_overview(message, user_id, updated_data, ref)
+    await show_farm_overview(bot, message, user_id, updated_data, ref)
     
 # 🏪 商店總覽
 async def handle_shop(message, user_id, user_data, ref):
