@@ -1143,7 +1143,7 @@ DECORATION_SHOP = {
 }
 
 # 🧤 購買手套
-async def handle_buy_glove(message, user_id, user_data, ref, glove_name, show_farm_overview):
+async def handle_buy_glove(bot, message, user_id, user_data, ref, glove_name, show_farm_callback):
     if glove_name not in GLOVE_SHOP:
         await message.channel.send("❌ 沒有這種手套！可購買：" + "、".join(GLOVE_SHOP.keys()))
         return
@@ -1184,7 +1184,7 @@ async def handle_buy_glove(message, user_id, user_data, ref, glove_name, show_fa
     )
     
     # 更新並顯示農場總覽卡
-    await show_farm_overview(bot, message, user_id, updated_data, ref)
+    await show_farm_callback(bot, message, user_id, updated_data, ref)
 
 # 🎍 購買裝飾（購買後自動顯示農場總覽）
 # 🌟 修正點 1：參數補上 ref，並統一使用 decoration_name
@@ -1263,7 +1263,7 @@ async def handle_buy_decoration(bot, message, user_id, user_data, ref, decoratio
 
 
 # 🧧 開運福袋（含特效與農場總覽）
-async def handle_open_lucky_bag(message, user_id, user_data, ref):
+async def handle_open_lucky_bag(bot, message, user_id, user_data, ref):
     # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
     user_data = sanitize_user_data(user_data)
     
