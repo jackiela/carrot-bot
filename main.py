@@ -203,11 +203,11 @@ async def on_message(message):
         elif cmd == "!開運福袋":
             await handle_open_lucky_bag(message, user_id, user_data, ref)
         elif cmd.startswith("!購買手套") and len(parts) == 2:
-            await handle_buy_glove(message, user_id, user_data, ref, parts[1], show_farm_overview)
+            await handle_buy_glove(client, message, user_id, user_data, ref, parts[1], show_farm_overview)
         elif cmd == "!手套圖鑑":
             await handle_glove_encyclopedia(message, user_id, user_data, ref)
         elif cmd.startswith("!購買裝飾") and len(parts) == 2:
-            await handle_buy_decoration(message, user_id, user_data, ref, parts[1])
+            await handle_buy_decoration(client, message, user_id, user_data, ref, parts[1])
         elif cmd.startswith("!種蘿蔔") and len(parts) == 2:
             await handle_plant_carrot(message, user_id, user_data, ref, parts[1])
         elif cmd == "!收成蘿蔔":
