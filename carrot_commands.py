@@ -1187,7 +1187,12 @@ async def handle_buy_glove(message, user_id, user_data, ref, glove_name, show_fa
     await show_farm_overview(bot, message, user_id, updated_data, ref)
 
 # 🎍 購買裝飾（購買後自動顯示農場總覽）
-async def handle_buy_decoration(bot, message, user_id, user_data, decoration_name):
+# 🌟 修正點 1：參數補上 ref，並統一使用 decoration_name
+async def handle_buy_decoration(bot, message, user_id, user_data, ref, decoration_name):
+    import discord
+    from utils_sanitize import sanitize_user_data
+    from utils import get_decoration_thumbnail
+    
     user_data = sanitize_user_data(user_data)
 
     shop = {
@@ -1198,51 +1203,63 @@ async def handle_buy_decoration(bot, message, user_id, user_data, decoration_nam
         "聖誕樹": 250
     }
 
-    if deco_name not in shop:
+    # 🌟 修正點 2：將 deco_name 全部統一為 decoration_name
+    if decoration_name not in shop:
         await message.channel.send(
-            "❌ 沒有這種裝飾！\n可購買：花圃、木柵欄、竹燈籠、鯉魚旗、聖誕樹"
+            f"❌ 沒有「{decoration_name}」這種裝飾！\n可購買：花圃、木柵欄、竹燈籠、鯉魚旗、聖誕樹"
         )
         return
 
-    cost = shop[deco_name]
+    cost = shop[decoration_name]
     coins = user_data.get("coins", 0)
 
     if coins < cost:
         await message.channel.send(
-            f"💸 金幣不足！\n{deco_name} 價格 **{cost}** 金幣，你目前只有 **{coins}**"
+            f"💸 金幣不足！\n{decoration_name} 價格 **{cost}** 金幣，你目前只有 **{coins}**"
         )
         return
 
-    user_data["coins"] = coins - cost
-    user_data.setdefault("decorations", [])
+    # 取得現有裝飾清單
+    user_decorations = user_data.get("decorations", [])
+    if not isinstance(user_decorations, list):
+        user_decorations = []
 
     # 防止重複購買
-    if deco_name in user_data["decorations"]:
-        await message.channel.send(f"你已經擁有 **{deco_name}** 了！")
+    if decoration_name in user_decorations:
+        await message.channel.send(f"⚠️ 你已經擁有 **{decoration_name}** 了！")
         return
 
-    user_data["decorations"].append(deco_name)
+    # 🌟 執行購買扣款
+    new_coins = coins - cost
+    user_decorations.append(decoration_name)
+    
+    # 更新本地資料與資料庫
+    user_data["coins"] = new_coins
+    user_data["decorations"] = user_decorations
     ref.set(user_data)
 
     # --- 🎨 購買成功 Embed --- 
     embed = discord.Embed(
         title="🎍 裝飾購買成功！",
-        description=f"你購入了 **{deco_name}**！農場變得更漂亮了 🌾",
+        description=f"你購入了 **{decoration_name}**！農場變得更漂亮了 🌾",
         color=discord.Color.green()
     )
-    # 🌟 顯示裝飾圖片 
-    embed.set_thumbnail(url=get_decoration_thumbnail(deco_name))    
+    
+    # 顯示裝飾圖片 
+    embed.set_thumbnail(url=get_decoration_thumbnail(decoration_name))    
 
     embed.add_field(
         name="💰 剩餘金幣",
-        value=f"{user_data['coins']} 金幣",
+        value=f"{new_coins} 金幣",
         inline=False
     )
 
     await message.channel.send(embed=embed) 
-    # 🌾 顯示農場總覽 updated_data = ref.get() 
+
+    # --- 🌾 顯示農場總覽 ---
+    # 🌟 修正點 3：呼叫總覽時帶上 bot，確保圖片能顯示
     updated_data = ref.get()
-    await show_farm_overview(bot, message, user_id, updated_data, ref) # 👈 這裡調用 show_farm_overview
+    await show_farm_overview(bot, message, user_id, updated_data, ref)
 
 
 # 🧧 開運福袋（含特效與農場總覽）
