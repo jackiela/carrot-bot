@@ -1052,34 +1052,41 @@ async def show_farm_overview(bot, message, user_id, user_data, ref):
     # 發送 Embed
     await current_channel.send(embed=embed)
 
-    # --- 3. 處理所有裝飾圖片實況 (核心修正：確保在函式內) ---
+# --- 3. 處理所有裝飾圖片實況 (診斷強化版) ---
     if decorations and bot_client:
         files = []
         import aiohttp
         async with aiohttp.ClientSession() as session:
-            # 確保轉換為正確列表
+            # 確保清單格式正確
             deco_list = list(decorations) if isinstance(decorations, (list, dict)) else []
             if isinstance(decorations, dict):
                 deco_list = list(decorations.values())
 
-            print(f"[DEBUG] 正在為 {message.author.name} 處理圖片: {deco_list}")
+            print(f"🔍 [STEP 1] 開始處理清單: {deco_list}")
 
             for index, d in enumerate(deco_list):
+                # 🌟 這裡增加 URL 檢查
                 url = get_decoration_thumbnail(d)
-                if not url: continue
+                print(f"🔍 [STEP 2] 裝飾品: {d}, 取得的 URL: {url}")
+                
+                if not url or not url.startswith("http"):
+                    print(f"❌ [STEP 3] {d} 的 URL 無效，跳過。")
+                    continue
                 
                 try:
                     async with session.get(url, timeout=10) as resp:
                         if resp.status == 200:
                             img_data = await resp.read()
-                            # 使用唯一檔名避免 Discord 快取
                             filename = f"deco_{index}_{random.randint(1000,9999)}.png"
                             files.append(discord.File(fp=io.BytesIO(img_data), filename=filename))
-                            print(f"[DEBUG] 成功抓取: {d}")
+                            print(f"✅ [STEP 4] 成功下載圖片: {d}")
+                        else:
+                            print(f"❌ [STEP 4] 下載 {d} 失敗，HTTP 狀態碼: {resp.status}")
                 except Exception as e:
-                    print(f"[DEBUG] 下載 {d} 異常: {e}")
+                    print(f"💥 [ERROR] 下載 {d} 時發生崩潰: {str(e)}")
 
         if files:
+            print(f"📦 [FINISH] 準備發送 {len(files)} 張圖片到 Discord")
             await current_channel.send(content="🎍 **農場裝飾實況：**", files=files)
             
 # ===== 健康檢查 =====
