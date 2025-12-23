@@ -965,10 +965,11 @@ async def handle_land_progress(message, user_id, user_data, ref):
 
     await message.channel.send(embed=embed)
 
-# ===== 農場總覽卡（100% 完整還原版）=====
+# ===== 農場總覽卡（多圖修正版）=====
 async def show_farm_overview(bot, message, user_id, user_data, ref):
     import io 
     import discord
+    import random
     from datetime import datetime
     from utils_sanitize import sanitize_user_data
     from utils import get_now, parse_datetime, get_remaining_time_str, get_decoration_thumbnail
@@ -990,7 +991,6 @@ async def show_farm_overview(bot, message, user_id, user_data, ref):
     lucky_bags = user_data.get("lucky_bag", 0)
     daily_pulls = user_data.get("daily_pulls", 0)
     
-    # 手套功能說明對照表
     GLOVE_DESC = {
         "農夫手套": "收成金幣 +20%",
         "強化手套": "種植時間 -1 小時",
@@ -998,13 +998,11 @@ async def show_farm_overview(bot, message, user_id, user_data, ref):
         "幸運手套": "大吉時掉出蘿蔔"
     }
 
-    # 土地狀態文字
     land_level = farm.get("land_level", 1)
     status = farm.get("status", "未種植")
     status_map = {"planted": "🌱 已種植，請等待收成", "harvested": "🥕 已收成，等待拔出"}
     status_text = status_map.get(status, "🌾 未種植")
 
-    # 收成時間處理
     time_info = "尚未種植"
     if status == "planted" and "harvest_time" in farm:
         try:
@@ -1026,66 +1024,58 @@ async def show_farm_overview(bot, message, user_id, user_data, ref):
         color=discord.Color.green()
     )
 
-    # 土地現狀
     embed.add_field(name="🏷️ 土地狀態", value=f"Lv.{land_level} 的土地目前 {status_text}", inline=False)
     embed.add_field(name="🧪 使用肥料", value=farm.get("fertilizer", "未使用"), inline=True)
     embed.add_field(name="⏱️ 收成時間", value=time_info, inline=True)
-    
-    # 錢包與抽卡
     embed.add_field(name="💰 金幣餘額", value=f"{coins} 金幣", inline=True)
     embed.add_field(name="🧧 今日剩餘拔蘿蔔次數", value=f"{5 - daily_pulls} 次", inline=True)
-
-    # 分隔線
     embed.add_field(name="────────────────────", value="**📦 農場資源狀況**", inline=False)
 
-    # 肥料庫存
     f_items = [f"• {k}：{v} 個" for k, v in fertilizers.items() if v > 0]
     embed.add_field(name="🧪 肥料庫存", value="\n".join(f_items) if f_items else "• 暫無肥料", inline=True)
 
-    # 手套狀況
     eq_glove = user_data.get("equipped_glove", "（未裝備）")
     embed.add_field(name="🧤 裝備中手套", value=f"**{eq_glove}**", inline=True)
     
     g_items = [f"• {g} — {GLOVE_DESC.get(g, '基本款')}" for g in (gloves if isinstance(gloves, list) else [])]
     embed.add_field(name="🧤 擁有手套", value="\n".join(g_items) if g_items else "• 暫無手套", inline=False)
 
-    # 裝飾品
     d_items = [f"• {d}" for d in (decorations if isinstance(decorations, list) else [])]
     embed.add_field(name="🎍 農場裝飾", value="\n".join(d_items) if d_items else "• 暫無裝飾", inline=True)
     
-    # 福袋
-    lb_text = f"{lucky_bags} 個" if lucky_bags > 0 else "尚未擁有，可以花費 80 金幣購買。"
+    lb_text = f"{lucky_bags} 個" if lucky_bags > 0 else "尚未擁有"
     embed.add_field(name="🧧 開運福袋", value=lb_text, inline=True)
-
     embed.set_footer(text="📅 每日凌晨重置拔蘿蔔次數與運勢 🌙")
 
-    # --- 3. 發送訊息 ---
+    # 發送 Embed
     await current_channel.send(embed=embed)
 
-    # --- 處理所有裝飾圖片實況 ---
+    # --- 3. 處理所有裝飾圖片實況 (核心修正區) ---
     if decorations and bot_client:
         files = []
-        # 🌟 這裡會遍歷你擁有的「所有」裝飾
-        for d in decorations:
-            url = get_decoration_thumbnail(d)
-            if not url:
-                continue
+        # 使用專有的 Session 進行非同步下載，提高成功率
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            for index, d in enumerate(decorations):
+                url = get_decoration_thumbnail(d)
+                if not url: continue
                 
-            try:
-                # 🌟 使用 bot_client 的 session 下載
-                async with bot_client.http._HTTPClient__session.get(url, timeout=10) as resp:
-                    if resp.status == 200:
-                        img_data = await resp.read()
-                        # 將每一張圖片都加入 files 列表
-                        files.append(discord.File(fp=io.BytesIO(img_data), filename=f"deco_{d}.png"))
-                        print(f"[DEBUG] 成功準備裝飾圖片: {d}")
-            except Exception as e:
-                print(f"[DEBUG] 裝飾圖片下載失敗 ({d}): {e}")
+                try:
+                    async with session.get(url, timeout=10) as resp:
+                        if resp.status == 200:
+                            img_data = await resp.read()
+                            # 🌟 強制給予唯一檔名 (deco_0.png, deco_1.png...) 避免 Discord 解析錯誤
+                            ext = url.split('.')[-1].split('?')[0] or "png"
+                            filename = f"deco_{index}_{random.randint(1000,9999)}.{ext}"
+                            files.append(discord.File(fp=io.BytesIO(img_data), filename=filename))
+                            print(f"[DEBUG] 成功準備裝飾圖片: {d} as {filename}")
+                except Exception as e:
+                    print(f"[DEBUG] 裝飾圖片下載失敗 ({d}): {e}")
 
-        # 🌟 關鍵：如果 files 裡面有多個檔案，Discord 會一次全部顯示出來
         if files:
-            # 限制最多發送 10 張（Discord 單次訊息上限）
-            await message.channel.send(content="🎍 **農場裝飾實況：**", files=files[:10])
+            # 🌟 Discord 一次發送多張圖時，會以「網格」或「列表」形式呈現
+            await current_channel.send(content="🎍 **農場裝飾實況：**", files=files[:10])
+            
 # ===== 健康檢查 =====
 async def handle_health_check(message):
     # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
