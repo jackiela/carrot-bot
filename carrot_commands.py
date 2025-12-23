@@ -1035,9 +1035,6 @@ async def show_farm_overview(bot, message, user_id, user_data, ref):
 
     f_items = [f"• {k}：{v} 個" for k, v in fertilizers.items() if v > 0]
     embed.add_field(name="🧪 肥料庫存", value="\n".join(f_items) if f_items else "• 暫無肥料", inline=True)
-
-    eq_glove = user_data.get("equipped_glove", "（未裝備）")
-    embed.add_field(name="🧤 裝備中手套", value=f"**{eq_glove}**", inline=True)
     
     g_items = [f"• {g} — {GLOVE_DESC.get(g, '基本款')}" for g in (gloves if isinstance(gloves, list) else [])]
     embed.add_field(name="🧤 擁有手套", value="\n".join(g_items) if g_items else "• 暫無手套", inline=False)
