@@ -1050,31 +1050,43 @@ async def show_farm_overview(bot, message, user_id, user_data, ref):
     # 發送 Embed
     await current_channel.send(embed=embed)
 
-    # --- 3. 處理所有裝飾圖片實況 (核心修正區) ---
+# --- 3. 處理所有裝飾圖片實況 (深度除錯版) ---
+    # 🌟 修正：重新從資料庫抓取最新的裝飾清單，避免 main.py 傳入舊資料
+    latest_data = ref.get() or {}
+    decorations = latest_data.get("decorations", [])
+    
     if decorations and bot_client:
         files = []
-        # 使用專有的 Session 進行非同步下載，提高成功率
         import aiohttp
         async with aiohttp.ClientSession() as session:
-            for index, d in enumerate(decorations):
+            # 🌟 強制轉換為清單，避免 Firebase 的奇怪索引問題
+            deco_list = list(decorations) if isinstance(decorations, (list, dict)) else []
+            if isinstance(decorations, dict): # 處理 Firebase 可能出現的字典索引
+                deco_list = list(decorations.values())
+
+            print(f"[DEBUG] 準備處理清單: {deco_list}")
+
+            for index, d in enumerate(deco_list):
                 url = get_decoration_thumbnail(d)
-                if not url: continue
+                if not url: 
+                    print(f"[DEBUG] 裝飾 {d} 找不到 URL")
+                    continue
                 
                 try:
                     async with session.get(url, timeout=10) as resp:
                         if resp.status == 200:
                             img_data = await resp.read()
-                            # 🌟 強制給予唯一檔名 (deco_0.png, deco_1.png...) 避免 Discord 解析錯誤
-                            ext = url.split('.')[-1].split('?')[0] or "png"
-                            filename = f"deco_{index}_{random.randint(1000,9999)}.{ext}"
+                            # 使用唯一檔名
+                            filename = f"deco_{index}_{random.randint(1000,9999)}.png"
                             files.append(discord.File(fp=io.BytesIO(img_data), filename=filename))
-                            print(f"[DEBUG] 成功準備裝飾圖片: {d} as {filename}")
+                            print(f"[DEBUG] 成功抓取: {d}")
+                        else:
+                            print(f"[DEBUG] 下載 {d} 失敗: {resp.status}")
                 except Exception as e:
-                    print(f"[DEBUG] 裝飾圖片下載失敗 ({d}): {e}")
+                    print(f"[DEBUG] 下載 {d} 異常: {e}")
 
         if files:
-            # 🌟 Discord 一次發送多張圖時，會以「網格」或「列表」形式呈現
-            await current_channel.send(content="🎍 **農場裝飾實況：**", files=files[:10])
+            await current_channel.send(content="🎍 **農場裝飾實況：**", files=files)
             
 # ===== 健康檢查 =====
 async def handle_health_check(message):
