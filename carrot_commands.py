@@ -1062,20 +1062,30 @@ async def show_farm_overview(bot, message, user_id, user_data, ref):
     # --- 3. 發送訊息 ---
     await current_channel.send(embed=embed)
 
-    # 下載圖片 (與之前邏輯相同)
+    # --- 處理所有裝飾圖片實況 ---
     if decorations and bot_client:
         files = []
+        # 🌟 這裡會遍歷你擁有的「所有」裝飾
         for d in decorations:
             url = get_decoration_thumbnail(d)
+            if not url:
+                continue
+                
             try:
-                async with bot_client.http._HTTPClient__session.get(url, timeout=5) as resp:
+                # 🌟 使用 bot_client 的 session 下載
+                async with bot_client.http._HTTPClient__session.get(url, timeout=10) as resp:
                     if resp.status == 200:
                         img_data = await resp.read()
+                        # 將每一張圖片都加入 files 列表
                         files.append(discord.File(fp=io.BytesIO(img_data), filename=f"deco_{d}.png"))
-            except:
-                continue
+                        print(f"[DEBUG] 成功準備裝飾圖片: {d}")
+            except Exception as e:
+                print(f"[DEBUG] 裝飾圖片下載失敗 ({d}): {e}")
+
+        # 🌟 關鍵：如果 files 裡面有多個檔案，Discord 會一次全部顯示出來
         if files:
-            await current_channel.send(content="🎍 **農場裝飾實況：**", files=files)
+            # 限制最多發送 10 張（Discord 單次訊息上限）
+            await message.channel.send(content="🎍 **農場裝飾實況：**", files=files[:10])
 # ===== 健康檢查 =====
 async def handle_health_check(message):
     # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
