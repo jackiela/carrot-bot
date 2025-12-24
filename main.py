@@ -162,35 +162,30 @@ async def on_message(message):
     try:
         # 🌟 這裡你定義的名稱是 'ref'
         user_data, ref = get_user_data(user_id, username)
-
-# --- 💡 新增：自動回血邏輯 ---
-current_time = time.time() # 取得現在時間戳
-last_regen_time = user_data.get("last_regen_time", current_time)
-current_hp = user_data.get("hp", 100)
-max_hp = 100 + (user_data.get("level", 1) * 10)
-
-if current_hp < max_hp:
-    # 計算過了多少秒
-    elapsed_seconds = current_time - last_regen_time
-    # 24小時(86400秒)回100血 -> 每秒回 100/86400 血
-    regen_amount = elapsed_seconds * (100 / 86400)
-    
-    if regen_amount >= 1: # 至少過了一定時間才更新，減少資料庫寫入頻率
-        new_hp = min(max_hp, current_hp + int(regen_amount))
-        user_data["hp"] = new_hp
-        user_data["last_regen_time"] = current_time
-        ref.update({
-            "hp": new_hp,
-            "last_regen_time": current_time
-        })
-# -----------------------------
-
 await check_daily_login_reward(message, user_id, user_data, ref)
     except Exception as e:
         await message.channel.send("❌ 使用者資料讀取失敗，請稍後再試。")
         print("[Error] get_user_data:", e)
         return
+# 2. 🌟 這裡才是放「自動回血邏輯」的正確位置 (在讀取成功之後)
+    current_time = time.time()
+    last_regen_time = user_data.get("last_regen_time", current_time)
+    current_hp = user_data.get("hp", 100)
+    max_hp = 100 + (user_data.get("level", 1) * 10)
 
+    if current_hp < max_hp:
+        elapsed_seconds = current_time - last_regen_time
+        # 24小時回100血 = 每秒回 0.001157 血
+        regen_amount = elapsed_seconds * (100 / 86400)
+        
+        if regen_amount >= 1: # 累積超過 1 點血才更新資料庫
+            new_hp = min(max_hp, current_hp + int(regen_amount))
+            user_data["hp"] = new_hp # 同步更新記憶體內的資料
+            ref.update({
+                "hp": new_hp,
+                "last_regen_time": current_time
+            })
+            
     parts = content.split()
     cmd = parts[0]
     
