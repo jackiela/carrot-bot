@@ -135,7 +135,7 @@ async def start_adventure(message, user_id, user_data, ref, dungeon_key):
             "coins": new_coins,
             "hp": max(0, current_player_hp),
             "daily_adv_count": daily_count + 1,
-            "active_buff": None
+            "active_buff": None,
             "last_regen_time": time.time()
         })
         await message.channel.send(f"{msg_title}\n你獲得了 {reward} 金幣！(剩餘 HP: {max(0, current_player_hp)})")
@@ -144,7 +144,8 @@ async def start_adventure(message, user_id, user_data, ref, dungeon_key):
         ref.update({
             "hp": 0,
             "daily_adv_count": daily_count + 1,
-            "active_buff": None
+            "active_buff": None,
+            "last_regen_time": time.time()
         })
         await message.channel.send(f"💀 **你倒下了...** 被抬回了農場。")
         
