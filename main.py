@@ -3,6 +3,7 @@ import os
 import json
 import random
 import firebase_admin
+import adventure
 from firebase_admin import credentials, db
 from carrot_commands import (
     handle_fortune,
@@ -104,6 +105,8 @@ COMMAND_CHANNELS = {
     "!胡蘿蔔": 1420254884581867647,
     "!食譜": 1420254884581867647,
     "!種植": 1420254884581867647,
+    "!冒險": 1453283600459104266, 
+    "!吃": 1453283600459104266   
 }
 
 # ===================== 田地輔助 =====================
@@ -235,7 +238,19 @@ async def on_message(message):
     except Exception as e:
         await message.channel.send("❌ 指令執行發生錯誤，請稍後再試。")
         print("[Error] command execution:", e)
+# === 冒險系統指令 ===
+    if cmd == "!冒險":
+        dungeon_name = parts[1] if len(parts) > 1 else "新手森林"
+        await adventure.start_adventure(message, user_id, user_data, ref, dungeon_name)
+        return # 執行完畢直接結束
 
+    if cmd == "!吃":
+        if len(parts) < 2:
+            await message.channel.send("❓ 請輸入要吃的蘿蔔名稱，例如：`!吃 普通蘿蔔`")
+            return
+        carrot_name = " ".join(parts[1:]) # 處理像 "🥇 黃金蘿蔔" 這種有空格的名字
+        await adventure.handle_eat_carrot(message, user_id, user_data, ref, carrot_name)
+        return
 # ===================== Web API + Keep-alive =====================
 flask_app = Flask(__name__)
 
