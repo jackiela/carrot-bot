@@ -107,7 +107,8 @@ COMMAND_CHANNELS = {
     "!種植": 1420254884581867647,
     "!冒險": 1453283600459104266, 
     "!吃": 1453283600459104266,   
-    "!領取物資": 1453283600459104266     
+    "!領取物資": 1453283600459104266,
+    "!背包": 1453283600459104266
 }
 
 # ===================== 田地輔助 =====================
@@ -261,6 +262,36 @@ async def on_message(message):
         }
         ref.update({"inventory": test_inventory, "hp": 100})
         await message.channel.send("🎁 測試物資已發放！背包已存入普通、黃金、冰晶蘿蔔，HP 已補滿。")
+        return
+    # === 背包系統 ===
+    if cmd == "!背包":
+        inventory = user_data.get("inventory", {})
+        hp = user_data.get("hp", 100)
+        max_hp = 100 + (user_data.get("level", 1) * 10)
+        adv_count = user_data.get("daily_adv_count", 0)
+
+        # 建立 Embed 讓介面更美觀
+        embed = discord.Embed(title=f"🎒 {username} 的背包儲藏室", color=discord.Color.green())
+        
+        # 1. 顯示狀態條 (HP 與 次數)
+        hp_bar = "❤️" * (hp // 20) + "🤍" * ((max_hp - hp) // 20)
+        status_info = f"**生命值**: {hp} / {max_hp}\n{hp_bar}\n"
+        status_info += f"**今日冒險次數**: {adv_count} / 5"
+        embed.add_field(name="📊 目前狀態", value=status_info, inline=False)
+
+        # 2. 顯示蘿蔔清單
+        carrot_list = ""
+        for name, count in inventory.items():
+            if count > 0:
+                carrot_list += f"• **{name}**: {count} 個\n"
+        
+        if not carrot_list:
+            carrot_list = "你的背包空空如也... 快去拔蘿蔔！"
+            
+        embed.add_field(name="🥕 擁有的蘿蔔", value=carrot_list, inline=False)
+        embed.set_footer(text="使用 !吃 [名稱] 來回復體力")
+        
+        await message.channel.send(embed=embed)
         return
 # ===================== Web API + Keep-alive =====================
 flask_app = Flask(__name__)
