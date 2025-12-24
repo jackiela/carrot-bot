@@ -84,63 +84,65 @@ async def start_adventure(message, user_id, user_data, ref, dungeon_key):
         return
 
     # --- 戰鬥準備 ---
-    buff = user_data.get("active_buff")
-    player_atk = 15 + (user_data.get("level", 1) * 3)
+buff = user_data.get("active_buff")
+    # 確保變數名稱統一
+    current_player_hp = user_data.get("hp", 100) 
+    player_atk = 20 + (user_data.get("level", 1) * 5)
+    
     enemy_hp = dungeon["hp"]
     enemy_atk = dungeon["atk"]
     
-    # 環境影響邏輯
-    env_msg = ""
-    if dungeon.get("env_effect") == "heat" and buff != "heat_resist":
-        enemy_atk += 10
-        env_msg = "🔥 這裡太熱了，你的動作變得遲鈍，怪物傷害增加！\n"
+    # 1. 先處理環境扣血 (確保進場就可能受傷)
+    if dungeon.get("env") == "heat" and buff != "heat_resist":
+        current_player_hp -= 10
+        await message.channel.send("🔥 **環境傷害**：你因為酷熱流失了 10 點 HP！")
 
-    # --- 強化版戰鬥過程 ---
-    log = [f"⚔️ **進入 {dungeon_key}**！遭遇 **{dungeon['boss']}**"]
-    msg = await message.channel.send("🎲 戰鬥模擬中...")
-
-    while enemy_hp > 0 and player_hp > 0:
-        # 1. 玩家攻擊
-        p_dmg = random.randint(player_atk - 5, player_atk + 5)
-        
-        # 加入怪物閃避 (10% 機率)
-        if random.random() < 0.1:
-            log.append(f"💨 {dungeon['boss']} 靈巧地閃開了你的攻擊！")
-        else:
-            enemy_hp -= p_dmg
-            log.append(f"🗡️ 你對 {dungeon['boss']} 造成 {p_dmg} 傷害 (剩餘 {max(0, enemy_hp)})")
-        
-        if enemy_hp <= 0: break # 怪物死了就結束，玩家不扣血
-        
-        # 2. 怪物攻擊 (怪物一定會出手)
-        e_dmg = 0 if buff == "invincible" else random.randint(enemy_atk - 5, enemy_atk + 5)
-        
-        # 加入玩家閃避 (5% 基礎機率)
-        if random.random() < 0.05:
-            log.append(f"🛡️ 你看穿了怪物的動作，完美閃避！")
-        else:
-            player_hp -= e_dmg
-            log.append(f"💥 {dungeon['boss']} 反擊，你受到 {e_dmg} 傷害 (剩餘 {max(0, player_hp)})")
-        
-        # 更新中間過程 (只顯示最後三行，避免訊息太長)
-        await asyncio.sleep(1.2)
-        await msg.edit(content="\n".join(log[-3:]))
-
-    # --- 戰鬥結束結算 ---
-    is_win = enemy_hp <= 0
+    log_msg = await message.channel.send(f"⚔️ **與 {dungeon['boss']} 展開激戰...**")
     
-    # --- 結算 ---
-    if hp > 0:
+    # 2. 戰鬥迴圈
+    # 使用 current_player_hp 確保變數存在
+    while enemy_hp > 0 and current_player_hp > 0:
+        # --- 怪物先攻或同步攻擊邏輯 ---
+        # 為了確保玩家「一定會扣血」，我們讓怪物跟玩家同時計算傷害
+        
+        # 怪物打玩家
+        dmg_to_player = 0 if buff == "invincible" else random.randint(enemy_atk - 5, enemy_atk + 5)
+        current_player_hp -= dmg_to_player
+        
+        # 玩家打怪物
+        dmg_to_enemy = random.randint(player_atk - 5, player_atk + 5)
+        enemy_hp -= dmg_to_enemy
+        
+        # 更新進度
+        status_text = (
+            f"💥 {dungeon['boss']} 發動攻擊，你受到 {dmg_to_player} 傷害！\n"
+            f"🗡️ 你反擊造成 {dmg_to_enemy} 傷害！\n"
+            f"❤️ 你的 HP: {max(0, current_player_hp)} | 👾 怪 HP: {max(0, enemy_hp)}"
+        )
+        await log_msg.edit(content=status_text)
+        
+        if current_player_hp <= 0: break
+        await asyncio.sleep(1.5) # 停頓一下讓玩家看清楚
+
+    # --- 3. 結算結果 ---
+    if current_player_hp > 0 and enemy_hp <= 0:
+        # 勝利邏輯...
         reward = random.randint(*dungeon["reward"])
         if buff == "double_gold": reward *= 2
-        new_coins = user_data.get("coins", 0) + reward
-        new_exp = user_data.get("exp", 0) + 25
         
-        embed = discord.Embed(title="🏆 冒險勝利！", color=discord.Color.gold())
-        embed.description = f"你擊敗了 **{dungeon['boss']}**！\n💰 獲得金幣: {reward}\n✨ 獲得經驗: 25"
-        ref.update({"coins": new_coins, "exp": new_exp, "hp": hp, "daily_adv_count": daily_count + 1, "active_buff": None})
+        new_coins = user_data.get("coins", 0) + reward
+        ref.update({
+            "coins": new_coins,
+            "hp": current_player_hp, # 回傳剩餘血量
+            "daily_adv_count": user_data.get("daily_adv_count", 0) + 1,
+            "active_buff": None
+        })
+        await message.channel.send(f"🏆 **戰鬥勝利！** 獲得了 {reward} 金幣！")
     else:
-        embed = discord.Embed(title="💀 冒險失敗", description="你被打到昏迷，被好心人抬回農場...", color=discord.Color.red())
-        ref.update({"hp": 0, "daily_adv_count": daily_count + 1, "active_buff": None})
-
-    await message.channel.send(embed=embed)
+        # 失敗邏輯
+        ref.update({
+            "hp": max(0, current_player_hp),
+            "daily_adv_count": user_data.get("daily_adv_count", 0) + 1,
+            "active_buff": None
+        })
+        await message.channel.send(f"💀 **你倒下了...** 被抬回了農場。剩餘 HP: {max(0, current_player_hp)}")
