@@ -83,16 +83,15 @@ async def start_adventure(message, user_id, user_data, ref, dungeon_key):
         await message.channel.send(f"❌ 等級不足！需要 Lv.{dungeon['min_lvl']}")
         return
 
-    # --- 戰鬥準備 ---
-buff = user_data.get("active_buff")
-    # 確保變數名稱統一
+    # --- 戰鬥準備 (這裡我幫你對齊了) ---
+    buff = user_data.get("active_buff")
     current_player_hp = user_data.get("hp", 100) 
     player_atk = 20 + (user_data.get("level", 1) * 5)
     
     enemy_hp = dungeon["hp"]
     enemy_atk = dungeon["atk"]
     
-    # 1. 先處理環境扣血 (確保進場就可能受傷)
+    # 1. 先處理環境扣血
     if dungeon.get("env") == "heat" and buff != "heat_resist":
         current_player_hp -= 10
         await message.channel.send("🔥 **環境傷害**：你因為酷熱流失了 10 點 HP！")
@@ -100,11 +99,7 @@ buff = user_data.get("active_buff")
     log_msg = await message.channel.send(f"⚔️ **與 {dungeon['boss']} 展開激戰...**")
     
     # 2. 戰鬥迴圈
-    # 使用 current_player_hp 確保變數存在
     while enemy_hp > 0 and current_player_hp > 0:
-        # --- 怪物先攻或同步攻擊邏輯 ---
-        # 為了確保玩家「一定會扣血」，我們讓怪物跟玩家同時計算傷害
-        
         # 怪物打玩家
         dmg_to_player = 0 if buff == "invincible" else random.randint(enemy_atk - 5, enemy_atk + 5)
         current_player_hp -= dmg_to_player
@@ -121,28 +116,28 @@ buff = user_data.get("active_buff")
         )
         await log_msg.edit(content=status_text)
         
-        if current_player_hp <= 0: break
-        await asyncio.sleep(1.5) # 停頓一下讓玩家看清楚
+        if current_player_hp <= 0: 
+            break
+        await asyncio.sleep(1.5) 
 
     # --- 3. 結算結果 ---
     if current_player_hp > 0 and enemy_hp <= 0:
-        # 勝利邏輯...
         reward = random.randint(*dungeon["reward"])
-        if buff == "double_gold": reward *= 2
+        if buff == "double_gold": 
+            reward *= 2
         
         new_coins = user_data.get("coins", 0) + reward
         ref.update({
             "coins": new_coins,
-            "hp": current_player_hp, # 回傳剩餘血量
-            "daily_adv_count": user_data.get("daily_adv_count", 0) + 1,
+            "hp": current_player_hp,
+            "daily_adv_count": daily_count + 1,
             "active_buff": None
         })
         await message.channel.send(f"🏆 **戰鬥勝利！** 獲得了 {reward} 金幣！")
     else:
-        # 失敗邏輯
         ref.update({
             "hp": max(0, current_player_hp),
-            "daily_adv_count": user_data.get("daily_adv_count", 0) + 1,
+            "daily_adv_count": daily_count + 1,
             "active_buff": None
         })
         await message.channel.send(f"💀 **你倒下了...** 被抬回了農場。剩餘 HP: {max(0, current_player_hp)}")
