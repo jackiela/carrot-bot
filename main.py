@@ -291,19 +291,46 @@ async def on_message(message):
     if cmd == "!背包":
         inventory = user_data.get("inventory", {})
         hp = user_data.get("hp", 100)
-        max_hp = 100 + (user_data.get("level", 1) * 10)
+        level = user_data.get("level", 1)
+        max_hp = 100 + (level * 10)
         
         embed = discord.Embed(title=f"🎒 {username} 的背包", color=discord.Color.blue())
         
-        # 顯示血量條
+        # 1. 狀態條與血量
         bar_size = 10
         filled = int((hp / max_hp) * bar_size)
         bar = "❤️" * filled + "🤍" * (bar_size - filled)
-        embed.add_field(name="狀態", value=f"HP: {hp}/{max_hp}\n{bar}", inline=False)
         
-        # 顯示物品
-        items = "\n".join([f"• {k}: {v} 個" for k, v in inventory.items() if v > 0]) or "空空如也"
-        embed.add_field(name="物資", value=items, inline=False)
+        status_text = f"**生命值**: {hp} / {max_hp}\n{bar}"
+        
+        # --- 🌟 新增：多久回滿血的標示 ---
+        if hp < max_hp:
+            remaining_hp = max_hp - hp
+            # 24 小時回 100 血 -> 每小時回 4.16 血
+            # 剩餘小時 = 剩餘血量 / 4.16
+            hours_left = remaining_hp / (100 / 24)
+            
+            if hours_left < 1:
+                minutes_left = int(hours_left * 60)
+                status_text += f"\n⏳ 預計 `{minutes_left}` 分鐘後回滿"
+            else:
+                status_text += f"\n⏳ 預計 `{hours_left:.1f}` 小時後回滿"
+        else:
+            status_text += f"\n✨ 體力已完全充沛！"
+            
+        embed.add_field(name="📊 目前狀態", value=status_text, inline=False)
+        
+        # 2. 顯示物資
+        item_list = []
+        for name, count in inventory.items():
+            if count > 0:
+                item_list.append(f"• **{name}**: {count} 個")
+        
+        items_display = "\n".join(item_list) if item_list else "背包空空如也"
+        embed.add_field(name="🥕 儲藏物資", value=items_display, inline=False)
+        
+        # --- 🌟 找回提示 (Footer) ---
+        embed.set_footer(text="💡 使用 !吃 [蘿蔔名稱] 來回復體力\n💡 體力每 24 小時會自動回復 100 點")
         
         await message.channel.send(embed=embed)
         return
