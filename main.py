@@ -160,32 +160,38 @@ async def on_message(message):
     username = message.author.display_name
     
     try:
-        # 🌟 這裡你定義的名稱是 'ref'
+        # 1. 讀取使用者資料
         user_data, ref = get_user_data(user_id, username)
-await check_daily_login_reward(message, user_id, user_data, ref)
-    except Exception as e:
-        await message.channel.send("❌ 使用者資料讀取失敗，請稍後再試。")
-        print("[Error] get_user_data:", e)
-        return
-# 2. 🌟 這裡才是放「自動回血邏輯」的正確位置 (在讀取成功之後)
-    current_time = time.time()
-    last_regen_time = user_data.get("last_regen_time", current_time)
-    current_hp = user_data.get("hp", 100)
-    max_hp = 100 + (user_data.get("level", 1) * 10)
-
-    if current_hp < max_hp:
-        elapsed_seconds = current_time - last_regen_time
-        # 24小時回100血 = 每秒回 0.001157 血
-        regen_amount = elapsed_seconds * (100 / 86400)
         
-        if regen_amount >= 1: # 累積超過 1 點血才更新資料庫
-            new_hp = min(max_hp, current_hp + int(regen_amount))
-            user_data["hp"] = new_hp # 同步更新記憶體內的資料
-            ref.update({
-                "hp": new_hp,
-                "last_regen_time": current_time
-            })
+        # 2. 🌟 在這裡加入「自動回血邏輯」 (確保在 try 裡面)
+        current_time = time.time()
+        last_regen_time = user_data.get("last_regen_time", current_time)
+        current_hp = user_data.get("hp", 100)
+        max_hp = 100 + (user_data.get("level", 1) * 10)
+
+        if current_hp < max_hp:
+            elapsed_seconds = current_time - last_regen_time
+            # 24小時回100血 = 每秒回 0.001157 血
+            regen_amount = elapsed_seconds * (100 / 86400)
             
+            if regen_amount >= 1:
+                new_hp = min(max_hp, current_hp + int(regen_amount))
+                user_data["hp"] = new_hp  # 更新記憶體資料
+                ref.update({
+                    "hp": new_hp,
+                    "last_regen_time": current_time
+                })
+        
+        # 3. 檢查每日獎勵
+        await check_daily_login_reward(message, user_id, user_data, ref)
+
+    except Exception as e:
+        # 這是對應上面 try 的 except 塊，絕對不能被中斷
+        await message.channel.send("❌ 使用者資料讀取失敗，請稍後再試。")
+        print("[Error] on_message core:", e)
+        return
+
+    # 4. 指令解析 (此時 user_data 已經是最新狀態)
     parts = content.split()
     cmd = parts[0]
     
@@ -286,28 +292,18 @@ await check_daily_login_reward(message, user_id, user_data, ref)
         inventory = user_data.get("inventory", {})
         hp = user_data.get("hp", 100)
         max_hp = 100 + (user_data.get("level", 1) * 10)
-        adv_count = user_data.get("daily_adv_count", 0)
-
-        # 建立 Embed 讓介面更美觀
-        embed = discord.Embed(title=f"🎒 {username} 的背包儲藏室", color=discord.Color.green())
         
-        # 1. 顯示狀態條 (HP 與 次數)
-        hp_bar = "❤️" * (hp // 20) + "🤍" * ((max_hp - hp) // 20)
-        status_info = f"**生命值**: {hp} / {max_hp}\n{hp_bar}\n"
-        status_info += f"**今日冒險次數**: {adv_count} / 5"
-        embed.add_field(name="📊 目前狀態", value=status_info, inline=False)
-
-        # 2. 顯示蘿蔔清單
-        carrot_list = ""
-        for name, count in inventory.items():
-            if count > 0:
-                carrot_list += f"• **{name}**: {count} 個\n"
+        embed = discord.Embed(title=f"🎒 {username} 的背包", color=discord.Color.blue())
         
-        if not carrot_list:
-            carrot_list = "你的背包空空如也... 快去拔蘿蔔！"
-            
-        embed.add_field(name="🥕 擁有的蘿蔔", value=carrot_list, inline=False)
-        embed.set_footer(text="使用 !吃 [名稱] 來回復體力")
+        # 顯示血量條
+        bar_size = 10
+        filled = int((hp / max_hp) * bar_size)
+        bar = "❤️" * filled + "🤍" * (bar_size - filled)
+        embed.add_field(name="狀態", value=f"HP: {hp}/{max_hp}\n{bar}", inline=False)
+        
+        # 顯示物品
+        items = "\n".join([f"• {k}: {v} 個" for k, v in inventory.items() if v > 0]) or "空空如也"
+        embed.add_field(name="物資", value=items, inline=False)
         
         await message.channel.send(embed=embed)
         return
