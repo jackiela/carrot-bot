@@ -95,20 +95,40 @@ async def start_adventure(message, user_id, user_data, ref, dungeon_key):
         enemy_atk += 10
         env_msg = "🔥 這裡太熱了，你的動作變得遲鈍，怪物傷害增加！\n"
 
-    # 戰鬥過程
-    msg = await message.channel.send(f"⚔️ **進入 {dungeon_key}**...\n{env_msg}🎲 戰鬥模擬中...")
-    
-    rounds = 0
-    while enemy_hp > 0 and hp > 0 and rounds < 5:
-        dmg = random.randint(player_atk-5, player_atk+10)
-        enemy_hp -= dmg
-        if enemy_hp <= 0: break
-        
-        e_dmg = 0 if buff == "invincible" else random.randint(enemy_atk-5, enemy_atk+5)
-        hp -= e_dmg
-        rounds += 1
-        await asyncio.sleep(1)
+    # --- 強化版戰鬥過程 ---
+    log = [f"⚔️ **進入 {dungeon_key}**！遭遇 **{dungeon['boss']}**"]
+    msg = await message.channel.send("🎲 戰鬥模擬中...")
 
+    while enemy_hp > 0 and player_hp > 0:
+        # 1. 玩家攻擊
+        p_dmg = random.randint(player_atk - 5, player_atk + 5)
+        
+        # 加入怪物閃避 (10% 機率)
+        if random.random() < 0.1:
+            log.append(f"💨 {dungeon['boss']} 靈巧地閃開了你的攻擊！")
+        else:
+            enemy_hp -= p_dmg
+            log.append(f"🗡️ 你對 {dungeon['boss']} 造成 {p_dmg} 傷害 (剩餘 {max(0, enemy_hp)})")
+        
+        if enemy_hp <= 0: break # 怪物死了就結束，玩家不扣血
+        
+        # 2. 怪物攻擊 (怪物一定會出手)
+        e_dmg = 0 if buff == "invincible" else random.randint(enemy_atk - 5, enemy_atk + 5)
+        
+        # 加入玩家閃避 (5% 基礎機率)
+        if random.random() < 0.05:
+            log.append(f"🛡️ 你看穿了怪物的動作，完美閃避！")
+        else:
+            player_hp -= e_dmg
+            log.append(f"💥 {dungeon['boss']} 反擊，你受到 {e_dmg} 傷害 (剩餘 {max(0, player_hp)})")
+        
+        # 更新中間過程 (只顯示最後三行，避免訊息太長)
+        await asyncio.sleep(1.2)
+        await msg.edit(content="\n".join(log[-3:]))
+
+    # --- 戰鬥結束結算 ---
+    is_win = enemy_hp <= 0
+    
     # --- 結算 ---
     if hp > 0:
         reward = random.randint(*dungeon["reward"])
