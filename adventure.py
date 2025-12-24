@@ -121,23 +121,28 @@ async def start_adventure(message, user_id, user_data, ref, dungeon_key):
         await asyncio.sleep(1.5) 
 
     # --- 3. 結算結果 ---
-    if current_player_hp > 0 and enemy_hp <= 0:
+    if enemy_hp <= 0:  # 只要怪物 HP 歸零，就算勝利
         reward = random.randint(*dungeon["reward"])
         if buff == "double_gold": 
             reward *= 2
         
         new_coins = user_data.get("coins", 0) + reward
+        
+        # 如果勝利但 HP 為 0，顯示慘勝
+        msg_title = "🏆 **戰鬥勝利！**" if current_player_hp > 0 else "😫 **慘勝！你與怪物同歸於盡...**"
+        
         ref.update({
             "coins": new_coins,
-            "hp": current_player_hp,
-            "daily_adv_count": daily_count + 1,
-            "active_buff": None
-        })
-        await message.channel.send(f"🏆 **戰鬥勝利！** 獲得了 {reward} 金幣！")
-    else:
-        ref.update({
             "hp": max(0, current_player_hp),
             "daily_adv_count": daily_count + 1,
             "active_buff": None
         })
-        await message.channel.send(f"💀 **你倒下了...** 被抬回了農場。剩餘 HP: {max(0, current_player_hp)}")
+        await message.channel.send(f"{msg_title}\n你獲得了 {reward} 金幣！(剩餘 HP: {max(0, current_player_hp)})")
+    else:
+        # 真正失敗 (玩家倒下且怪還活著)
+        ref.update({
+            "hp": 0,
+            "daily_adv_count": daily_count + 1,
+            "active_buff": None
+        })
+        await message.channel.send(f"💀 **你倒下了...** 被抬回了農場。")
