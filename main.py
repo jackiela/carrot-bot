@@ -354,6 +354,11 @@ async def on_message(message):
         
         await message.channel.send(embed=embed)
         return
+        # === 管理員指令 ===
+    if cmd == "!重置次數":
+        import adventure
+        await adventure.admin_reset_player(message, user_id, ref)
+        return
 # ===================== Web API + Keep-alive =====================
 flask_app = Flask(__name__)
 
