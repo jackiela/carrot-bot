@@ -98,23 +98,22 @@ async def start_adventure(message, user_id, user_data, ref, dungeon_key):
     from utils import get_today
     today = get_today()
     if user_data.get("last_login_day") != today:
-        user_data["daily_adv_count"] = 0 # 先更新記憶體，確保下方判斷通過
+        user_data["daily_adv_count"] = 0 # 先更新記憶體
         ref.update({
             "daily_adv_count": 0,
             "last_login_day": today
         })
-    # ----------------------------
-
-    # 現在檢查冒險次數就不會出錯了
+    
+    # 檢查冒險次數
     daily_count = user_data.get("daily_adv_count", 0)
     if daily_count >= 5:
         await message.channel.send("😫 你今天已經冒險 5 次了，請明天再來！")
         return
 
-    # 檢查 HP
+    # 檢查 HP (使用 int 判斷)
     hp = user_data.get("hp", 100)
     if hp <= 10:
-        await message.channel.send(f"💀 你的 HP 只有 {hp}，進去就是送死！快去吃蘿蔔。")
+        await message.channel.send(f"💀 你的 HP 只有 {int(hp)}，進去就是送死！快去吃蘿蔔。")
         return
 
     # 檢查副本
@@ -129,64 +128,81 @@ async def start_adventure(message, user_id, user_data, ref, dungeon_key):
         await message.channel.send(f"❌ 等級不足！需要 Lv.{dungeon['min_lvl']}")
         return
 
-    # --- 戰鬥準備 (這裡我幫你對齊了) ---
+    # --- 戰鬥準備 ---
     buff = user_data.get("active_buff")
-    current_player_hp = user_data.get("hp", 100) 
+    current_player_hp = float(user_data.get("hp", 100)) # 確保用浮點數運算
     player_atk = 20 + (user_data.get("level", 1) * 5)
     
     enemy_hp = dungeon["hp"]
     enemy_atk = dungeon["atk"]
     
-    # 1. 先處理環境扣血
+    # 1. 環境扣血
     if dungeon.get("env") == "heat" and buff != "heat_resist":
         current_player_hp -= 10
         await message.channel.send("🔥 **環境傷害**：你因為酷熱流失了 10 點 HP！")
 
-    log_msg = await message.channel.send(f"⚔️ **與 {dungeon['boss']} 展開激戰...**")
+    # 決定先攻
+    player_turn = random.choice([True, False])
+    first_striker = "你" if player_turn else dungeon['boss']
+    log_msg = await message.channel.send(f"⚔️ **與 {dungeon['boss']} 展開激戰...** (由 **{first_striker}** 先發制人！)")
+    await asyncio.sleep(1)
     
     # 2. 戰鬥迴圈
     while enemy_hp > 0 and current_player_hp > 0:
-        # 怪物打玩家
-        dmg_to_player = 0 if buff == "invincible" else random.randint(enemy_atk - 5, enemy_atk + 5)
-        current_player_hp -= dmg_to_player
+        turn_log = ""
         
-        # 玩家打怪物
-        dmg_to_enemy = random.randint(player_atk - 5, player_atk + 5)
-        enemy_hp -= dmg_to_enemy
-        
-        # 更新進度
+        if player_turn:
+            # 玩家攻擊
+            dmg_to_enemy = random.randint(player_atk - 5, player_atk + 5)
+            enemy_hp -= dmg_to_enemy
+            turn_log += f"🗡️ 你反擊造成 {dmg_to_enemy} 傷害！\n"
+            # 怪物如果還活著就反擊
+            if enemy_hp > 0:
+                dmg_to_player = 0 if buff == "invincible" else random.randint(enemy_atk - 5, enemy_atk + 5)
+                current_player_hp -= dmg_to_player
+                turn_log += f"💥 {dungeon['boss']} 發動攻擊，你受到 {dmg_to_player} 傷害！"
+        else:
+            # 怪物攻擊
+            dmg_to_player = 0 if buff == "invincible" else random.randint(enemy_atk - 5, enemy_atk + 5)
+            current_player_hp -= dmg_to_player
+            turn_log += f"💥 {dungeon['boss']} 發動攻擊，你受到 {dmg_to_player} 傷害！\n"
+            # 玩家如果還活著就反擊
+            if current_player_hp > 0:
+                dmg_to_enemy = random.randint(player_atk - 5, player_atk + 5)
+                enemy_hp -= dmg_to_enemy
+                turn_log += f"🗡️ 你反擊造成 {dmg_to_enemy} 傷害！"
+
+        # 更新進度 (使用 int() 去掉小數點)
         status_text = (
-            f"💥 {dungeon['boss']} 發動攻擊，你受到 {dmg_to_player} 傷害！\n"
-            f"🗡️ 你反擊造成 {dmg_to_enemy} 傷害！\n"
-            f"❤️ 你的 HP: {max(0, current_player_hp)} | 👾 怪 HP: {max(0, enemy_hp)}"
+            f"{turn_log}\n"
+            f"❤️ 你的 HP: **{int(max(0, current_player_hp))}** | 👾 怪 HP: **{int(max(0, enemy_hp))}**"
         )
         await log_msg.edit(content=status_text)
         
-        if current_player_hp <= 0: 
+        if current_player_hp <= 0 or enemy_hp <= 0: 
             break
-        await asyncio.sleep(1.5) 
+        await asyncio.sleep(1.8) # 稍微延長間隔讓玩家看清楚
 
     # --- 3. 結算結果 ---
-    if enemy_hp <= 0:  # 只要怪物 HP 歸零，就算勝利
+    final_hp = max(0, current_player_hp)
+    
+    if enemy_hp <= 0: 
         reward = random.randint(*dungeon["reward"])
         if buff == "double_gold": 
             reward *= 2
         
         new_coins = user_data.get("coins", 0) + reward
-        
-        # 如果勝利但 HP 為 0，顯示慘勝
-        msg_title = "🏆 **戰鬥勝利！**" if current_player_hp > 0 else "😫 **慘勝！你與怪物同歸於盡...**"
+        msg_title = "🏆 **戰鬥勝利！**" if final_hp > 0 else "😫 **慘勝！你與怪物同歸於盡...**"
         
         ref.update({
             "coins": new_coins,
-            "hp": max(0, current_player_hp),
+            "hp": final_hp,
             "daily_adv_count": daily_count + 1,
             "active_buff": None,
             "last_regen_time": time.time()
         })
-        await message.channel.send(f"{msg_title}\n你獲得了 {reward} 金幣！(剩餘 HP: {max(0, current_player_hp)})")
+        await message.channel.send(f"{msg_title}\n💰 你獲得了 **{reward}** 金幣！(剩餘 HP: {int(final_hp)})")
     else:
-        # 真正失敗 (玩家倒下且怪還活著)
         ref.update({
             "hp": 0,
             "daily_adv_count": daily_count + 1,
@@ -194,4 +210,3 @@ async def start_adventure(message, user_id, user_data, ref, dungeon_key):
             "last_regen_time": time.time()
         })
         await message.channel.send(f"💀 **你倒下了...** 被抬回了農場。")
-        
