@@ -33,6 +33,37 @@ CARROT_EFFECTS = {
     "🧊 冰晶蘿蔔": {"hp": 40, "buff": "heat_resist", "desc": "回復 40 HP，獲得【耐熱】效果"}
 }
 
+async def admin_reset_player(message, user_id, ref):
+    """管理員重置指定玩家的狀態"""
+    # 權限檢查：檢查是否為 Discord 管理員
+    if not message.author.guild_permissions.administrator:
+        await message.channel.send("❌ 你沒有權限使用此指令。")
+        return
+
+    # 判斷重置對象
+    target_id = user_id
+    target_name = message.author.display_name
+    
+    # 如果有標記人 (!管理員重置 @玩家)
+    if message.mentions:
+        target_user = message.mentions[0]
+        target_id = str(target_user.id)
+        target_name = target_user.display_name
+        # 重新指向目標玩家的 Firebase
+        from firebase_admin import db
+        ref = db.reference(f"users/{target_id}")
+
+    # 執行重置動作
+    reset_data = {
+        "daily_adv_count": 0,
+        "hp": 100,               # 重置為基礎血量
+        "last_regen_time": time.time(),
+        "active_buff": None      # 清除狀態
+    }
+    
+    ref.update(reset_data)
+    await message.channel.send(f"✅ **管理員操作**：已成功重置 **{target_name}** 的冒險次數與血量。")
+
 async def handle_eat_carrot(message, user_id, user_data, ref, carrot_name):
     inventory = user_data.get("inventory", {})
     if inventory.get(carrot_name, 0) <= 0:
@@ -59,7 +90,18 @@ async def handle_eat_carrot(message, user_id, user_data, ref, carrot_name):
     await message.channel.send(f"🍴 {message.author.mention} 吃掉了 **{carrot_name}**！\n❤️ HP: {hp} -> {new_hp}\n✨ 獲得效果: {effect['desc']}")
 
 async def start_adventure(message, user_id, user_data, ref, dungeon_key):
-    # 檢查冒險次數
+    # --- 🌟 跨天自動重置次數邏輯 ---
+    from utils import get_today
+    today = get_today()
+    if user_data.get("last_login_day") != today:
+        user_data["daily_adv_count"] = 0 # 先更新記憶體，確保下方判斷通過
+        ref.update({
+            "daily_adv_count": 0,
+            "last_login_day": today
+        })
+    # ----------------------------
+
+    # 現在檢查冒險次數就不會出錯了
     daily_count = user_data.get("daily_adv_count", 0)
     if daily_count >= 5:
         await message.channel.send("😫 你今天已經冒險 5 次了，請明天再來！")
