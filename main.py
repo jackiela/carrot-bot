@@ -182,9 +182,9 @@ async def on_message(message):
         max_hp = 100 + (user_data.get("level", 1) * 10)
 
         if hp < max_hp:
-            elapsed = current_time - last_regen
-            # 24小時回100點 -> 每秒回 0.001157 點
-            regen_points = elapsed * (100 / 86400)
+            elapsed = current_time - last_regen_time
+            # 關鍵：每秒回復總量的 1/86400
+            regen_amount = elapsed * (max_hp / 86400)
             
             # 只要有回超過 0.1 點就更新，避免等太久
             if regen_points >= 0.1:
@@ -322,17 +322,19 @@ async def on_message(message):
         
         # 1. 狀態條與血量
         bar_size = 10
-        # 避免 hp 超過 max_hp 導致計算錯誤，使用 min
-        filled = int((min(hp, max_hp) / max_hp) * bar_size)
+        # 避免 hp 超過 max_hp 導致計算錯誤
+        safe_hp = min(hp, max_hp)
+        filled = int((safe_hp / max_hp) * bar_size)
         bar = "❤️" * filled + "🤍" * (bar_size - filled)
         
         status_text = f"**生命值**: {hp} / {max_hp}\n{bar}"
         
-        # --- 多久回滿血的標示 ---
+        # --- 🌟 修改：24小時回滿公式 ---
         if hp < max_hp:
             remaining_hp = max_hp - hp
-            # 24 小時回 100 血的公式
-            hours_left = remaining_hp / (100 / 24)
+            # 新公式：不管上限是多少，每小時回復 (max_hp / 24)
+            # 剩餘小時 = 剩餘血量 / (max_hp / 24)
+            hours_left = remaining_hp / (max_hp / 24)
             
             if hours_left < 1:
                 minutes_left = int(hours_left * 60)
@@ -344,9 +346,10 @@ async def on_message(message):
             
         embed.add_field(name="📊 目前狀態", value=status_text, inline=False)
 
-        # --- 🌟 新增：今日冒險次數 ---
-        adv_status = "🔴" * adv_count + "⚪" * (5 - adv_count)
-        embed.add_field(name="⚔️ 今日冒險次數", value=f"{adv_status} ({adv_count}/5)", inline=False)
+        # --- 🌟 修改：冒險次數圖示 (使用更清楚的方塊) ---
+        # 🟥 代表已使用，🟩 代表剩餘可用
+        adv_icons = "🟥" * adv_count + "🟩" * (5 - adv_count)
+        embed.add_field(name="⚔️ 今日冒險次數", value=f"{adv_icons} ({adv_count}/5)", inline=False)
         
         # 2. 顯示物資
         item_list = []
@@ -357,8 +360,8 @@ async def on_message(message):
         items_display = "\n".join(item_list) if item_list else "背包空空如也... 快去拔蘿蔔！"
         embed.add_field(name="🥕 儲藏物資", value=items_display, inline=False)
         
-        # 提示 (Footer)
-        embed.set_footer(text="💡 使用 !吃 [蘿蔔名稱] 來回復體力\n💡 體力每 24 小時會自動回復 100 點")
+        # 提示 (Footer) - 同步更新說明內容
+        embed.set_footer(text=f"💡 使用 !吃 [蘿蔔名稱] 來回復體力\n💡 體力會在 24 小時內自動回復至上限 ({max_hp})")
         
         await message.channel.send(embed=embed)
         return
