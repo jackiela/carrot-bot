@@ -55,11 +55,14 @@ async def admin_reset_player(message, user_id, ref):
         ref = db.reference(f"users/{target_id}")
 
     # 執行重置動作
+    level = user_data.get("level", 1)
+    max_hp = 100 + (level * 10) # 先算出他現在等級該有的滿血量
+    
     reset_data = {
         "daily_adv_count": 0,
-        "hp": 100,               # 重置為基礎血量
+        "hp": max_hp,               # 直接給他該等級的滿血
         "last_regen_time": time.time(),
-        "active_buff": None      # 清除狀態
+        "last_login_day": get_today()      # 清除狀態
     }
     
     ref.update(reset_data)
