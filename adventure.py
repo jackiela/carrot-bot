@@ -4,6 +4,7 @@ import discord
 import asyncio
 import io
 from datetime import datetime
+from utils import get_today, is_admin  # 💡 確保從你的 utils 匯入關鍵函式
 
 # 副本資料設定
 DUNGEONS = {
@@ -34,10 +35,10 @@ CARROT_EFFECTS = {
     "🧊 冰晶蘿蔔": {"hp": 40, "buff": "heat_resist", "desc": "回復 40 HP，獲得【耐熱】效果"}
 }
 
-async def admin_reset_player(message, user_id, ref):
+async def admin_reset_player(message, user_id, user_data, ref):
     """管理員重置指定玩家的狀態"""
-    # 權限檢查：檢查是否為 Discord 管理員
-    if not message.author.guild_permissions.administrator:
+    # 💡 改用 utils 的 is_admin 判定，更安全
+    if not is_admin(str(message.author.id)):
         await message.channel.send("❌ 你沒有權限使用此指令。")
         return
 
@@ -50,19 +51,19 @@ async def admin_reset_player(message, user_id, ref):
         target_user = message.mentions[0]
         target_id = str(target_user.id)
         target_name = target_user.display_name
-        # 重新指向目標玩家的 Firebase
         from firebase_admin import db
         ref = db.reference(f"users/{target_id}")
 
-    # 執行重置動作
+    # 執行重置動作 (修正：從傳入的 user_data 取得等級)
     level = user_data.get("level", 1)
-    max_hp = 100 + (level * 10) # 先算出他現在等級該有的滿血量
+    max_hp = 100 + (level * 10)
     
     reset_data = {
         "daily_adv_count": 0,
-        "hp": max_hp,               # 直接給他該等級的滿血
+        "hp": max_hp,
         "last_regen_time": time.time(),
-        "last_login_day": get_today()      # 清除狀態
+        "last_login_day": get_today(),
+        "active_buff": None
     }
     
     ref.update(reset_data)
@@ -91,69 +92,88 @@ async def handle_eat_carrot(message, user_id, user_data, ref, carrot_name):
         update_data["active_buff"] = effect["buff"]
 
     ref.update(update_data)
+    # 💡 顯示時使用 int() 去掉小數點
+    await message.channel.send(f"🍴 {message.author.mention} 吃掉了 **{carrot_name}**！\n❤️ HP: {int(hp)} -> {int(new_hp)}\n✨ 獲得效果: {effect['desc']}")
+
+async def handle_eat_carrot(message, user_id, user_data, ref, carrot_name):
+    inventory = user_data.get("inventory", {})
+    if inventory.get(carrot_name, 0) <= 0:
+        await message.channel.send(f"❌ 你的背包裡沒有 **{carrot_name}**！")
+        return
+
+    effect = CARROT_EFFECTS.get(carrot_name)
+    if not effect:
+        await message.channel.send("❓ 這種蘿蔔不能直接食用。")
+        return
+
+    # 計算 HP
+    hp = user_data.get("hp", 100)
+    max_hp = 100 + (user_data.get("level", 1) * 10)
+    new_hp = min(max_hp, hp + effect["hp"])
+    
+    # 扣除道具並加 Buff
+    inventory[carrot_name] -= 1
+    update_data = {"hp": new_hp, "inventory": inventory}
+    if effect["buff"]:
+        update_data["active_buff"] = effect["buff"]
+
+    ref.update(update_data)
     await message.channel.send(f"🍴 {message.author.mention} 吃掉了 **{carrot_name}**！\n❤️ HP: {hp} -> {new_hp}\n✨ 獲得效果: {effect['desc']}")
 
 async def start_adventure(message, user_id, user_data, ref, dungeon_key):
-    # --- 🌟 修正版：跨天自動重置次數邏輯 ---
-    from utils import get_today
+    # --- 🌟 跨天自動重置次數邏輯 ---
     today = get_today()
     last_day = user_data.get("last_login_day", "")
 
     if last_day != today:
-        # 如果日期不同，強制歸零並更新日期
         daily_count = 0 
-        user_data["daily_adv_count"] = 0 # 更新區域變數
+        user_data["daily_adv_count"] = 0 
         user_data["last_login_day"] = today
         ref.update({
             "daily_adv_count": 0,
             "last_login_day": today
         })
     else:
-        # 如果是同一天，才讀取原本的次數
         daily_count = user_data.get("daily_adv_count", 0)
 
-    # 現在檢查冒險次數
     if daily_count >= 5:
         await message.channel.send("😫 你今天已經冒險 5 次了，請明天再來！")
         return
 
-    # 檢查 HP (使用 int 判斷)
+    # 檢查 HP
     hp = user_data.get("hp", 100)
     if hp <= 10:
         await message.channel.send(f"💀 你的 HP 只有 {int(hp)}，進去就是送死！快去吃蘿蔔。")
         return
 
-    # 檢查副本
     dungeon = DUNGEONS.get(dungeon_key)
     if not dungeon:
         list_str = "、".join(DUNGEONS.keys())
         await message.channel.send(f"📍 找不到該地區。可用副本：{list_str}")
         return
 
-    # 等級檢查
     if user_data.get("level", 1) < dungeon["min_lvl"]:
         await message.channel.send(f"❌ 等級不足！需要 Lv.{dungeon['min_lvl']}")
         return
 
     # --- 戰鬥準備 ---
     buff = user_data.get("active_buff")
-    current_player_hp = float(user_data.get("hp", 100)) # 確保用浮點數運算
+    current_player_hp = float(hp)
     player_atk = 20 + (user_data.get("level", 1) * 5)
     
     enemy_hp = dungeon["hp"]
     enemy_atk = dungeon["atk"]
     
-    # 1. 環境扣血
-    if dungeon.get("env") == "heat" and buff != "heat_resist":
+    # 1. 環境扣血 (修正：比對鍵值統一為 env_effect)
+    if dungeon.get("env_effect") == "heat" and buff != "heat_resist":
         current_player_hp -= 10
         await message.channel.send("🔥 **環境傷害**：你因為酷熱流失了 10 點 HP！")
 
-    # 決定先攻 (這則訊息不要被 edit 覆蓋)
+    # 決定先攻
     player_turn = random.choice([True, False])
     first_striker = "你" if player_turn else dungeon['boss']
     await message.channel.send(f"⚔️ **與 {dungeon['boss']} 展開激戰...**\n🚩 隨機判定：由 **{first_striker}** 獲得先攻優勢！")
     
-    # 建立一個空訊息用於更新戰鬥過程
     log_msg = await message.channel.send("🔄 戰鬥計算中...")
     await asyncio.sleep(1)
     
@@ -177,7 +197,6 @@ async def start_adventure(message, user_id, user_data, ref, dungeon_key):
                 enemy_hp -= dmg_to_enemy
                 turn_details += f"🗡️ 你反擊造成 {dmg_to_enemy} 傷害！"
 
-        # 這裡加入 max(0, ...) 讓血量不顯示負數
         status_text = (
             f"{turn_details}\n"
             f"━━━━━━━━━━━━━━━\n"
@@ -188,7 +207,7 @@ async def start_adventure(message, user_id, user_data, ref, dungeon_key):
         
         if current_player_hp <= 0 or enemy_hp <= 0: 
             break
-        await asyncio.sleep(1.8) # 稍微延長間隔讓玩家看清楚
+        await asyncio.sleep(1.8)
 
     # --- 3. 結算結果 ---
     final_hp = max(0, current_player_hp)
