@@ -94,18 +94,25 @@ async def handle_eat_carrot(message, user_id, user_data, ref, carrot_name):
     await message.channel.send(f"🍴 {message.author.mention} 吃掉了 **{carrot_name}**！\n❤️ HP: {hp} -> {new_hp}\n✨ 獲得效果: {effect['desc']}")
 
 async def start_adventure(message, user_id, user_data, ref, dungeon_key):
-    # --- 🌟 跨天自動重置次數邏輯 ---
+    # --- 🌟 修正版：跨天自動重置次數邏輯 ---
     from utils import get_today
     today = get_today()
-    if user_data.get("last_login_day") != today:
-        user_data["daily_adv_count"] = 0 # 先更新記憶體
+    last_day = user_data.get("last_login_day", "")
+
+    if last_day != today:
+        # 如果日期不同，強制歸零並更新日期
+        daily_count = 0 
+        user_data["daily_adv_count"] = 0 # 更新區域變數
+        user_data["last_login_day"] = today
         ref.update({
             "daily_adv_count": 0,
             "last_login_day": today
         })
-    
-    # 檢查冒險次數
-    daily_count = user_data.get("daily_adv_count", 0)
+    else:
+        # 如果是同一天，才讀取原本的次數
+        daily_count = user_data.get("daily_adv_count", 0)
+
+    # 現在檢查冒險次數
     if daily_count >= 5:
         await message.channel.send("😫 你今天已經冒險 5 次了，請明天再來！")
         return
