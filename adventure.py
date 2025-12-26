@@ -141,41 +141,41 @@ async def start_adventure(message, user_id, user_data, ref, dungeon_key):
         current_player_hp -= 10
         await message.channel.send("🔥 **環境傷害**：你因為酷熱流失了 10 點 HP！")
 
-    # 決定先攻
+    # 決定先攻 (這則訊息不要被 edit 覆蓋)
     player_turn = random.choice([True, False])
     first_striker = "你" if player_turn else dungeon['boss']
-    log_msg = await message.channel.send(f"⚔️ **與 {dungeon['boss']} 展開激戰...** (由 **{first_striker}** 先發制人！)")
+    await message.channel.send(f"⚔️ **與 {dungeon['boss']} 展開激戰...**\n🚩 隨機判定：由 **{first_striker}** 獲得先攻優勢！")
+    
+    # 建立一個空訊息用於更新戰鬥過程
+    log_msg = await message.channel.send("🔄 戰鬥計算中...")
     await asyncio.sleep(1)
     
     # 2. 戰鬥迴圈
     while enemy_hp > 0 and current_player_hp > 0:
-        turn_log = ""
-        
+        turn_details = ""
         if player_turn:
-            # 玩家攻擊
             dmg_to_enemy = random.randint(player_atk - 5, player_atk + 5)
             enemy_hp -= dmg_to_enemy
-            turn_log += f"🗡️ 你反擊造成 {dmg_to_enemy} 傷害！\n"
-            # 怪物如果還活著就反擊
+            turn_details += f"🗡️ 你反擊造成 {dmg_to_enemy} 傷害！\n"
             if enemy_hp > 0:
                 dmg_to_player = 0 if buff == "invincible" else random.randint(enemy_atk - 5, enemy_atk + 5)
                 current_player_hp -= dmg_to_player
-                turn_log += f"💥 {dungeon['boss']} 發動攻擊，你受到 {dmg_to_player} 傷害！"
+                turn_details += f"💥 {dungeon['boss']} 攻擊造成 {dmg_to_player} 傷害！"
         else:
-            # 怪物攻擊
             dmg_to_player = 0 if buff == "invincible" else random.randint(enemy_atk - 5, enemy_atk + 5)
             current_player_hp -= dmg_to_player
-            turn_log += f"💥 {dungeon['boss']} 發動攻擊，你受到 {dmg_to_player} 傷害！\n"
-            # 玩家如果還活著就反擊
+            turn_details += f"💥 {dungeon['boss']} 攻擊造成 {dmg_to_player} 傷害！\n"
             if current_player_hp > 0:
                 dmg_to_enemy = random.randint(player_atk - 5, player_atk + 5)
                 enemy_hp -= dmg_to_enemy
-                turn_log += f"🗡️ 你反擊造成 {dmg_to_enemy} 傷害！"
+                turn_details += f"🗡️ 你反擊造成 {dmg_to_enemy} 傷害！"
 
-        # 更新進度 (使用 int() 去掉小數點)
+        # 這裡加入 max(0, ...) 讓血量不顯示負數
         status_text = (
-            f"{turn_log}\n"
-            f"❤️ 你的 HP: **{int(max(0, current_player_hp))}** | 👾 怪 HP: **{int(max(0, enemy_hp))}**"
+            f"{turn_details}\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"❤️ 你的 HP: **{int(max(0, current_player_hp))}**\n"
+            f"👾 怪物 HP: **{int(max(0, enemy_hp))}**"
         )
         await log_msg.edit(content=status_text)
         
