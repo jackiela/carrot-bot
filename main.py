@@ -307,38 +307,46 @@ async def on_message(message):
         ref.update({"inventory": test_inventory, "hp": 100})
         await message.channel.send("🎁 測試物資已發放！背包已存入普通、黃金、冰晶蘿蔔，HP 已補滿。")
         return
-    # === 背包系統 ===
+   # === 背包系統 ===
     if cmd == "!背包":
         inventory = user_data.get("inventory", {})
+        # 確保讀取出來的 HP 先轉為整數用於顯示
         hp = int(user_data.get("hp", 100))
         level = user_data.get("level", 1)
         max_hp = 100 + (level * 10)
+        
+        # 取得冒險次數
+        adv_count = user_data.get("daily_adv_count", 0)
         
         embed = discord.Embed(title=f"🎒 {username} 的背包", color=discord.Color.blue())
         
         # 1. 狀態條與血量
         bar_size = 10
-        filled = int((hp / max_hp) * bar_size)
+        # 避免 hp 超過 max_hp 導致計算錯誤，使用 min
+        filled = int((min(hp, max_hp) / max_hp) * bar_size)
         bar = "❤️" * filled + "🤍" * (bar_size - filled)
         
         status_text = f"**生命值**: {hp} / {max_hp}\n{bar}"
         
-        # --- 🌟 新增：多久回滿血的標示 ---
+        # --- 多久回滿血的標示 ---
         if hp < max_hp:
             remaining_hp = max_hp - hp
-            # 24 小時回 100 血 -> 每小時回 4.16 血
-            # 剩餘小時 = 剩餘血量 / 4.16
+            # 24 小時回 100 血的公式
             hours_left = remaining_hp / (100 / 24)
             
             if hours_left < 1:
                 minutes_left = int(hours_left * 60)
-                status_text += f"\n⏳ 預計 `{minutes_left}` 分鐘後回滿"
+                status_text += f"\n⏳ 預計 `{max(1, minutes_left)}` 分鐘後回滿"
             else:
                 status_text += f"\n⏳ 預計 `{hours_left:.1f}` 小時後回滿"
         else:
             status_text += f"\n✨ 體力已完全充沛！"
             
         embed.add_field(name="📊 目前狀態", value=status_text, inline=False)
+
+        # --- 🌟 新增：今日冒險次數 ---
+        adv_status = "🔴" * adv_count + "⚪" * (5 - adv_count)
+        embed.add_field(name="⚔️ 今日冒險次數", value=f"{adv_status} ({adv_count}/5)", inline=False)
         
         # 2. 顯示物資
         item_list = []
@@ -346,14 +354,15 @@ async def on_message(message):
             if count > 0:
                 item_list.append(f"• **{name}**: {count} 個")
         
-        items_display = "\n".join(item_list) if item_list else "背包空空如也"
+        items_display = "\n".join(item_list) if item_list else "背包空空如也... 快去拔蘿蔔！"
         embed.add_field(name="🥕 儲藏物資", value=items_display, inline=False)
         
-        # --- 🌟 找回提示 (Footer) ---
+        # 提示 (Footer)
         embed.set_footer(text="💡 使用 !吃 [蘿蔔名稱] 來回復體力\n💡 體力每 24 小時會自動回復 100 點")
         
         await message.channel.send(embed=embed)
         return
+        
         # === 管理員指令 ===
     if cmd == "!重置次數":
         await adventure.admin_reset_player(message, user_id, ref)
