@@ -1,4 +1,5 @@
 import random
+import time
 import discord
 import asyncio
 import io
