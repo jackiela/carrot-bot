@@ -368,7 +368,7 @@ async def on_message(message):
         
         # === 管理員指令 ===
     if cmd == "!重置次數":
-        await adventure.admin_reset_player(message, user_id, ref)
+        await adventure.admin_reset_player(message, user_id, user_data, ref)
         return
 # ===================== Web API + Keep-alive =====================
 flask_app = Flask(__name__)
