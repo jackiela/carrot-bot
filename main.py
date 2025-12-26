@@ -163,24 +163,44 @@ async def on_message(message):
         # 1. 讀取使用者資料
         user_data, ref = get_user_data(user_id, username)
         
-        # 2. 🌟 在這裡加入「自動回血邏輯」 (確保在 try 裡面)
+        # --- 🌟 1. 跨天檢查：重置冒險次數 ---
+        today_str = get_today() # 假設你原本就有這個 function 取得 yyyymmdd
+        last_login_day = user_data.get("last_login_day", "")
+        
+        if last_login_day != today_str:
+            user_data["daily_adv_count"] = 0
+            user_data["last_login_day"] = today_str
+            ref.update({
+                "daily_adv_count": 0,
+                "last_login_day": today_str
+            })
+
+        # --- 🌟 2. 強化版自動回血 ---
         current_time = time.time()
-        last_regen_time = user_data.get("last_regen_time", current_time)
-        current_hp = user_data.get("hp", 100)
+        last_regen = user_data.get("last_regen_time", current_time)
+        hp = user_data.get("hp", 100)
         max_hp = 100 + (user_data.get("level", 1) * 10)
 
-        if current_hp < max_hp:
-            elapsed_seconds = current_time - last_regen_time
-            # 24小時回100血 = 每秒回 0.001157 血
-            regen_amount = elapsed_seconds * (100 / 86400)
+        if hp < max_hp:
+            elapsed = current_time - last_regen
+            # 24小時回100點 -> 每秒回 0.001157 點
+            regen_points = elapsed * (100 / 86400)
             
-            if regen_amount >= 1:
-                new_hp = min(max_hp, current_hp + int(regen_amount))
-                user_data["hp"] = new_hp  # 更新記憶體資料
+            # 只要有回超過 0.1 點就更新，避免等太久
+            if regen_points >= 0.1:
+                new_hp = min(max_hp, hp + regen_points)
+                # 更新記憶體與資料庫 (這裡存 float，!背包顯示時再轉 int)
+                user_data["hp"] = new_hp
+                user_data["last_regen_time"] = current_time
                 ref.update({
                     "hp": new_hp,
                     "last_regen_time": current_time
                 })
+        
+        await check_daily_login_reward(message, user_id, user_data, ref)
+
+    except Exception as e:
+        print(f"Error in on_message: {e}")
         
         # 3. 檢查每日獎勵
         await check_daily_login_reward(message, user_id, user_data, ref)
@@ -290,7 +310,7 @@ async def on_message(message):
     # === 背包系統 ===
     if cmd == "!背包":
         inventory = user_data.get("inventory", {})
-        hp = user_data.get("hp", 100)
+        hp = int(user_data.get("hp", 100))
         level = user_data.get("level", 1)
         max_hp = 100 + (level * 10)
         
