@@ -4,7 +4,8 @@ import json
 import random
 import firebase_admin
 import adventure
-import sys
+import asyncio  # 🌟 補上缺失的導入
+import sys      # 🌟 用於健康檢查失敗時重啟
 from firebase_admin import credentials, db
 from carrot_commands import (
     handle_fortune,
@@ -32,7 +33,8 @@ from carrot_commands import (
     DECORATION_SHOP,
     check_and_post_update
 )
-from utils import get_today
+from utils import get_today, get_now, is_admin
+from keep_alive import keep_alive
 from fortune_data import fortunes
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -40,6 +42,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.wsgi import WSGIMiddleware
 from flask import Flask
 from datetime import datetime
+
 import threading
 import time
 import requests
