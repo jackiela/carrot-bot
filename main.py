@@ -4,6 +4,7 @@ import json
 import random
 import firebase_admin
 import adventure
+import sys
 from firebase_admin import credentials, db
 from carrot_commands import (
     handle_fortune,
@@ -147,6 +148,16 @@ async def handle_shop(message, user_id, user_data, ref):
     embed.add_field(name="🎀 農場裝飾", value=deco_text + "\n使用 `!購買裝飾 花圃`", inline=False)
     embed.set_footer(text=f"💰 你目前擁有 {user_data.get('coins', 0)} 金幣")
     await message.channel.send(embed=embed)
+    
+# ===================== 核心健康檢查 =====================
+async def bot_health_check():
+    """定時檢查 Discord 連線狀態，異常時強制重啟"""
+    await client.wait_until_ready()
+    while not client.is_closed():
+        if not client.is_ready():
+            print("🚨 [HealthCheck] 偵測到 Discord 連線異常，準備重啟...")
+            sys.exit(1) # 結束程序，讓 Render 自動重啟
+        await asyncio.sleep(60)
 
 # ===================== Discord 指令分派 =====================
 @client.event
@@ -163,33 +174,28 @@ async def on_message(message):
         # 1. 讀取使用者資料
         user_data, ref = get_user_data(user_id, username)
         
-        # --- 🌟 1. 跨天檢查：重置冒險次數 ---
-        today_str = get_today() # 假設你原本就有這個 function 取得 yyyymmdd
+        # --- 🌟 1. 跨天檢查 ---
+        today_str = get_today()
         last_login_day = user_data.get("last_login_day", "")
-        
         if last_login_day != today_str:
             user_data["daily_adv_count"] = 0
             user_data["last_login_day"] = today_str
-            ref.update({
-                "daily_adv_count": 0,
-                "last_login_day": today_str
-            })
+            ref.update({"daily_adv_count": 0, "last_login_day": today_str})
 
-        # --- 🌟 2. 強化版自動回血 ---
+        # --- 🌟 2. 修正版自動回血 ---
         current_time = time.time()
         last_regen = user_data.get("last_regen_time", current_time)
         hp = user_data.get("hp", 100)
         max_hp = 100 + (user_data.get("level", 1) * 10)
 
         if hp < max_hp:
-            elapsed = current_time - last_regen_time
-            # 關鍵：每秒回復總量的 1/86400
+            # 修正：使用正確的變數名稱 last_regen
+            elapsed = current_time - last_regen
             regen_amount = elapsed * (max_hp / 86400)
             
-            # 只要有回超過 0.1 點就更新，避免等太久
-            if regen_points >= 0.1:
-                new_hp = min(max_hp, hp + regen_points)
-                # 更新記憶體與資料庫 (這裡存 float，!背包顯示時再轉 int)
+            # 修正：使用正確的變數名稱 regen_amount
+            if regen_amount >= 0.1:
+                new_hp = min(max_hp, hp + regen_amount)
                 user_data["hp"] = new_hp
                 user_data["last_regen_time"] = current_time
                 ref.update({
@@ -200,18 +206,10 @@ async def on_message(message):
         await check_daily_login_reward(message, user_id, user_data, ref)
 
     except Exception as e:
-        print(f"Error in on_message: {e}")
-        
-        # 3. 檢查每日獎勵
-        await check_daily_login_reward(message, user_id, user_data, ref)
+        print(f"❌ [Error] 基礎資料處理失敗: {e}")
+        return # 基礎資料失敗就不執行後續指令
 
-    except Exception as e:
-        # 這是對應上面 try 的 except 塊，絕對不能被中斷
-        await message.channel.send("❌ 使用者資料讀取失敗，請稍後再試。")
-        print("[Error] on_message core:", e)
-        return
-
-    # 4. 指令解析 (此時 user_data 已經是最新狀態)
+    # 4. 指令解析
     parts = content.split()
     cmd = parts[0]
     
@@ -375,7 +373,9 @@ flask_app = Flask(__name__)
 
 @flask_app.route("/")
 def home():
-    return "✅ Carrot Bot is alive!"
+    # 修改：讓首頁顯示機器人連線狀態
+    status = "🟢 Online" if client.is_ready() else "🔴 Disconnected"
+    return f"Carrot Bot: {status}"
 
 fastapi_app = FastAPI()
 fastapi_app.add_middleware(
@@ -429,14 +429,11 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 @client.event
 async def on_ready():
     print(f"🔧 Bot 已登入：{client.user}")
-    
-    # 🌟 新增這一行：啟動版本檢查與更新通知
-    # 傳入 client (Bot 物件) 和 db (Firebase 參考)
+    # 啟動健康檢查
+    client.loop.create_task(bot_health_check())
     client.loop.create_task(check_and_post_update(client, db)) 
-    
-    # 注意：這裡的 harvest_loop 還是由 Bot 的 loop 管理
     client.loop.create_task(harvest_loop(client, db))
-    print("🌱 自動收成推播系統已啟動")
+    print("🌱 系統監控與收成推播已啟動")
 
 def run_bot():
     """在背景執行緒啟動 Discord Bot (會阻塞該執行緒)"""
