@@ -1574,3 +1574,64 @@ async def handle_special_carrots(message, user_id, user_data, ref):
 
     embed.set_footer(text="📘 使用 !拔蘿蔔 開始抽卡｜📖 使用 !蘿蔔圖鑑 查看收藏進度")
     await message.channel.send(embed=embed)
+
+
+# ===== 冒險商店 =====
+
+ADVENTURE_ITEMS = {
+    "體力藥水": {"price": 30, "hp": 50, "desc": "立即回復 50 點 HP"},
+    "抗熱噴霧": {"price": 50, "buff": "heat_resist", "desc": "獲得下一場【耐熱】效果"},
+    "守護卷軸": {"price": 80, "buff": "invincible", "desc": "獲得下一場【無敵】狀態"},
+    "幸運餅乾": {"price": 100, "buff": "double_gold", "desc": "獲得下一場【金幣翻倍】"}
+}
+
+async def handle_adventure_shop(message, user_data):
+    """顯示冒險商店選單"""
+    coins = user_data.get("coins", 0)
+    embed = discord.Embed(
+        title="🛒 冒險者補給站", 
+        description="買點東西再出發吧！\n使用指令：`!購買 [商品名稱]`\n*(注意：Buff 類商品僅能維持下一場冒險)*", 
+        color=discord.Color.green()
+    )
+    
+    for name, info in ADVENTURE_ITEMS.items():
+        embed.add_field(name=f"{name} (`{info['price']}` 💰)", value=info['desc'], inline=True)
+        
+    embed.set_footer(text=f"💰 您目前持有：{coins} 金幣")
+    await message.channel.send(embed=embed)
+
+async def handle_buy_item(message, user_id, user_data, ref, item_name):
+    """處理購買邏輯"""
+    if not item_name:
+        await message.channel.send("❓ 請輸入要購買的商品名稱，例如：`!購買 體力藥水`")
+        return
+
+    if item_name not in ADVENTURE_ITEMS:
+        await message.channel.send(f"❌ 商店沒有賣「{item_name}」喔！請檢查名稱是否正確。")
+        return
+
+    item = ADVENTURE_ITEMS[item_name]
+    current_coins = user_data.get("coins", 0)
+
+    if current_coins < item["price"]:
+        await message.channel.send(f"❌ 金幣不足！你還差 `{item['price'] - current_coins}` 💰")
+        return
+
+    # 準備更新資料
+    new_coins = current_coins - item["price"]
+    update_data = {"coins": new_coins}
+
+    # 處理立即生效 (HP) 或 Buff
+    response_msg = ""
+    if "hp" in item:
+        max_hp = 100 + (user_data.get("level", 1) * 10)
+        old_hp = user_data.get("hp", 100)
+        new_hp = min(max_hp, old_hp + item["hp"])
+        update_data["hp"] = new_hp
+        response_msg = f"✅ 購買成功！喝下{item_name}，HP 回復至 `{int(new_hp)}`。"
+    else:
+        update_data["active_buff"] = item["buff"]
+        response_msg = f"✅ 購買成功！獲得 **{item_name}** 效果，將於下一場冒險自動生效。"
+
+    ref.update(update_data)
+    await message.channel.send(f"{message.author.mention} {response_msg}\n💰 剩餘金幣：`{new_coins}`")
