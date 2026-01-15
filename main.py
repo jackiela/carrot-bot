@@ -318,7 +318,7 @@ async def on_message(message):
         ref.update({"inventory": test_inventory, "hp": 100})
         await message.channel.send("🎁 測試物資已發放！背包已存入普通、黃金、冰晶蘿蔔，HP 已補滿。")
         return
-   # === 背包系統 ===
+  # === 背包系統 ===
     if cmd == "!背包":
         inventory = user_data.get("inventory", {})
         # 確保讀取出來的 HP 先轉為整數用於顯示
@@ -328,6 +328,15 @@ async def on_message(message):
         
         # 🌟 整合：讀取農場金幣數值
         coins = user_data.get("coins", 0)
+        
+        # 🌟 整合：取得目前生效中的 Buff
+        active_buff = user_data.get("active_buff")
+        buff_map = {
+            "double_gold": "🎒 幸運餅乾 (下場金幣翻倍)",
+            "invincible": "🛡️ 守護卷軸 (下場無敵)",
+            "heat_resist": "❄️ 抗熱噴霧 (下場耐熱)"
+        }
+        current_buff_text = buff_map.get(active_buff, "無")
         
         # 取得冒險次數
         adv_count = user_data.get("daily_adv_count", 0)
@@ -340,14 +349,14 @@ async def on_message(message):
         filled = int((safe_hp / max_hp) * bar_size)
         bar = "❤️" * filled + "🤍" * (bar_size - filled)
         
-        # 🌟 整合：將金幣加入狀態顯示
+        # 🌟 整合：將金幣與 Buff 加入狀態顯示
         status_text = f"💰 **持有的金幣**: `{coins}`\n"
-        status_text += f"❤️ **生命值**: {hp} / {max_hp}\n{bar}"
+        status_text += f"❤️ **生命值**: {hp} / {max_hp}\n{bar}\n"
+        status_text += f"✨ **生效中狀態**: `{current_buff_text}`"
         
         # --- 24小時回滿預估 ---
         if hp < max_hp:
             remaining_hp = max_hp - hp
-            # 每個玩家無論等級，回滿時間皆固定為 24 小時
             hours_left = remaining_hp / (max_hp / 24)
             
             if hours_left < 1:
@@ -374,7 +383,7 @@ async def on_message(message):
         embed.add_field(name="🥕 儲藏物資", value=items_display, inline=False)
         
         # 提示 (Footer)
-        embed.set_footer(text=f"💡 使用 !吃 [蘿蔔名稱] 來回復體力\n💡 體力每 24 小時自動回復至上限 ({max_hp})")
+        embed.set_footer(text=f"💡 使用 !吃 [蘿蔔名稱] 來回復體力\n💡 購買商店 Buff 後會直接顯示在狀態欄中")
         
         await message.channel.send(embed=embed)
         return
