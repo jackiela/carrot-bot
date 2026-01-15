@@ -212,22 +212,26 @@ async def start_adventure(message, user_id, user_data, ref, dungeon_key):
     # --- 3. 結算結果 ---
     final_hp = max(0, current_player_hp)
     
+    # adventure.py 內的結算邏輯
     if enemy_hp <= 0: 
         reward = random.randint(*dungeon["reward"])
         if buff == "double_gold": 
             reward *= 2
         
-        new_coins = user_data.get("coins", 0) + reward
-        msg_title = "🏆 **戰鬥勝利！**" if final_hp > 0 else "😫 **慘勝！你與怪物同歸於盡...**"
+        # 🌟 確保加到目前的 coins 總額
+        old_coins = user_data.get("coins", 0)
+        new_coins = old_coins + reward
+        
+        msg_title = "🏆 **戰鬥勝利！**"
         
         ref.update({
-            "coins": new_coins,
+            "coins": new_coins, # 更新整合後的金幣欄位
             "hp": final_hp,
             "daily_adv_count": daily_count + 1,
             "active_buff": None,
             "last_regen_time": time.time()
         })
-        await message.channel.send(f"{msg_title}\n💰 你獲得了 **{reward}** 金幣！(剩餘 HP: {int(final_hp)})")
+        await message.channel.send(f"{msg_title}\n💰 你獲得了 **{reward}** 金幣！(目前餘額: {new_coins})")
     else:
         ref.update({
             "hp": 0,
