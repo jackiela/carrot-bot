@@ -31,7 +31,9 @@ from carrot_commands import (
     harvest_loop,
     GLOVE_SHOP,
     DECORATION_SHOP,
-    check_and_post_update
+    check_and_post_update,
+    handle_adventure_shop,
+    handle_buy_item
 )
 from utils import get_today, get_now, is_admin
 from keep_alive import keep_alive
@@ -112,7 +114,9 @@ COMMAND_CHANNELS = {
     "!冒險": 1453283600459104266, 
     "!吃": 1453283600459104266,   
     "!領取物資": 1453283600459104266,
-    "!背包": 1453283600459104266
+    "!背包": 1453283600459104266,
+    "!冒險商店": 1453283600459104266,
+    "!購買": 1453283600459104266
 }
 
 # ===================== 田地輔助 =====================
@@ -282,6 +286,12 @@ async def on_message(message):
             await handle_carrot_recipe(message, user_id, user_data, ref)
         elif content == "!種植":
             await handle_carrot_fact(message, user_id, user_data, ref)
+        if cmd == "!冒險商店":
+            await handle_adventure_shop(message, user_data)
+        elif cmd == "!購買":
+            item_name = parts[1] if len(parts) > 1 else ""
+            await handle_buy_item(message, user_id, user_data, ref, item_name)   
+        
     except Exception as e:
         await message.channel.send("❌ 指令執行發生錯誤，請稍後再試。")
         print("[Error] command execution:", e)
