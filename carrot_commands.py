@@ -1546,7 +1546,80 @@ async def handle_special_carrots(message, user_id, user_data, ref):
 
     embed.set_footer(text="📘 使用 !拔蘿蔔 開始抽卡｜📖 使用 !蘿蔔圖鑑 查看收藏進度")
     await message.channel.send(embed=embed)
+    
+async def handle_eat_carrot(message, user_id, user_data, ref, item_name):
+    """處理吃蘿蔔邏輯：自動判定 120 種蘿蔔的效果"""
+    if not item_name:
+        await message.channel.send("❓ 你想吃什麼？請輸入名稱，例如：`!吃 搞笑蘿蔔 🤡`")
+        return
 
+    inventory = user_data.get("inventory", {})
+    
+    # 1. 檢查背包
+    if item_name not in inventory or inventory[item_name] <= 0:
+        await message.channel.send(f"❌ 你的背包裡沒有「{item_name}」喔！")
+        return
+
+    # 2. 定義基礎效果與關鍵字 Buff
+    hp_gain = 20      # 基礎補血量
+    active_buff = None
+    effect_desc = "這是一根普通的蘿蔔，咬起來脆脆的。"
+
+    # 🌟 關鍵字判定系統 (自動適配 120 種蘿蔔)
+    # 金幣/幸運類 -> 雙倍金幣
+    if any(k in item_name for k in ["金", "幸運", "鑽石", "錢"]):
+        hp_gain = 50
+        active_buff = "double_gold"
+        effect_desc = "這味道...是金錢的氣息！下一場冒險金幣收益翻倍！"
+    
+    # 無敵/傳說類 -> 無敵狀態
+    elif any(k in item_name for k in ["彩虹", "王者", "神", "星辰", "宇宙", "傳說"]):
+        hp_gain = 100
+        active_buff = "invincible"
+        effect_desc = "強大的能量湧入全身！下一場冒險你將進入【無敵】狀態！"
+        
+    # 屬性/耐力類 -> 耐熱/環境免疫
+    elif any(k in item_name for k in ["冰", "雪", "冷", "海洋", "泡泡", "霜"]):
+        hp_gain = 40
+        active_buff = "heat_resist"
+        effect_desc = "全身感到透心涼！獲得【耐熱】效果，無視沙漠扣血。"
+
+    # 負面名稱類 (搞笑用) -> 補血量減少
+    elif any(k in item_name for k in ["壞掉", "發霉", "乾掉", "枯萎"]):
+        hp_gain = 5
+        effect_desc = "嘔...味道不太對勁，勉強恢復了一點體力。"
+
+    # 3. 計算並更新資料
+    current_hp = user_data.get("hp", 100)
+    level = user_data.get("level", 1)
+    max_hp = 100 + (level * 10)
+    new_hp = min(max_hp, current_hp + hp_gain)
+
+    # 扣除物資
+    inventory[item_name] -= 1
+    if inventory[item_name] <= 0:
+        del inventory[item_name] # 歸零就移除
+
+    # 更新到資料庫
+    update_payload = {
+        "inventory": inventory,
+        "hp": new_hp,
+        "active_buff": active_buff
+    }
+    ref.update(update_payload)
+
+    # 4. 回傳訊息
+    embed = discord.Embed(
+        title="🍴 享用蘿蔔",
+        description=f"你吃掉了 **{item_name}**",
+        color=discord.Color.green()
+    )
+    embed.add_field(name="❤️ 體力恢復", value=f"{int(current_hp)} ➔ **{int(new_hp)}**", inline=True)
+    if active_buff:
+        embed.add_field(name="✨ 獲得狀態", value=f"`{active_buff}`", inline=True)
+    embed.set_footer(text=effect_desc)
+    
+    await message.channel.send(embed=embed)
 
 # ===== 冒險商店 =====
 
