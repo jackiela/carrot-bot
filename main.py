@@ -176,23 +176,57 @@ async def on_message(message):
         elif cmd == "!農場總覽" or cmd == "!土地狀態":
             await show_farm_overview(client, message, user_id, user_data, ref)
 
-        # --- 商店與裝飾 ---
+       # --- 商店與功能性指令 (整合 2.0 介面) ---
         elif cmd == "!商店":
-            embed = discord.Embed(title="🏪 商店選單", color=discord.Color.orange())
-            embed.add_field(name="項目", value="`!購買肥料`\n`!購買手套`\n`!裝飾商店`", inline=False)
+            coins = user_data.get("coins", 0)
+            embed = discord.Embed(title="🏪 胡蘿蔔商店", color=discord.Color.orange())
+            
+            # 1. 福袋部分
+            embed.add_field(
+                name="🎁 開運福袋", 
+                value="**80 金幣**｜隨機獲得金幣 / 肥料 / 裝飾\n使用指令：`!開運福袋`", 
+                inline=False
+            )
+            
+            # 2. 手套部分 (整合效果說明)
+            glove_text = (
+                "• **幸運手套** — 100 💰｜抽到大吉時額外掉出一根蘿蔔\n"
+                "• **農夫手套** — 150 💰｜收成時金幣 +20%\n"
+                "• **強化手套** — 200 💰｜種植時間 -1 小時\n"
+                "• **神奇手套** — 500 💰｜收成時有機率獲得稀有蘿蔔\n"
+                "使用指令：`!購買手套 幸運手套`"
+            )
+            embed.add_field(name="🧤 農場手套", value=glove_text, inline=False)
+            
+            # 3. 裝飾部分 (從 DECORATION_SHOP 自動抓取價格)
+            decor_text = (
+                "• **花圃** — 80 💰\n"
+                "• **木柵欄** — 100 💰\n"
+                "• **竹燈籠** — 150 💰\n"
+                "• **鯉魚旗** — 200 💰\n"
+                "• **聖誕樹** — 250 💰\n"
+                "使用指令：`!購買裝飾 花圃`"
+            )
+            embed.add_field(name="🏡 農場裝飾", value=decor_text, inline=False)
+            
+            embed.set_footer(text=f"💰 您目前擁有 {coins} 金幣")
             await message.channel.send(embed=embed)
-        elif cmd == "!裝飾商店":
-            embed = discord.Embed(title="🏡 裝飾商店", color=discord.Color.blue())
-            for n, i in DECORATION_SHOP.items():
-                embed.add_field(name=f"{n} ({i['price']}💰)", value=f"{i['desc']}\n收益: +{i['passive_gold']}/日")
-            await message.channel.send(embed=embed)
-        elif cmd == "!購買裝飾":
-            await handle_buy_decoration(message, user_id, user_data, ref, parts[1] if len(parts)>1 else "")
-        elif cmd == "!購買肥料":
-            await handle_buy_fertilizer(message, user_id, user_data, ref, parts[1] if len(parts)>1 else "")
-        elif cmd == "!購買手套":
-            await handle_buy_glove(client, message, user_id, user_data, ref, parts[1] if len(parts)>1 else "", show_farm_overview)
 
+        # 這裡保留原本的購買功能對接，確保輸入指令時能真的買到東西
+        elif cmd == "!開運福袋":
+            await handle_open_lucky_bag(client, message, user_id, user_data, ref)
+
+        elif cmd == "!購買手套":
+            g_type = parts[1] if len(parts) > 1 else ""
+            await handle_buy_glove(client, message, user_id, user_data, ref, g_type, show_farm_overview)
+
+        elif cmd == "!購買裝飾":
+            item_name = parts[1] if len(parts) > 1 else ""
+            await handle_buy_decoration(message, user_id, user_data, ref, item_name)
+
+        elif cmd == "!購買肥料":
+            f_type = parts[1] if len(parts) > 1 else ""
+            await handle_buy_fertilizer(message, user_id, user_data, ref, f_type)
         # --- 其他 ---
         elif cmd == "!運勢": await handle_fortune(message, user_id, username, user_data, ref)
         elif cmd == "!拔蘿蔔": await handle_pull_carrot(message, user_id, username, user_data, ref)
