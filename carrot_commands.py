@@ -740,13 +740,6 @@ async def harvest_loop(bot, db_module):
 
         await asyncio.sleep(60) # 每 60 秒掃描一次
 
-    
-根據您的需求，我將修改這段 handle_harvest_carrot 函式。這次修改的核心重點是：取消「自動賣掉換金幣」的機制，改為**「收成進入背包（Inventory）」，並實施「雙軌制」**（普通蘿蔔進背包，極稀有蘿蔔換大額金幣）。
-
-此外，我加入了**「名稱簡化」**邏輯，確保存入背包的名稱不含長句子，方便玩家後續使用 !吃 指令。
-
-🛠️ 修改後的 carrot_commands.py (收成邏輯)
-Python
 # ===== 收成蘿蔔（修正版：收成進背包 + 雙軌制） =====
 async def handle_harvest_carrot(message, user_id, user_data, ref):
     # --- ✅ 使用者資料防呆 ---
