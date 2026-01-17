@@ -228,6 +228,61 @@ async def on_message(message):
     except Exception as e:
         await message.channel.send("❌ 指令執行發生錯誤。")
         print(f"[Error] {cmd}: {e}")
+        # --- 補回商店與裝飾系統 ---
+        elif cmd == "!商店":
+            embed = discord.Embed(title="🏪 蘿蔔特種商店", description="請選擇類別：", color=discord.Color.orange())
+            embed.add_field(name="🧪 肥料", value="`!購買肥料 [名稱]`", inline=True)
+            embed.add_field(name="🧤 手套", value="`!購買手套 [名稱]`", inline=True)
+            embed.add_field(name="🏡 裝飾", value="`!裝飾商店` 查看詳情", inline=True)
+            await message.channel.send(embed=embed)
+
+        elif cmd == "!裝飾商店":
+            embed = discord.Embed(title="🏡 農場裝飾商店", description="裝飾品可美化農場並獲得每日被動收益！", color=discord.Color.blue())
+            for name, info in DECORATION_SHOP.items():
+                embed.add_field(name=f"{name} ({info['price']} 💰)", value=f"{info['desc']}\n收益：每天 +{info['passive_gold']}", inline=True)
+            await message.channel.send(embed=embed)
+
+        elif cmd == "!購買裝飾":
+            item_name = parts[1] if len(parts) > 1 else ""
+            await handle_buy_decoration(message, user_id, user_data, ref, item_name)
+
+        # --- 補回土地與背包系統 ---
+        elif cmd == "!背包":
+            inventory = user_data.get("inventory", {})
+            if not inventory:
+                await message.channel.send("🎒 你的背包空空如也...")
+            else:
+                embed = discord.Embed(title=f"🎒 {username} 的背包", color=discord.Color.blue())
+                items_str = "\n".join([f"• **{name}** x{amt}" for name, amt in inventory.items()])
+                embed.description = items_str
+                embed.set_footer(text="使用方法：!吃 [名稱]")
+                await message.channel.send(embed=embed)
+
+        elif cmd == "!升級土地":
+            await handle_upgrade_land(message, user_id, user_data, ref)
+
+async def on_ready():
+    print(f"🔧 Bot 已登入：{client.user}")
+    # 啟動背景任務
+    client.loop.create_task(check_and_post_update(client, db)) 
+    client.loop.create_task(harvest_loop(client, db))
+    print("🌱 自動收成與公告系統已啟動")
+    
+async def check_daily_login_reward(message, user_id, user_data, ref):
+    today = get_today()
+    if user_data.get("last_login") != today:
+        reward = random.randint(1, 5)
+        # 🌟 加上裝飾品收益
+        decorations = user_data.get("decorations", [])
+        passive_income = sum(DECORATION_SHOP[d]["passive_gold"] for d in decorations if d in DECORATION_SHOP)
+        
+        total = reward + passive_income
+        user_data["coins"] += total
+        user_data["last_login"] = today
+        ref.update({"coins": user_data["coins"], "last_login": today})
+        msg = f"🎁 每日獎勵：獲得 {reward} 金幣"
+        if passive_income > 0: msg += f" + 裝飾收益 {passive_income} 金幣！"
+        await message.channel.send(msg)
 # ===================== Web 服務與啟動 =====================
 flask_app = Flask(__name__)
 @flask_app.route("/")
