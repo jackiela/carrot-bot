@@ -16,7 +16,8 @@ from carrot_commands import (
     handle_glove_encyclopedia, handle_carrot_info, handle_special_carrots,
     handle_open_lucky_bag, handle_buy_decoration, harvest_loop,
     GLOVE_SHOP, DECORATION_SHOP, check_and_post_update,
-    handle_adventure_shop, handle_buy_item, handle_eat_carrot
+    handle_adventure_shop, handle_buy_item, handle_eat_carrot, 
+    handle_bag
 )
 from utils import get_today, get_now, is_admin
 from fastapi import FastAPI
@@ -163,13 +164,8 @@ async def on_message(message):
             await adventure.start_adventure(message, user_id, user_data, ref, parts[1] if len(parts)>1 else "新手森林")
         elif cmd == "!吃":
             await handle_eat_carrot(message, user_id, user_data, ref, " ".join(parts[1:]))
-        elif cmd == "!背包":
-            inv = user_data.get("inventory", {})
-            if not inv: await message.channel.send("🎒 背包是空的。")
-            else:
-                embed = discord.Embed(title=f"🎒 {username} 的背包", color=discord.Color.blue())
-                embed.description = "\n".join([f"• **{k}** x{v}" for k, v in inv.items()])
-                await message.channel.send(embed=embed)
+       elif cmd == "!背包":
+            await handle_bag(message, user_id, user_data)
         
         # --- 農場指令 ---
         elif cmd == "!種蘿蔔":
