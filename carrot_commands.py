@@ -614,12 +614,9 @@ async def handle_plant_carrot(message, user_id, user_data, ref=None, fertilizer=
 
 async def harvest_loop(bot, db_module):
     print("[INFO] harvest_loop 啟動")
-    # 這裡的 tz 必須與 get_now/parse_datetime 函式中使用的時區一致，
-    # 確保所有時間戳記都基於台灣時區。
-    tz_taipei = timezone(timedelta(hours=8)) 
-    from utils import get_now, parse_datetime # 假設這些函式已匯入
+    from utils import get_now, parse_datetime
 
-    await bot.wait_until_ready()  # 確保機器人準備好
+    await bot.wait_until_ready()
 
     while not bot.is_closed():
         try:
@@ -630,69 +627,60 @@ async def harvest_loop(bot, db_module):
                 await asyncio.sleep(60)
                 continue
 
-            now = get_now() # 使用統一的 get_now() 確保時區一致
+            now = get_now()
 
             for user_id, user_data in all_users.items():
                 if not isinstance(user_data, dict):
                     continue
                 
-                # -----------------------------------
-                # 💰 邏輯 A: 裝飾品被動金幣生成 (每日計算)
-                # -----------------------------------
-                
-                # 1. 取得上次更新時間
+                # --- 💰 邏輯 A: 裝飾品收益 (修正補償邏輯) ---
                 last_update_str = user_data.get("last_passive_coin_update")
                 
-                # 首次啟動：設置為 1 天前
+                # 解析上次更新時間
                 if not last_update_str:
                     last_update = now - timedelta(days=1) 
                 else:
                     try:
                         last_update = parse_datetime(last_update_str)
-                    except Exception:
+                    except:
                         last_update = now - timedelta(days=1)
 
-                # 2. 計算時間差（天數）
                 time_elapsed = now - last_update
                 days_elapsed = time_elapsed.total_seconds() / 86400.0
                 
-                # 如果經過時間不到 23 小時 (約 0.958 天)，跳過金幣計算
+                # 滿足約 1 天的時間才發放
                 if days_elapsed >= 0.958:
+                    # 🌟 關鍵修正：限制最多補償 3 天，防止幾百天沒上線領到幾千金幣
+                    full_days_to_award = min(int(days_elapsed), 3) 
                     
-                    # 3. 計算總收益率 (Coins/Day)
                     total_daily_rate = 0
                     decorations = user_data.get("decorations", [])
-                    
                     for deco in decorations:
                         total_daily_rate += DECORATION_PASSIVE_BONUS.get(deco, 0)
                     
-                    # 4. 計算總共獲得金幣
-                    full_days_to_award = int(days_elapsed)
+                    # 🌟 額外保險：單日總收益若超過 50 也要封頂 (視需求調整)
+                    total_daily_rate = min(total_daily_rate, 50)
+                    
                     coins_gained = full_days_to_award * total_daily_rate
                     
                     if coins_gained > 0:
-                        # 5. 更新金幣和時間戳
                         current_coins = user_data.get("coins", 0)
-                        new_coins = current_coins + coins_gained
+                        # 🌟 單次補償領取最高上限 150
+                        final_gain = min(coins_gained, 150)
                         
                         user_ref = db_module.reference(f"/users/{user_id}")
-                        new_last_update = last_update + timedelta(days=full_days_to_award)
-                        
+                        # 更新時間戳記為「現在」，避免重複計算
                         user_ref.update({
-                            "coins": new_coins,
-                            "last_passive_coin_update": new_last_update.isoformat() 
+                            "coins": current_coins + final_gain,
+                            "last_passive_coin_update": now.isoformat() 
+                        })
+                        print(f"[PASSIVE] {user_id} 獲得 {final_gain} 金幣 (補償 {full_days_to_award} 天)")
+                    else:
+                        # 即使沒錢，時間到了也要更新時間戳記
+                        db_module.reference(f"/users/{user_id}").update({
+                            "last_passive_coin_update": now.isoformat()
                         })
                         
-                        print(f"[PASSIVE] User {user_id} gained {coins_gained} coins from decorations ({full_days_to_award} full days). New total: {new_coins}")
-                    
-                    # 即使沒有收益，如果時間差已經超過 1 天，也應該更新時間戳
-                    elif full_days_to_award > 0:
-                        user_ref = db_module.reference(f"/users/{user_id}")
-                        new_last_update = last_update + timedelta(days=full_days_to_award)
-                        user_ref.update({
-                            "last_passive_coin_update": new_last_update.isoformat()
-                        })
-
                 # -----------------------------------
                 # 🥕 邏輯 B: 蘿蔔收成提醒 (原功能)
                 # -----------------------------------
@@ -789,16 +777,11 @@ async def handle_harvest_carrot(message, user_id, user_data, ref):
     is_valuable = any(k in clean_name for k in ["黃金", "鑽石", "彩虹", "傳說"])
     
     if is_valuable:
-        # 貴重蘿蔔：直接換錢
         coins += base_price
         harvest_msg = f"💰 **貴重物品自動賣出**：獲得了 `{base_price}` 金幣！"
-   else:
-        # 🎯 強制修改：基礎產量改為 1~3 根
-        amount = random.randint(1, 3)
-        
-        # 如果你希望手套或土地等級還是有一點點影響，但「絕對封頂」在 3 根：
-        # amount = min(amount + (land_level // 5), 3) 
-        
+    else:  # <--- 檢查這一行，前面必須是 4 的倍數個空格
+        # 這裡也要縮進 8 個空格
+        amount = random.randint(1, 3) 
         inventory[clean_name] = inventory.get(clean_name, 0) + amount
         harvest_msg = f"🎒 **成功收成**：獲得了 `{amount}` 根 **{clean_name}**，已存入背包！"
 
