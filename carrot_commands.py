@@ -1698,7 +1698,7 @@ async def handle_buy_item(message, user_id, user_data, ref, item_name):
 
 async def handle_bag(message, user_id, user_data):
     """
-    顯示 2.0 版完整背包：包含血量條、冒險次數圖示、金幣與物資清單
+    顯示 2.0 版完整背包：包含血量條、紅綠方塊冒險次數、金幣與物資清單
     """
     username = message.author.display_name
     coins = user_data.get("coins", 0)
@@ -1709,20 +1709,21 @@ async def handle_bag(message, user_id, user_data):
     max_hp = 100 + (level - 1) * 10
     hp = user_data.get("hp", max_hp)
     
-    # 製作簡易血量條
+    # 製作血量條 (10格)
     bar_length = 10
     filled_blocks = max(0, min(bar_length, int((hp / max_hp) * bar_length)))
     hp_bar = "❤️" * filled_blocks + "🤍" * (bar_length - filled_blocks)
     
-    # --- 冒險次數圖示 ---
+    # --- 冒險次數 (紅綠方塊) ---
     adv_data = user_data.get("adventure", {})
-    adv_count = adv_data.get("count", 0)
-    # 用圓圈圖示表示次數，例如 (● ● ○ ○ ○)
-    adv_icons = " ".join(["●" if i < adv_count else "○" for i in range(5)])
+    adv_count = adv_data.get("count", 0)  # 已使用的次數
+    max_adv = 5
+    
+    # 已過變紅 (adv_count)，剩下為綠 (max_adv - adv_count)
+    adv_icons = "🟥" * adv_count + "🟩" * (max_adv - adv_count)
 
     embed = discord.Embed(
         title=f"🎒 {username} 的背包",
-        description=f"目前等級：`Lv.{level}`",
         color=discord.Color.blue()
     )
 
@@ -1736,13 +1737,14 @@ async def handle_bag(message, user_id, user_data):
     embed.add_field(name="📊 目前狀態", value=status_value, inline=False)
 
     # --- ⚔️ 今日冒險次數 ---
-    embed.add_field(name="⚔️ 今日冒險次數", value=f"({adv_count}/5)\n{adv_icons}", inline=False)
+    # 顯示格式：(已用/總共) 紅紅綠綠綠
+    embed.add_field(name="⚔️ 今日冒險次數", value=f"({adv_count}/{max_adv})\n{adv_icons}", inline=False)
 
     # --- 🎒 儲藏物資 ---
     if not inventory:
         inv_text = "目前儲藏室空空如也..."
     else:
-        # 只顯示數量大於 0 的物品
+        # 過濾數量大於 0 的物品，並排序
         items = [f"• {name}: `{count}` 個" for name, count in inventory.items() if count > 0]
         inv_text = "\n".join(items) if items else "目前儲藏室空空如也..."
     
