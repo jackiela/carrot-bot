@@ -792,10 +792,12 @@ async def handle_harvest_carrot(message, user_id, user_data, ref):
         # 貴重蘿蔔：直接換錢
         coins += base_price
         harvest_msg = f"💰 **貴重物品自動賣出**：獲得了 `{base_price}` 金幣！"
-    else:
-        # 普通蘿蔔：產量隨土地等級與手套加成 (Lv1: 2-4根, Lv2: 3-5根...)
-        amount = random.randint(2, 4) + (land_level - 1)
-        if "採集手套" in gloves: amount += 1 # 假設有功能性手套
+   else:
+        # 🎯 強制修改：基礎產量改為 1~3 根
+        amount = random.randint(1, 3)
+        
+        # 如果你希望手套或土地等級還是有一點點影響，但「絕對封頂」在 3 根：
+        # amount = min(amount + (land_level // 5), 3) 
         
         inventory[clean_name] = inventory.get(clean_name, 0) + amount
         harvest_msg = f"🎒 **成功收成**：獲得了 `{amount}` 根 **{clean_name}**，已存入背包！"
