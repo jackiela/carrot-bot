@@ -164,7 +164,7 @@ async def on_message(message):
             await adventure.start_adventure(message, user_id, user_data, ref, parts[1] if len(parts)>1 else "新手森林")
         elif cmd == "!吃":
             await handle_eat_carrot(message, user_id, user_data, ref, " ".join(parts[1:]))
-       elif cmd == "!背包":
+        elif cmd == "!背包":
             await handle_bag(message, user_id, user_data)
         
         # --- 農場指令 ---
