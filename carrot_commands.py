@@ -1698,50 +1698,56 @@ async def handle_buy_item(message, user_id, user_data, ref, item_name):
 
 async def handle_bag(message, user_id, user_data):
     """
-    顯示完整背包狀態 (包含金幣、HP、冒險次數、物資)
+    顯示 2.0 版完整背包：包含血量條、冒險次數圖示、金幣與物資清單
     """
     username = message.author.display_name
     coins = user_data.get("coins", 0)
     inventory = user_data.get("inventory", {})
     
-    # --- 冒險相關數據 ---
+    # --- 冒險與血量狀態 ---
     level = user_data.get("level", 1)
     max_hp = 100 + (level - 1) * 10
     hp = user_data.get("hp", max_hp)
     
-    # 取得冒險次數 (通常存放在 adventure 字典下)
-    adv_data = user_data.get("adventure", {})
-    adv_count = adv_data.get("count", 0) 
+    # 製作簡易血量條
+    bar_length = 10
+    filled_blocks = max(0, min(bar_length, int((hp / max_hp) * bar_length)))
+    hp_bar = "❤️" * filled_blocks + "🤍" * (bar_length - filled_blocks)
     
-    # 建立 Embed
+    # --- 冒險次數圖示 ---
+    adv_data = user_data.get("adventure", {})
+    adv_count = adv_data.get("count", 0)
+    # 用圓圈圖示表示次數，例如 (● ● ○ ○ ○)
+    adv_icons = " ".join(["●" if i < adv_count else "○" for i in range(5)])
+
     embed = discord.Embed(
-        title=f"📦 {username} 的背包",
+        title=f"🎒 {username} 的背包",
+        description=f"目前等級：`Lv.{level}`",
         color=discord.Color.blue()
     )
 
-    # 區塊 1: 目前狀態
+    # --- 📊 目前狀態 ---
     status_value = (
         f"💰 持有的金幣: `{coins}`\n"
         f"❤️ 生命值: `{hp} / {max_hp}`\n"
-        f"✨ 生效中狀態: `無`\n"
-        f"⏳ 體力正在緩慢恢復中..."
+        f"{hp_bar}\n"
+        f"✨ 生效中狀態: `無`"
     )
     embed.add_field(name="📊 目前狀態", value=status_value, inline=False)
 
-    # 區塊 2: 今日冒險次數
-    embed.add_field(name="⚔️ 今日冒險次數", value=f"({adv_count}/5)", inline=False)
+    # --- ⚔️ 今日冒險次數 ---
+    embed.add_field(name="⚔️ 今日冒險次數", value=f"({adv_count}/5)\n{adv_icons}", inline=False)
 
-    # 區塊 3: 儲藏物資
+    # --- 🎒 儲藏物資 ---
     if not inventory:
-        inv_text = "目前背包空空如也..."
+        inv_text = "目前儲藏室空空如也..."
     else:
-        # 過濾數量大於 0 的物品
-        items = [f"• **{name}**: `{count}` 個" for name, count in inventory.items() if count > 0]
-        inv_text = "\n".join(items) if items else "目前背包空空如也..."
+        # 只顯示數量大於 0 的物品
+        items = [f"• {name}: `{count}` 個" for name, count in inventory.items() if count > 0]
+        inv_text = "\n".join(items) if items else "目前儲藏室空空如也..."
     
-    embed.add_field(name="🎒 儲藏物資", value=inv_text, inline=False)
+    embed.add_field(name="📦 儲藏物資", value=inv_text, inline=False)
 
-    # 頁尾提示
     embed.set_footer(text="💡 使用 !吃 [蘿蔔名稱] 來回復體力\n💡 購買商店 Buff 後會直接顯示在狀態欄中")
     
     await message.channel.send(embed=embed)
