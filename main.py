@@ -86,7 +86,8 @@ COMMAND_CHANNELS = {
     "!購買裝飾": 1423335407105343589, "!特殊蘿蔔一覽": 1423335407105343589,
     "!冒險": 1453283600459104266, "!吃": 1453283600459104266,   
     "!背包": 1453283600459104266, "!冒險商店": 1453283600459104266,
-    "!購買": 1453283600459104266, "!賣出": 1423335407105343589
+    "!購買": 1453283600459104266, "!賣出": 1423335407105343589,
+    "!倉庫": 1423335407105343589
 }
 
 # ===================== 輔助函數 =====================
@@ -167,7 +168,7 @@ async def on_message(message):
             await handle_upgrade_land(message, user_id, user_data, ref)
         elif cmd == "!土地進度":
             await handle_land_progress(message, user_id, user_data, ref)
-        elif cmd == "!農場總覽" or cmd == "!土地狀態":
+        elif cmd in ["!農場總覽", "!土地狀態", "!倉庫"]:
             await show_farm_overview(client, message, user_id, user_data, ref)
         elif cmd == "!賣出":
             # parts[1:] 會抓到 ["普通蘿蔔", "5"] 這樣的參數
