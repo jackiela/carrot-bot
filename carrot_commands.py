@@ -944,18 +944,19 @@ async def handle_land_progress(message, user_id, user_data, ref):
 
     await message.channel.send(embed=embed)
 
-# ===== 農場總覽卡（多圖修正版）=====
+# ===== 農場總覽卡（整合倉庫與別名修正版）=====
 async def show_farm_overview(bot, message, user_id, user_data, ref):
     import io 
     import discord
     import random
     from datetime import datetime
-    from utils_sanitize import sanitize_user_data
-    from utils import get_now, parse_datetime, get_remaining_time_str, get_decoration_thumbnail
+    # 確保你有這些 utils 函式
+    from utils import get_now, parse_datetime, get_remaining_time_str
     
-    bot_client = bot
-    user_data = sanitize_user_data(user_data)
-    
+    # 🌟 取得最新資料
+    latest_db_data = ref.get() or {}
+    inventory = latest_db_data.get("inventory", {})  # 取得收成的蘿蔔
+
     # 確保進入田地執行緒
     from carrot_commands import ensure_player_thread
     current_channel = await ensure_player_thread(message)
@@ -966,8 +967,6 @@ async def show_farm_overview(bot, message, user_id, user_data, ref):
     coins = user_data.get("coins", 0)
     fertilizers = user_data.get("fertilizers", {})
     gloves = user_data.get("gloves", [])
-    # 🌟 這裡改成直接從 ref 抓最新的，避免傳入舊資料
-    latest_db_data = ref.get() or {}
     decorations = latest_db_data.get("decorations", [])
     lucky_bags = user_data.get("lucky_bag", 0)
     daily_pulls = user_data.get("daily_pulls", 0)
@@ -999,31 +998,50 @@ async def show_farm_overview(bot, message, user_id, user_data, ref):
             time_info = "時間資料錯誤"
 
     # --- 2. 建立 Embed 內容 ---
+    # 標題根據使用者輸入的指令動態調整 (感覺更貼心)
+    title_icon = "📦" if "!倉庫" in message.content else "🌾"
     embed = discord.Embed(
-        title="🌾 農場總覽卡",
+        title=f"{title_icon} 農場總覽與物資倉庫",
         description=f"👤 玩家：**{message.author.display_name}**",
         color=discord.Color.green()
     )
 
+    # 第一區：土地與金幣
     embed.add_field(name="🏷️ 土地狀態", value=f"Lv.{land_level} 的土地目前 {status_text}", inline=False)
-    embed.add_field(name="🧪 使用肥料", value=farm.get("fertilizer", "未使用"), inline=True)
     embed.add_field(name="⏱️ 收成時間", value=time_info, inline=True)
     embed.add_field(name="💰 金幣餘額", value=f"{coins} 金幣", inline=True)
-    embed.add_field(name="🧧 今日剩餘拔蘿蔔次數", value=f"{5 - daily_pulls} 次", inline=True)
-    embed.add_field(name="────────────────────", value="**📦 農場資源狀況**", inline=False)
+    embed.add_field(name="🧧 今日拔蘿蔔次數", value=f"{5 - daily_pulls} 次", inline=True)
 
+    # 🌟 第二區：蘿蔔倉庫 (已收成的物資)
+    inv_items = [f"• **{k}**：`{v}` 根" for k, v in inventory.items() if v > 0]
+    if not inv_items:
+        inv_text = "• 目前倉庫空空如也"
+    else:
+        # 如果種類太多，限制顯示數量
+        if len(inv_items) > 10:
+            inv_text = "\n".join(inv_items[:10]) + f"\n*...以及其他 {len(inv_items)-10} 種*"
+        else:
+            inv_text = "\n".join(inv_items)
+    
+    embed.add_field(name="────────────────────", value="**📦 已收成的蘿蔔庫存**", inline=False)
+    embed.add_field(name="🥕 儲藏清單", value=inv_text, inline=False)
+
+    # 第三區：其他資源
+    embed.add_field(name="────────────────────", value="**🛠️ 其他農場資源**", inline=False)
+    
     f_items = [f"• {k}：{v} 個" for k, v in fertilizers.items() if v > 0]
     embed.add_field(name="🧪 肥料庫存", value="\n".join(f_items) if f_items else "• 暫無肥料", inline=True)
     
-    g_items = [f"• {g} — {GLOVE_DESC.get(g, '基本款')}" for g in (gloves if isinstance(gloves, list) else [])]
-    embed.add_field(name="🧤 擁有手套", value="\n".join(g_items) if g_items else "• 暫無手套", inline=False)
+    g_items = [f"• {g}" for g in (gloves if isinstance(gloves, list) else [])]
+    embed.add_field(name="🧤 擁有手套", value="\n".join(g_items) if g_items else "• 暫無手套", inline=True)
 
     d_items = [f"• {d}" for d in (decorations if isinstance(decorations, list) else [])]
     embed.add_field(name="🎍 農場裝飾", value="\n".join(d_items) if d_items else "• 暫無裝飾", inline=True)
     
     lb_text = f"{lucky_bags} 個" if lucky_bags > 0 else "尚未擁有"
     embed.add_field(name="🧧 開運福袋", value=lb_text, inline=True)
-    embed.set_footer(text="📅 每日凌晨重置拔蘿蔔次數與運勢 🌙")
+    
+    embed.set_footer(text="💡 使用 !賣出 [名稱] 可以換取金幣 | 📅 每日凌晨重置運勢")
 
     # 發送 Embed
     await current_channel.send(embed=embed)
