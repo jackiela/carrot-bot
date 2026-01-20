@@ -102,7 +102,7 @@ async def check_and_post_update(bot: discord.Client, db_module):
                     description="\n".join(update_notes),
                     color=discord.Color.blue()
                 )
-                embed.set_footer(text=f"上次版本: {last_version or '2.0.4'}")
+                embed.set_footer(text=f"上次版本: {last_version or '2.0.6'}")
                 await channel.send(embed=embed)
                 await channel.send("="*20) # 方便區隔
                 
