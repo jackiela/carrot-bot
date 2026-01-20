@@ -944,18 +944,21 @@ async def handle_land_progress(message, user_id, user_data, ref):
 
     await message.channel.send(embed=embed)
 
-# ===== 農場總覽卡（整合倉庫與別名修正版）=====
+# ===== 農場總覽卡（整合倉庫與多圖修正版）=====
 async def show_farm_overview(bot, message, user_id, user_data, ref):
     import io 
     import discord
     import random
+    import aiohttp
     from datetime import datetime
-    # 確保你有這些 utils 函式
-    from utils import get_now, parse_datetime, get_remaining_time_str
+    from utils import get_now, parse_datetime, get_remaining_time_str, get_decoration_thumbnail
+    
+    # 🌟 修正變數賦值，防止最後報錯
+    bot_client = bot 
     
     # 🌟 取得最新資料
     latest_db_data = ref.get() or {}
-    inventory = latest_db_data.get("inventory", {})  # 取得收成的蘿蔔
+    inventory = latest_db_data.get("inventory", {})
 
     # 確保進入田地執行緒
     from carrot_commands import ensure_player_thread
@@ -991,14 +994,13 @@ async def show_farm_overview(bot, message, user_id, user_data, ref):
             time_str = h_time.strftime("%Y/%m/%d %H:%M")
             if h_time > now:
                 remaining = get_remaining_time_str(h_time)
-                time_info = f"{time_str}（還剩 {remaining}）"
+                time_info = f"{time_str} ({remaining})" # 移除重複的「還剩」
             else:
-                time_info = f"{time_str}（**已可收成！**）"
+                time_info = f"{time_str} (**已可收成！**)"
         except:
             time_info = "時間資料錯誤"
 
     # --- 2. 建立 Embed 內容 ---
-    # 標題根據使用者輸入的指令動態調整 (感覺更貼心)
     title_icon = "📦" if "!倉庫" in message.content else "🌾"
     embed = discord.Embed(
         title=f"{title_icon} 農場總覽與物資倉庫",
@@ -1006,27 +1008,19 @@ async def show_farm_overview(bot, message, user_id, user_data, ref):
         color=discord.Color.green()
     )
 
-    # 第一區：土地與金幣
     embed.add_field(name="🏷️ 土地狀態", value=f"Lv.{land_level} 的土地目前 {status_text}", inline=False)
     embed.add_field(name="⏱️ 收成時間", value=time_info, inline=True)
     embed.add_field(name="💰 金幣餘額", value=f"{coins} 金幣", inline=True)
     embed.add_field(name="🧧 今日拔蘿蔔次數", value=f"{5 - daily_pulls} 次", inline=True)
 
-    # 🌟 第二區：蘿蔔倉庫 (已收成的物資)
+    # 倉庫顯示
     inv_items = [f"• **{k}**：`{v}` 根" for k, v in inventory.items() if v > 0]
-    if not inv_items:
-        inv_text = "• 目前倉庫空空如也"
-    else:
-        # 如果種類太多，限制顯示數量
-        if len(inv_items) > 10:
-            inv_text = "\n".join(inv_items[:10]) + f"\n*...以及其他 {len(inv_items)-10} 種*"
-        else:
-            inv_text = "\n".join(inv_items)
+    inv_text = "\n".join(inv_items[:10]) + (f"\n*...以及其他 {len(inv_items)-10} 種*" if len(inv_items) > 10 else "") if inv_items else "• 目前倉庫空空如也"
     
     embed.add_field(name="────────────────────", value="**📦 已收成的蘿蔔庫存**", inline=False)
     embed.add_field(name="🥕 儲藏清單", value=inv_text, inline=False)
 
-    # 第三區：其他資源
+    # 其他資源
     embed.add_field(name="────────────────────", value="**🛠️ 其他農場資源**", inline=False)
     
     f_items = [f"• {k}：{v} 個" for k, v in fertilizers.items() if v > 0]
@@ -1040,31 +1034,24 @@ async def show_farm_overview(bot, message, user_id, user_data, ref):
     
     lb_text = f"{lucky_bags} 個" if lucky_bags > 0 else "尚未擁有"
     embed.add_field(name="🧧 開運福袋", value=lb_text, inline=True)
-    
     embed.set_footer(text="💡 使用 !賣出 [名稱] 可以換取金幣 | 📅 每日凌晨重置運勢")
 
-    # 發送 Embed
+    # --- 3. 先發送文字 Embed ---
     await current_channel.send(embed=embed)
 
-# --- 3. 處理所有裝飾圖片實況 (診斷強化版) ---
+    # --- 4. 處理裝飾圖片實況 (診斷強化版) ---
     if decorations and bot_client:
         files = []
-        import aiohttp
         async with aiohttp.ClientSession() as session:
             # 確保清單格式正確
-            deco_list = list(decorations) if isinstance(decorations, (list, dict)) else []
             if isinstance(decorations, dict):
                 deco_list = list(decorations.values())
-
-            print(f"🔍 [STEP 1] 開始處理清單: {deco_list}")
+            else:
+                deco_list = list(decorations)
 
             for index, d in enumerate(deco_list):
-                # 🌟 這裡增加 URL 檢查
                 url = get_decoration_thumbnail(d)
-                print(f"🔍 [STEP 2] 裝飾品: {d}, 取得的 URL: {url}")
-                
                 if not url or not url.startswith("http"):
-                    print(f"❌ [STEP 3] {d} 的 URL 無效，跳過。")
                     continue
                 
                 try:
@@ -1073,16 +1060,11 @@ async def show_farm_overview(bot, message, user_id, user_data, ref):
                             img_data = await resp.read()
                             filename = f"deco_{index}_{random.randint(1000,9999)}.png"
                             files.append(discord.File(fp=io.BytesIO(img_data), filename=filename))
-                            print(f"✅ [STEP 4] 成功下載圖片: {d}")
-                        else:
-                            print(f"❌ [STEP 4] 下載 {d} 失敗，HTTP 狀態碼: {resp.status}")
                 except Exception as e:
-                    print(f"💥 [ERROR] 下載 {d} 時發生崩潰: {str(e)}")
+                    print(f"💥 [ERROR] 下載 {d} 失敗: {str(e)}")
 
         if files:
-            print(f"📦 [FINISH] 準備發送 {len(files)} 張圖片到 Discord")
             await current_channel.send(content="🎍 **農場裝飾實況：**", files=files)
-
 # ===== 賣出蘿蔔 =====
 
 async def handle_sell_carrot(message, user_id, user_data, ref, args):
