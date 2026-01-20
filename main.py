@@ -17,7 +17,7 @@ from carrot_commands import (
     handle_open_lucky_bag, handle_buy_decoration, harvest_loop,
     GLOVE_SHOP, DECORATION_SHOP, check_and_post_update,
     handle_adventure_shop, handle_buy_item, handle_eat_carrot, 
-    handle_bag
+    handle_bag, handle_sell_carrot
 )
 from utils import get_today, get_now, is_admin
 from fastapi import FastAPI
@@ -86,7 +86,7 @@ COMMAND_CHANNELS = {
     "!購買裝飾": 1423335407105343589, "!特殊蘿蔔一覽": 1423335407105343589,
     "!冒險": 1453283600459104266, "!吃": 1453283600459104266,   
     "!背包": 1453283600459104266, "!冒險商店": 1453283600459104266,
-    "!購買": 1453283600459104266
+    "!購買": 1453283600459104266, "!賣出": 1423335407105343589
 }
 
 # ===================== 輔助函數 =====================
@@ -169,7 +169,10 @@ async def on_message(message):
             await handle_land_progress(message, user_id, user_data, ref)
         elif cmd == "!農場總覽" or cmd == "!土地狀態":
             await show_farm_overview(client, message, user_id, user_data, ref)
-
+        elif cmd == "!賣出":
+            # parts[1:] 會抓到 ["普通蘿蔔", "5"] 這樣的參數
+            await handle_sell_carrot(message, user_id, user_data, ref, parts[1:])
+            
         # --- 商店系統 (整合 2.0 介面) ---
         elif cmd == "!商店":
             coins = user_data.get("coins", 0)
