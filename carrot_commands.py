@@ -59,7 +59,8 @@ async def check_and_post_update(bot: discord.Client, db_module):
         last_version = version_ref.get()
         
         # 2. 比較版本號
-        if last_version != :
+        if last_version != CURRENT_VERSION:
+            print(f"[INFO] 偵測到新版本 {CURRENT_VERSION}，準備發布通知...")
             
             # --- 版本更新內容 (這次的主要更新內容) ---
             update_notes = [
