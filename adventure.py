@@ -101,28 +101,37 @@ async def handle_eat_carrot(message, user_id, user_data, ref, carrot_name):
     await message.channel.send(f"🍴 {message.author.mention} 吃掉了 **{carrot_name}**！\n❤️ HP: {int(hp)} -> {int(new_hp)}\n✨ 獲得效果: {effect['desc']}")
 
 async def start_adventure(message, user_id, user_data, ref, dungeon_key):
-    # 跨天重置
+    # --- 1. 跨天重置與次數檢查 ---
     today = get_today()
+    adv_data = user_data.get("adventure", {})
+    
+    # 檢查是否跨天，若是則重置次數
     if user_data.get("last_login_day") != today:
         daily_count = 0
-        ref.update({"daily_adv_count": 0, "last_login_day": today})
+        ref.update({
+            "adventure/count": 0, 
+            "last_login_day": today
+        })
     else:
-        daily_count = user_data.get("daily_adv_count", 0)
+        # 統一使用 adventure/count 路徑
+        daily_count = adv_data.get("count", 0)
 
     if daily_count >= 5:
         await message.channel.send("😫 你今天已經冒險 5 次了，請明天再來！")
         return
 
+    # --- 2. 副本與等級檢查 ---
     dungeon = DUNGEONS.get(dungeon_key)
     if not dungeon:
         await message.channel.send(f"📍 找不到該地區。可用副本：{ '、'.join(DUNGEONS.keys()) }")
         return
 
-    if user_data.get("level", 1) < dungeon["min_lvl"]:
+    player_level = user_data.get("level", 1)
+    if player_level < dungeon["min_lvl"]:
         await message.channel.send(f"❌ 等級不足！{dungeon_key} 需要 Lv.{dungeon['min_lvl']}")
         return
 
-    # 🌟 1. 隨機抽取怪物
+    # --- 3. 戰鬥準備與環境傷害 ---
     monsters = dungeon["monsters"]
     monster = random.choices(monsters, weights=[m["weight"] for m in monsters], k=1)[0]
     
@@ -131,34 +140,33 @@ async def start_adventure(message, user_id, user_data, ref, dungeon_key):
     enemy_atk = monster["atk"]
     is_elite = monster.get("is_elite", False)
 
-    # 戰鬥數值準備
     hp = user_data.get("hp", 100)
     buff = user_data.get("active_buff")
     current_player_hp = float(hp)
-    player_atk = 20 + (user_data.get("level", 1) * 5)
+    player_atk = 20 + (player_level * 5)
 
-    # 2. 環境傷害判定
+    # 環境傷害判定
     if dungeon.get("env_effect") == "heat" and buff != "heat_resist":
         current_player_hp -= 15
         await message.channel.send("🔥 **環境傷害**：酷熱讓你流失了 15 點 HP！")
 
     if current_player_hp <= 10:
-        await message.channel.send(f"💀 你的 HP 剩餘 {int(current_player_hp)}，進去會沒命的！")
+        await message.channel.send(f"💀 你的 HP 剩餘 {int(current_player_hp)}，進去會沒命的！請先 `!吃` 蘿蔔補充體力。")
         return
 
     await message.channel.send(f"⚔️ 你進入了 **{dungeon_key}**...\n⚠️ 遭遇了 **{enemy_name}**！\n📜 *{monster['desc']}*")
     
-    log_msg = await message.channel.send("🔄 戰鬥計算中...")
+    log_msg = await message.channel.send("🔄 戰鬥中...")
     player_turn = random.choice([True, False])
 
-    # 3. 戰鬥迴圈
+    # --- 4. 戰鬥迴圈 ---
     while enemy_hp > 0 and current_player_hp > 0:
-        turn_details = ""
         if player_turn:
             dmg = random.randint(player_atk - 5, player_atk + 5)
             enemy_hp -= dmg
             turn_details = f"🗡️ 你反擊造成 {dmg} 傷害！"
         else:
+            # 無敵 Buff 判定
             dmg = 0 if buff == "invincible" else random.randint(enemy_atk - 5, enemy_atk + 5)
             current_player_hp -= dmg
             turn_details = f"💥 {enemy_name} 攻擊造成 {dmg} 傷害！"
@@ -169,40 +177,47 @@ async def start_adventure(message, user_id, user_data, ref, dungeon_key):
             f"❤️ 你的 HP: **{int(max(0, current_player_hp))}**\n"
             f"👾 {enemy_name} HP: **{int(max(0, enemy_hp))}**"
         )
-        await log_msg.edit(content=status_text)
+        try:
+            await log_msg.edit(content=status_text)
+        except:
+            pass # 防止 Discord 限速導致報錯
+        
         player_turn = not player_turn
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(1.2)
 
-    # 4. 結算
+    # --- 5. 結算與資料更新 ---
     final_hp = max(0, current_player_hp)
+    new_adv_count = daily_count + 1
+    
+    # 建立統一更新包 (確保與背包欄位一致)
+    update_data = {
+        "hp": final_hp,
+        "adventure/count": new_adv_count,
+        "active_buff": None,
+        "last_regen_time": time.time(),
+        "last_login_day": today
+    }
+
     if enemy_hp <= 0:
-        # 獎金加成
+        # 勝利：獎金計算
         reward_base = random.randint(*dungeon["reward"])
         reward = reward_base * 2 if buff == "double_gold" else reward_base
-        
-        # 🌟 精英怪特殊掉落
+        new_coins = user_data.get("coins", 0) + reward
+        update_data["coins"] = new_coins
+
+        # 處理精英怪掉落
         drop_msg = ""
-        if is_elite and random.random() < 0.3: # 30% 機率掉落好物
+        if is_elite and random.random() < 0.3:
             inventory = user_data.get("inventory", {})
             rare_carrot = random.choice(["🥇 黃金蘿蔔", "🌈 彩虹蘿蔔", "🧊 冰晶蘿蔔"])
             inventory[rare_carrot] = inventory.get(rare_carrot, 0) + 1
-            ref.update({"inventory": inventory})
+            update_data["inventory"] = inventory
             drop_msg = f"\n🎁 **額外掉落**：你從精英怪身上搜到了 **{rare_carrot}**！"
 
-        new_coins = user_data.get("coins", 0) + reward
-        ref.update({
-            "coins": new_coins,
-            "hp": final_hp,
-            "daily_adv_count": daily_count + 1,
-            "active_buff": None,
-            "last_regen_time": time.time()
-        })
+        ref.update(update_data)
         await message.channel.send(f"🏆 **戰鬥勝利！**\n💰 獲得金幣: `{reward}` (餘額: {new_coins}){drop_msg}")
     else:
-        ref.update({
-            "hp": 0,
-            "daily_adv_count": daily_count + 1,
-            "active_buff": None,
-            "last_regen_time": time.time()
-        })
+        # 失敗：血量歸零
+        update_data["hp"] = 0
+        ref.update(update_data)
         await message.channel.send(f"💀 你被 **{enemy_name}** 擊敗了，抬回農場緊急治療...")
