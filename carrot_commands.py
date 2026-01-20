@@ -614,12 +614,15 @@ async def handle_plant_carrot(message, user_id, user_data, ref=None, fertilizer=
 
 async def harvest_loop(bot, db_module):
     print("[INFO] harvest_loop 啟動")
+    # 🌟 確保匯入 timedelta
+    from datetime import timedelta 
     from utils import get_now, parse_datetime
 
     await bot.wait_until_ready()
 
     while not bot.is_closed():
         try:
+            # 取得所有使用者
             ref = db_module.reference("/users")
             all_users = ref.get()
 
@@ -633,11 +636,11 @@ async def harvest_loop(bot, db_module):
                 if not isinstance(user_data, dict):
                     continue
                 
-                # --- 💰 邏輯 A: 裝飾品收益 (修正補償邏輯) ---
+                # --- 💰 邏輯 A: 裝飾品收益 ---
                 last_update_str = user_data.get("last_passive_coin_update")
                 
-                # 解析上次更新時間
                 if not last_update_str:
+                    # 如果從未領過，從 1 天前開始算 (即補償 1 天)
                     last_update = now - timedelta(days=1) 
                 else:
                     try:
@@ -648,35 +651,32 @@ async def harvest_loop(bot, db_module):
                 time_elapsed = now - last_update
                 days_elapsed = time_elapsed.total_seconds() / 86400.0
                 
-                # 滿足約 1 天的時間才發放
+                # 滿足門檻 (約 23 小時)
                 if days_elapsed >= 0.958:
-                    # 🌟 關鍵修正：限制最多補償 3 天，防止幾百天沒上線領到幾千金幣
                     full_days_to_award = min(int(days_elapsed), 3) 
                     
                     total_daily_rate = 0
                     decorations = user_data.get("decorations", [])
+                    # 這裡確保 DECORATION_PASSIVE_BONUS 在 carrot_commands.py 有定義
                     for deco in decorations:
                         total_daily_rate += DECORATION_PASSIVE_BONUS.get(deco, 0)
                     
-                    # 🌟 額外保險：單日總收益若超過 50 也要封頂 (視需求調整)
                     total_daily_rate = min(total_daily_rate, 50)
-                    
                     coins_gained = full_days_to_award * total_daily_rate
                     
                     if coins_gained > 0:
                         current_coins = user_data.get("coins", 0)
-                        # 🌟 單次補償領取最高上限 150
                         final_gain = min(coins_gained, 150)
                         
                         user_ref = db_module.reference(f"/users/{user_id}")
-                        # 更新時間戳記為「現在」，避免重複計算
+                        # 🌟 建議更新方式：先算好新金幣，再一次 update
                         user_ref.update({
                             "coins": current_coins + final_gain,
                             "last_passive_coin_update": now.isoformat() 
                         })
-                        print(f"[PASSIVE] {user_id} 獲得 {final_gain} 金幣 (補償 {full_days_to_award} 天)")
+                        print(f"[PASSIVE] {user_id} 獲得 {final_gain} 金幣")
                     else:
-                        # 即使沒錢，時間到了也要更新時間戳記
+                        # 沒錢也要更新時間，避免下次重複掃描
                         db_module.reference(f"/users/{user_id}").update({
                             "last_passive_coin_update": now.isoformat()
                         })
