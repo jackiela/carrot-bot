@@ -60,28 +60,19 @@ def get_user_data(user_id, username):
 async def check_daily_login_reward(message, user_id, user_data, ref):
     today = get_today()
     if user_data.get("last_login") != today:
-        reward = random.randint(1, 5)
-        decorations = user_data.get("decorations", [])
+        # 🎁 明天開始，每天只給固定隨機金幣
+        reward = random.randint(5, 15)
         
-        # 修正後的安全計算方式
-        passive_income = 0
-        for d in decorations:
-            if d in DECORATION_SHOP:
-                item_info = DECORATION_SHOP[d]
-                # 檢查 item_info 是否為字典，且包含 passive_gold
-                if isinstance(item_info, dict):
-                    passive_income += item_info.get("passive_gold", 0)
-                elif isinstance(item_info, int): # 如果結構被誤存為數字
-                    passive_income += item_info
-        
-        total = reward + passive_income
-        user_data["coins"] = user_data.get("coins", 0) + total
+        user_data["coins"] = user_data.get("coins", 0) + reward
         user_data["last_login"] = today
-        ref.update({"coins": user_data["coins"], "last_login": today})
         
-        msg = f"🎁 每日獎勵：獲得 {reward} 金幣"
-        if passive_income > 0: msg += f" + 裝飾收益 {passive_income} 金幣！"
-        await message.channel.send(msg)
+        # 更新資料庫
+        ref.update({
+            "coins": user_data["coins"], 
+            "last_login": today
+        })
+        
+        await message.channel.send(f"🎁 每日獎勵：獲得 `{reward}` 金幣！")
 
 # ===================== 指令頻道限制 =====================
 COMMAND_CHANNELS = {
