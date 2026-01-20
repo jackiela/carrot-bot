@@ -1815,22 +1815,23 @@ async def handle_bag(message, user_id, user_data):
     inventory = user_data.get("inventory", {})
     
     # --- 冒險與血量狀態 ---
+    # 統一公式：Lv.1 為 100，每升一級加 10 (目前預設 Lv.1)
     level = user_data.get("level", 1)
     max_hp = 100 + (level - 1) * 10
-    hp = user_data.get("hp", max_hp)
     
-    # --- 🌟 核心修改：計算預計回滿時間 ---
-    # 規則：血量耗光預計 24 小時回滿
+    # 取得目前血量並確保不超過上限 (防止資料庫舊數據造成顯示 110/100)
+    raw_hp = user_data.get("hp", max_hp)
+    hp = min(float(raw_hp), float(max_hp))
+    
+    # --- 計算預計回滿時間 ---
     recovery_info = ""
     if hp < max_hp:
-        # 每小時恢復量 = max_hp / 24
+        # 規則：血量從 0 到滿固定 24 小時
         recovery_rate_per_hour = max_hp / 24
         needed_hp = max_hp - hp
         hours_to_full = needed_hp / recovery_rate_per_hour
         
-        # 格式化顯示數字 (保留一位小數)
         time_str = round(hours_to_full, 1)
-        # 讓 .0 消失
         display_time = int(time_str) if time_str % 1 == 0 else time_str
         recovery_info = f" `預計 {display_time} 小時後回滿`"
     
@@ -1839,9 +1840,9 @@ async def handle_bag(message, user_id, user_data):
     filled_blocks = max(0, min(bar_length, int((hp / max_hp) * bar_length)))
     hp_bar = "❤️" * filled_blocks + "🤍" * (bar_length - filled_blocks)
     
-    # --- 冒險次數 (紅綠方塊) ---
+    # --- 冒險次數 (讀取統一路徑 adventure/count) ---
     adv_data = user_data.get("adventure", {})
-    adv_count = adv_data.get("count", 0)  # 已使用的次數
+    adv_count = adv_data.get("count", 0)
     max_adv = 5
     adv_icons = "🟥" * adv_count + "🟩" * (max_adv - adv_count)
 
@@ -1851,10 +1852,9 @@ async def handle_bag(message, user_id, user_data):
     )
 
     # --- 📊 目前狀態 ---
-    # 這裡將 recovery_info 接在狀態欄最後
     status_value = (
         f"💰 持有的金幣: `{coins}`\n"
-        f"❤️ 生命值: `{hp} / {max_hp}`{recovery_info}\n"
+        f"❤️ 生命值: `{int(hp)} / {int(max_hp)}`{recovery_info}\n"
         f"{hp_bar}\n"
         f"✨ 生效中狀態: `無`"
     )
@@ -1871,7 +1871,6 @@ async def handle_bag(message, user_id, user_data):
         inv_text = "\n".join(items) if items else "目前儲藏室空空如也..."
     
     embed.add_field(name="📦 儲藏物資", value=inv_text, inline=False)
-
     embed.set_footer(text="💡 使用 !吃 [蘿蔔名稱] 來回復體力\n💡 購買商店 Buff 後會直接顯示在狀態欄中")
     
     await message.channel.send(embed=embed)
