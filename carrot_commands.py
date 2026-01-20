@@ -1659,9 +1659,14 @@ async def handle_special_carrots(message, user_id, user_data, ref):
 
     embed.set_footer(text="📘 使用 !拔蘿蔔 開始抽卡｜📖 使用 !蘿蔔圖鑑 查看收藏進度")
     await message.channel.send(embed=embed)
+
+# ===== 冒險吃蘿蔔補血 =====
     
 async def handle_eat_carrot(message, user_id, user_data, ref, item_name):
-    """處理吃蘿蔔邏輯：支援模糊匹配，不輸入 Emoji 也能吃"""
+    """處理吃蘿蔔邏輯：支援模糊匹配，不輸入 Emoji 也能吃，並修正生命值上限"""
+    import time
+    import discord
+
     if not item_name:
         await message.channel.send("❓ 你想吃什麼？請輸入名稱，例如：`!吃 搞笑蘿蔔` 或 `!吃 搞笑蘿蔔 🤡`")
         return
@@ -1686,7 +1691,7 @@ async def handle_eat_carrot(message, user_id, user_data, ref, item_name):
         await message.channel.send(f"❌ 你的背包裡沒有「{item_name}」喔！")
         return
 
-    # 3. 定義效果 (使用 target_key 來判定，確保包含 Emoji 也能判斷關鍵字)
+    # 3. 定義效果 (使用 target_key 來判定關鍵字)
     hp_gain = 20      # 基礎補血量
     active_buff = None
     effect_desc = "這是一根普通的蘿蔔，咬起來脆脆的。"
@@ -1711,11 +1716,13 @@ async def handle_eat_carrot(message, user_id, user_data, ref, item_name):
         hp_gain = 5
         effect_desc = "嘔...味道不太對勁，勉強恢復了一點體力。"
 
-    # 4. 計算並更新資料
-    current_hp = user_data.get("hp", 100)
+    # 4. 計算並更新資料 (統一 Max HP 公式)
     level = user_data.get("level", 1)
-    max_hp = 100 + (level * 10)
-    new_hp = min(max_hp, current_hp + hp_gain)
+    max_hp = 100 + (level - 1) * 10  # 🌟 與背包一致：Lv.1=100, Lv.2=110
+    
+    current_hp = float(user_data.get("hp", max_hp))
+    # 確保新血量不會超過上限
+    new_hp = min(float(max_hp), current_hp + hp_gain)
 
     # 扣除物資 (使用找到的 target_key)
     inventory[target_key] -= 1
@@ -1726,17 +1733,18 @@ async def handle_eat_carrot(message, user_id, user_data, ref, item_name):
     update_payload = {
         "inventory": inventory,
         "hp": new_hp,
-        "active_buff": active_buff
+        "active_buff": active_buff,
+        "last_regen_time": time.time()  # 🌟 補上時間戳，讓恢復時間重新計算
     }
     ref.update(update_payload)
 
-    # 5. 回傳訊息 (Embed 顯示完整的 target_key 名稱)
+    # 5. 回傳訊息 (Embed 顯示)
     embed = discord.Embed(
         title="🍴 享用蘿蔔",
         description=f"你吃掉了 **{target_key}**",
         color=discord.Color.green()
     )
-    embed.add_field(name="❤️ 體力恢復", value=f"{int(current_hp)} ➔ **{int(new_hp)}**", inline=True)
+    embed.add_field(name="❤️ 體力恢復", value=f"{int(current_hp)} ➔ **{int(new_hp)}** / {int(max_hp)}", inline=True)
     if active_buff:
         embed.add_field(name="✨ 獲得狀態", value=f"`{active_buff}`", inline=True)
     embed.set_footer(text=effect_desc)
