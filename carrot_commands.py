@@ -944,14 +944,14 @@ async def handle_land_progress(message, user_id, user_data, ref):
 
     await message.channel.send(embed=embed)
 
-# ===== 農場總覽卡（整合倉庫與多圖修正版）=====
 async def show_farm_overview(bot, message, user_id, user_data, ref):
+    bot_client = bot  # 🌟 關鍵修正：將傳入的 bot 賦值給 bot_client
+    
     import io 
     import discord
     import random
     import aiohttp
     from datetime import datetime
-    from utils import get_now, parse_datetime, get_remaining_time_str, get_decoration_thumbnail
     
     # 🌟 修正變數賦值，防止最後報錯
     bot_client = bot 
