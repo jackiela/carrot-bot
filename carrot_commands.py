@@ -1803,10 +1803,13 @@ async def handle_buy_item(message, user_id, user_data, ref, item_name):
     ref.update(update_data)
     await message.channel.send(f"{message.author.mention} {response_msg}\n💰 剩餘金幣：`{new_coins}`")
 
+# ===== 背包 =====
+
 async def handle_bag(message, user_id, user_data):
     """
-    顯示 2.0 版完整背包：包含血量條、紅綠方塊冒險次數、金幣與物資清單
+    顯示 2.0 版完整背包：包含血量條、預計回滿時間、紅綠方塊冒險次數、金幣與物資清單
     """
+    import discord
     username = message.author.display_name
     coins = user_data.get("coins", 0)
     inventory = user_data.get("inventory", {})
@@ -1815,6 +1818,21 @@ async def handle_bag(message, user_id, user_data):
     level = user_data.get("level", 1)
     max_hp = 100 + (level - 1) * 10
     hp = user_data.get("hp", max_hp)
+    
+    # --- 🌟 核心修改：計算預計回滿時間 ---
+    # 規則：血量耗光預計 24 小時回滿
+    recovery_info = ""
+    if hp < max_hp:
+        # 每小時恢復量 = max_hp / 24
+        recovery_rate_per_hour = max_hp / 24
+        needed_hp = max_hp - hp
+        hours_to_full = needed_hp / recovery_rate_per_hour
+        
+        # 格式化顯示數字 (保留一位小數)
+        time_str = round(hours_to_full, 1)
+        # 讓 .0 消失
+        display_time = int(time_str) if time_str % 1 == 0 else time_str
+        recovery_info = f" `預計 {display_time} 小時後回滿`"
     
     # 製作血量條 (10格)
     bar_length = 10
@@ -1825,8 +1843,6 @@ async def handle_bag(message, user_id, user_data):
     adv_data = user_data.get("adventure", {})
     adv_count = adv_data.get("count", 0)  # 已使用的次數
     max_adv = 5
-    
-    # 已過變紅 (adv_count)，剩下為綠 (max_adv - adv_count)
     adv_icons = "🟥" * adv_count + "🟩" * (max_adv - adv_count)
 
     embed = discord.Embed(
@@ -1835,23 +1851,22 @@ async def handle_bag(message, user_id, user_data):
     )
 
     # --- 📊 目前狀態 ---
+    # 這裡將 recovery_info 接在狀態欄最後
     status_value = (
         f"💰 持有的金幣: `{coins}`\n"
-        f"❤️ 生命值: `{hp} / {max_hp}`\n"
+        f"❤️ 生命值: `{hp} / {max_hp}`{recovery_info}\n"
         f"{hp_bar}\n"
         f"✨ 生效中狀態: `無`"
     )
     embed.add_field(name="📊 目前狀態", value=status_value, inline=False)
 
     # --- ⚔️ 今日冒險次數 ---
-    # 顯示格式：(已用/總共) 紅紅綠綠綠
     embed.add_field(name="⚔️ 今日冒險次數", value=f"({adv_count}/{max_adv})\n{adv_icons}", inline=False)
 
     # --- 🎒 儲藏物資 ---
     if not inventory:
         inv_text = "目前儲藏室空空如也..."
     else:
-        # 過濾數量大於 0 的物品，並排序
         items = [f"• {name}: `{count}` 個" for name, count in inventory.items() if count > 0]
         inv_text = "\n".join(items) if items else "目前儲藏室空空如也..."
     
