@@ -105,82 +105,7 @@ async def check_and_post_update(bot: discord.Client, db_module):
     except Exception as e:
         print(f"[ERROR] 版本檢查與更新發布失敗: {e}")
         
-# ======================================
-# ✅ 通用輔助：確認玩家是否在自己的田地
-# ======================================
-async def ensure_player_thread(message, user_data=None):
-    """
-    確保使用者在自己的田地串中使用指令；
-    若不在，則自動建立新串或提示跳轉。
-    """
-    # --- 安全檢查 ---
-    if user_data:
-        user_data = sanitize_user_data(user_data)
 
-    expected_name = f"{message.author.display_name} 的田地"
-    current_channel = message.channel
-
-    # 🔎 取得父頻道（避免 Thread 時出錯）
-    parent_channel = current_channel.parent if isinstance(current_channel, discord.Thread) else current_channel
-
-    # 🔍 嘗試尋找現有田地串（含封存）
-    target_thread = next((t for t in parent_channel.threads if t.name == expected_name), None)
-    if not target_thread:
-        async for t in parent_channel.archived_threads(limit=None):
-            if t.name == expected_name:
-                target_thread = t
-                break
-
-    # 🧭 若目前不是在自己的田地串
-    if not isinstance(current_channel, discord.Thread) or current_channel.name != expected_name:
-        if target_thread:
-            await message.channel.send(f"⚠️ 請在你的田地串中使用此指令：{target_thread.jump_url}")
-            return None
-        new_thread = await parent_channel.create_thread(
-            name=expected_name,
-            type=discord.ChannelType.public_thread,
-            auto_archive_duration=1440
-        )
-        await new_thread.send(f"📌 已為你建立田地串，請在此使用指令！")
-        return new_thread
-
-    return current_channel
-
-
-def pull_carrot():
-    roll = random.randint(1, 100)
-    if roll <= 70:
-        return random.choice(common_carrots)
-    elif roll <= 95:
-        return random.choice(rare_carrots)
-    else:
-        return random.choice(legendary_carrots)
-
-def pull_carrot_by_farm(fertilizer="普通肥料", land_level=1):
-    base_roll = random.randint(1, 100)
-    bonus = 0
-    if fertilizer == "高級肥料":
-        # 從 5 調整為 10
-        bonus += 10 
-    elif fertilizer == "神奇肥料":
-        bonus += 20
-    if land_level >= 3:
-        bonus += (land_level - 2) * 5
-
-    roll = base_roll + bonus
-    reward_ranges = {
-        "common": (5, 10),
-        "rare": (20, 40),
-        "legendary": (100, 200)
-    }
-
-    if roll <= 70:
-        return random.choice(common_carrots), random.randint(*reward_ranges["common"])
-    elif roll <= 95:
-        return random.choice(rare_carrots), random.randint(*reward_ranges["rare"])
-    else:
-        return random.choice(legendary_carrots), random.randint(*reward_ranges["legendary"])
-        
     # ===== 蘿蔔占卜 =====
 
 async def handle_fortune(message, user_id, username, user_data, ref, force=False):
@@ -477,7 +402,83 @@ async def handle_carrot_tip(message, user_id, user_data, ref):
     
     tip = random.choice(carrot_tips)
     await message.channel.send(f"🌱 胡蘿蔔種植小貼士：{tip}")
-    
+
+# ======================================
+# ✅ 通用輔助：確認玩家是否在自己的田地
+# ======================================
+async def ensure_player_thread(message, user_data=None):
+    """
+    確保使用者在自己的田地串中使用指令；
+    若不在，則自動建立新串或提示跳轉。
+    """
+    # --- 安全檢查 ---
+    if user_data:
+        user_data = sanitize_user_data(user_data)
+
+    expected_name = f"{message.author.display_name} 的田地"
+    current_channel = message.channel
+
+    # 🔎 取得父頻道（避免 Thread 時出錯）
+    parent_channel = current_channel.parent if isinstance(current_channel, discord.Thread) else current_channel
+
+    # 🔍 嘗試尋找現有田地串（含封存）
+    target_thread = next((t for t in parent_channel.threads if t.name == expected_name), None)
+    if not target_thread:
+        async for t in parent_channel.archived_threads(limit=None):
+            if t.name == expected_name:
+                target_thread = t
+                break
+
+    # 🧭 若目前不是在自己的田地串
+    if not isinstance(current_channel, discord.Thread) or current_channel.name != expected_name:
+        if target_thread:
+            await message.channel.send(f"⚠️ 請在你的田地串中使用此指令：{target_thread.jump_url}")
+            return None
+        new_thread = await parent_channel.create_thread(
+            name=expected_name,
+            type=discord.ChannelType.public_thread,
+            auto_archive_duration=1440
+        )
+        await new_thread.send(f"📌 已為你建立田地串，請在此使用指令！")
+        return new_thread
+
+    return current_channel
+
+
+def pull_carrot():
+    roll = random.randint(1, 100)
+    if roll <= 70:
+        return random.choice(common_carrots)
+    elif roll <= 95:
+        return random.choice(rare_carrots)
+    else:
+        return random.choice(legendary_carrots)
+
+def pull_carrot_by_farm(fertilizer="普通肥料", land_level=1):
+    base_roll = random.randint(1, 100)
+    bonus = 0
+    if fertilizer == "高級肥料":
+        # 從 5 調整為 10
+        bonus += 10 
+    elif fertilizer == "神奇肥料":
+        bonus += 20
+    if land_level >= 3:
+        bonus += (land_level - 2) * 5
+
+    roll = base_roll + bonus
+    reward_ranges = {
+        "common": (5, 10),
+        "rare": (20, 40),
+        "legendary": (100, 200)
+    }
+
+    if roll <= 70:
+        return random.choice(common_carrots), random.randint(*reward_ranges["common"])
+    elif roll <= 95:
+        return random.choice(rare_carrots), random.randint(*reward_ranges["rare"])
+    else:
+        return random.choice(legendary_carrots), random.randint(*reward_ranges["legendary"])
+        
         
 # --- 種蘿蔔主函式 (優化版) ---
 async def handle_plant_carrot(message, user_id, user_data, ref=None, fertilizer="普通肥料"):
@@ -1063,7 +1064,100 @@ async def show_farm_overview(bot, message, user_id, user_data, ref):
         if files:
             print(f"📦 [FINISH] 準備發送 {len(files)} 張圖片到 Discord")
             await current_channel.send(content="🎍 **農場裝飾實況：**", files=files)
-            
+
+# ===== 賣出蘿蔔 =====
+
+async def handle_sell_carrot(message, user_id, user_data, ref, args):
+    """
+    處理賣出蘿蔔的功能：根據稀有度定價
+    用法：!賣出 普通蘿蔔 5
+    """
+    if not args:
+        await message.channel.send("❓ 請輸入要賣出的蘿蔔名稱。例如：`!賣出 普通蘿蔔` 或 `!賣出 普通蘿蔔 5`")
+        return
+
+    # 解析參數
+    item_name = args[0]
+    try:
+        amount_to_sell = int(args[1]) if len(args) > 1 else 1
+    except ValueError:
+        await message.channel.send("❌ 數量請輸入數字喔！")
+        return
+
+    if amount_to_sell <= 0:
+        await message.channel.send("❌ 數量必須大於 0！")
+        return
+
+    inventory = user_data.get("inventory", {})
+    
+    # 檢查背包是否有該物品
+    if item_name not in inventory or inventory[item_name] < amount_to_sell:
+        await message.channel.send(f"❌ 你的背包裡沒有足夠的 **{item_name}** 喔！")
+        return
+
+    # --- 💰 稀有度定價表 ---
+    # 【等級 1：普通型】(5~8 金幣)
+    common_price = {
+        "普通蘿蔔": 5,
+        "愛跳舞的蘿蔔": 6,
+        "愛裝年輕的蘿蔔": 6,
+        "胖胖蘿蔔": 7,
+        "長腿蘿蔔": 7
+    }
+    
+    # 【等級 2：稀有型】(15~25 金幣)
+    rare_price = {
+        "老爺爺蘿蔔": 15,
+        "忍者蘿蔔": 18,
+        "發光蘿蔔": 20,
+        "冰晶蘿蔔": 25,
+        "黃金蘿蔔": 30
+    }
+    
+    # 【等級 3：傳說型】(50+ 金幣)
+    legend_price = {
+        "彩虹蘿蔔": 50,
+        "惡魔蘿蔔": 66,
+        "天使蘿蔔": 88,
+        "宇宙傳說蘿蔔": 100
+    }
+
+    # 判定價格 (優先找各表，都沒有則預設 5)
+    if item_name in legend_price:
+        price_per_unit = legend_price[item_name]
+        rarity_tag = "【✨ 傳說】"
+    elif item_name in rare_price:
+        price_per_unit = rare_price[item_name]
+        rarity_tag = "【⭐ 稀有】"
+    else:
+        price_per_unit = common_price.get(item_name, 5)
+        rarity_tag = "【🍀 普通】"
+
+    total_earned = price_per_unit * amount_to_sell
+
+    # 更新資料庫數據
+    inventory[item_name] -= amount_to_sell
+    if inventory[item_name] <= 0:
+        del inventory[item_name]
+        
+    current_coins = user_data.get("coins", 0)
+    new_coins = current_coins + total_earned
+
+    # 回寫 Firebase
+    ref.update({
+        "inventory": inventory,
+        "coins": new_coins
+    })
+
+    # 顯示漂亮的成交訊息
+    embed = discord.Embed(title="💰 交易成功", color=discord.Color.green())
+    embed.description = (
+        f"賣出了 {rarity_tag} **{item_name}** x{amount_to_sell}\n"
+        f"獲得金幣：`{total_earned}` 💰\n"
+        f"目前持有的金幣：`{new_coins}` 💰"
+    )
+    await message.channel.send(embed=embed)
+    
 # ===== 健康檢查 =====
 async def handle_health_check(message):
     # --- ✅ 使用者資料防呆，防止型態錯誤導致崩潰 ---
