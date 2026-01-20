@@ -45,7 +45,7 @@ DECORATION_PASSIVE_BONUS = {
 
 # 📌 請設定您的版本號和頻道 ID
 # 假設這是您修復 bug (2.0.1) 和修復 Port 衝突 (2.0.2) 之後的下一個版本
-CURRENT_VERSION = "2.0.6" 
+CURRENT_VERSION = "2.0.7" 
 # ⚠️ 請替換成您實際要發布「更新通知」的頻道 ID！
 UPDATE_CHANNEL_ID = 1428618044992913448
 
@@ -59,7 +59,7 @@ async def check_and_post_update(bot: discord.Client, db_module):
         last_version = version_ref.get()
         
         # 2. 比較版本號
-        if last_version != CURRENT_VERSION:
+        if last_version != :
             
             # --- 版本更新內容 (這次的主要更新內容) ---
             update_notes = [
