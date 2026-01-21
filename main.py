@@ -228,12 +228,52 @@ async def on_message(message):
         await message.channel.send("❌ 執行指令時發生預期外的錯誤。")
 
 # ===================== Web 啟動 =====================
+from flask import Flask, request, jsonify
+from flask_cors import CORS  # 👈 解決網頁跨網域連線問題
+from carrot_commands import fortunes # 👈 引入你的占卜文字字典
+
 flask_app = Flask(__name__)
+CORS(flask_app) # 👈 允許網頁端存取 API
+
 @flask_app.route("/")
-def home(): return "🟢 Carrot Bot Online"
+def home(): 
+    return "🟢 Carrot Bot Online"
+
+# 🔮 專為網頁設計的純占卜路由
+@flask_app.route("/api/web_fortune", methods=['GET'])
+def web_fortune():
+    try:
+        # 1. 從 carrot_commands.py 的 fortunes 字典中隨機挑選等級 (大吉/中吉/...)
+        fortune_levels = list(fortunes.keys())
+        if not fortune_levels:
+            raise ValueError("fortunes dictionary is empty")
+            
+        random_level = random.choice(fortune_levels)
+        
+        # 2. 從該等級的清單中隨機挑選一句建議文字
+        random_advice = random.choice(fortunes[random_level])
+        
+        # 3. 回傳給網頁 (不涉及金幣、不存入資料庫)
+        return jsonify({
+            "status": "success",
+            "fortune": random_level,
+            "advice": random_advice
+        })
+    except Exception as e:
+        print(f"❌ Web API 錯誤: {e}")
+        return jsonify({
+            "status": "error", 
+            "message": "祭壇感應中斷，請確認後端資料結構"
+        }), 500
+
 fastapi_app = FastAPI()
 fastapi_app.mount("/", WSGIMiddleware(flask_app))
 
 if __name__ == '__main__':
-    threading.Thread(target=lambda: client.run(os.getenv("DISCORD_TOKEN")), daemon=True).start()
+    # 啟動 Discord Bot
+    token = os.getenv("DISCORD_TOKEN")
+    if token:
+        threading.Thread(target=lambda: client.run(token), daemon=True).start()
+    
+    # 啟動 Web 伺服器 (包含 Flask 與 FastAPI)
     uvicorn.run(fastapi_app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
