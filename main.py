@@ -157,7 +157,7 @@ async def on_message(message):
         elif cmd == "!吃":
             await handle_eat_carrot(message, user_id, user_data, ref, " ".join(parts[1:]))
         elif cmd == "!背包":
-            await handle_bag(message, user_id, user_data)
+            await handle_bag(message, user_id, user_data, user_ref)
         
         # --- 農場指令 ---
         elif cmd == "!種蘿蔔":
