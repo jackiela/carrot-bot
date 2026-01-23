@@ -1811,67 +1811,90 @@ async def handle_buy_item(message, user_id, user_data, ref, item_name):
     ref.update(update_data)
     await message.channel.send(f"{message.author.mention} {response_msg}\n💰 剩餘金幣：`{new_coins}`")
 
-# ===== 背包 =====
-
-async def handle_bag(message, user_id, user_data):
+async def handle_bag(message, user_id, user_data, ref):
     """
-    顯示 2.0 版完整背包：包含血量條、預計回滿時間、紅綠方塊冒險次數、金幣與物資清單
+    顯示 2.0 版完整背包：包含自動回血邏輯、跨天重置、預計回滿時間、紅綠方塊次數
+    注意：此函式現在需要傳入 ref (Firebase 參照) 來更新資料
     """
     import discord
+    import time
+    from utils import get_today
+
     username = message.author.display_name
-    coins = user_data.get("coins", 0)
-    inventory = user_data.get("inventory", {})
-    
-    # --- 冒險與血量狀態 ---
-    # 統一公式：Lv.1 為 100，每升一級加 10 (目前預設 Lv.1)
+    now = time.time()
+    today = get_today()
+
+    # --- 1. 自動回血邏輯 ---
     level = user_data.get("level", 1)
     max_hp = 100 + (level - 1) * 10
+    raw_hp = float(user_data.get("hp", max_hp))
+    last_regen = user_data.get("last_regen_time", now)
     
-    # 取得目前血量並確保不超過上限 (防止資料庫舊數據造成顯示 110/100)
-    raw_hp = user_data.get("hp", max_hp)
-    hp = min(float(raw_hp), float(max_hp))
+    # 計算距離上次更新過了多久 (秒)
+    passed_time = now - last_regen
     
-    # --- 計算預計回滿時間 ---
+    if raw_hp < max_hp and passed_time > 0:
+        # 規則：24 小時 (86400 秒) 從 0 回到滿
+        recovery_rate_per_sec = max_hp / 86400
+        recovered_amount = passed_time * recovery_rate_per_sec
+        new_hp = min(float(max_hp), raw_hp + recovered_amount)
+        
+        # 更新本地數據與資料庫，確保下次打開時血量已增加
+        raw_hp = new_hp
+        user_data["hp"] = new_hp
+        user_data["last_regen_time"] = now
+        ref.update({"hp": new_hp, "last_regen_time": now})
+
+    hp = min(raw_hp, float(max_hp))
+
+    # --- 2. 跨天冒險次數重置 ---
+    adv_data = user_data.get("adventure", {})
+    if user_data.get("last_login_day") != today:
+        adv_count = 0
+        # 更新本地數據與資料庫
+        user_data["last_login_day"] = today
+        if "adventure" not in user_data: user_data["adventure"] = {}
+        user_data["adventure"]["count"] = 0
+        ref.update({"last_login_day": today, "adventure/count": 0})
+    else:
+        adv_count = adv_data.get("count", 0)
+
+    # --- 3. 計算預計回滿時間 (顯示用) ---
     recovery_info = ""
     if hp < max_hp:
-        # 規則：血量從 0 到滿固定 24 小時
         recovery_rate_per_hour = max_hp / 24
         needed_hp = max_hp - hp
         hours_to_full = needed_hp / recovery_rate_per_hour
-        
         time_str = round(hours_to_full, 1)
         display_time = int(time_str) if time_str % 1 == 0 else time_str
         recovery_info = f" `預計 {display_time} 小時後回滿`"
-    
+
     # 製作血量條 (10格)
     bar_length = 10
     filled_blocks = max(0, min(bar_length, int((hp / max_hp) * bar_length)))
     hp_bar = "❤️" * filled_blocks + "🤍" * (bar_length - filled_blocks)
     
-    # --- 冒險次數 (讀取統一路徑 adventure/count) ---
-    adv_data = user_data.get("adventure", {})
-    adv_count = adv_data.get("count", 0)
+    # 冒險圖示
     max_adv = 5
     adv_icons = "🟥" * adv_count + "🟩" * (max_adv - adv_count)
+    coins = user_data.get("coins", 0)
+    inventory = user_data.get("inventory", {})
 
+    # --- 4. 建立 Embed ---
     embed = discord.Embed(
         title=f"🎒 {username} 的背包",
         color=discord.Color.blue()
     )
 
-    # --- 📊 目前狀態 ---
     status_value = (
-        f"💰 持有的金幣: `{coins}`\n"
+        f"💰 持有的金幣: `{int(coins)}`\n"
         f"❤️ 生命值: `{int(hp)} / {int(max_hp)}`{recovery_info}\n"
         f"{hp_bar}\n"
         f"✨ 生效中狀態: `無`"
     )
     embed.add_field(name="📊 目前狀態", value=status_value, inline=False)
-
-    # --- ⚔️ 今日冒險次數 ---
     embed.add_field(name="⚔️ 今日冒險次數", value=f"({adv_count}/{max_adv})\n{adv_icons}", inline=False)
 
-    # --- 🎒 儲藏物資 ---
     if not inventory:
         inv_text = "目前儲藏室空空如也..."
     else:
