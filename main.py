@@ -157,6 +157,11 @@ async def on_message(message):
         elif cmd == "!吃":
             await handle_eat_carrot(message, user_id, user_data, ref, " ".join(parts[1:]))
         elif cmd == "!背包":
+            # 🌟 加上這一行：定義 user_ref
+            # 確保你已經有定義 user_id (通常是 str(message.author.id))
+            user_ref = db.reference(f"users/{user_id}") 
+    
+            # 呼叫 handle_bag
             await handle_bag(message, user_id, user_data, user_ref)
         
         # --- 農場指令 ---
