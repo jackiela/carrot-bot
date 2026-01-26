@@ -1813,8 +1813,7 @@ async def handle_buy_item(message, user_id, user_data, ref, item_name):
 
 async def handle_bag(message, user_id, user_data, ref):
     """
-    顯示 2.0 版完整背包：包含自動回血邏輯、跨天重置、預計回滿時間、紅綠方塊次數
-    注意：此函式現在需要傳入 ref (Firebase 參照) 來更新資料
+    顯示 2.0 版完整背包：包含自動回血邏輯、跨天重劇、預計回滿時間、紅綠方塊次數
     """
     import discord
     import time
@@ -1824,63 +1823,87 @@ async def handle_bag(message, user_id, user_data, ref):
     now = time.time()
     today = get_today()
 
-    # --- 1. 自動回血邏輯 ---
-    level = user_data.get("level", 1)
+    # --- 1. 取得等級與上限 (統一公式) ---
+    level = int(user_data.get("level", 1))
     max_hp = 100 + (level - 1) * 10
-    raw_hp = float(user_data.get("hp", max_hp))
-    last_regen = user_data.get("last_regen_time", now)
     
-    # 計算距離上次更新過了多久 (秒)
+    # 確保 hp 是數字類型
+    current_hp_val = user_data.get("hp", max_hp)
+    if current_hp_val is None: current_hp_val = max_hp
+    raw_hp = float(current_hp_val)
+    
+    # 取得上次回血時間
+    last_regen = user_data.get("last_regen_time")
+    if last_regen is None: last_regen = now
+
+    # --- 2. 自動回血邏輯 ---
     passed_time = now - last_regen
     
+    # 只有在血量不滿且有時間流逝時才計算 (且 passed_time 必須大於 0)
     if raw_hp < max_hp and passed_time > 0:
         # 規則：24 小時 (86400 秒) 從 0 回到滿
         recovery_rate_per_sec = max_hp / 86400
         recovered_amount = passed_time * recovery_rate_per_sec
         new_hp = min(float(max_hp), raw_hp + recovered_amount)
         
-        # 更新本地數據與資料庫，確保下次打開時血量已增加
+        # 更新本地數據與資料庫
         raw_hp = new_hp
         user_data["hp"] = new_hp
         user_data["last_regen_time"] = now
-        ref.update({"hp": new_hp, "last_regen_time": now})
+        ref.update({
+            "hp": new_hp, 
+            "last_regen_time": now
+        })
+    elif raw_hp >= max_hp:
+        # 如果血量已經滿了，持續更新時間戳避免累積
+        user_data["last_regen_time"] = now
+        ref.update({"last_regen_time": now})
 
+    # 最終顯示用的 HP (取整數前保留 float 精度)
     hp = min(raw_hp, float(max_hp))
 
-    # --- 2. 跨天冒險次數重置 ---
-    adv_data = user_data.get("adventure", {})
+    # --- 3. 跨天冒險次數重置 ---
+    # 先確保冒險資料夾存在
+    if "adventure" not in user_data:
+        user_data["adventure"] = {"count": 0}
+        
+    adv_data = user_data["adventure"]
+    
     if user_data.get("last_login_day") != today:
         adv_count = 0
-        # 更新本地數據與資料庫
         user_data["last_login_day"] = today
-        if "adventure" not in user_data: user_data["adventure"] = {}
         user_data["adventure"]["count"] = 0
-        ref.update({"last_login_day": today, "adventure/count": 0})
+        ref.update({
+            "last_login_day": today, 
+            "adventure/count": 0
+        })
     else:
         adv_count = adv_data.get("count", 0)
 
-    # --- 3. 計算預計回滿時間 (顯示用) ---
+    # --- 4. 計算預計回滿時間 (顯示用) ---
     recovery_info = ""
     if hp < max_hp:
         recovery_rate_per_hour = max_hp / 24
         needed_hp = max_hp - hp
         hours_to_full = needed_hp / recovery_rate_per_hour
+        
         time_str = round(hours_to_full, 1)
+        # 格式化顯示：若為 5.0 則顯示 5，若為 5.2 則顯示 5.2
         display_time = int(time_str) if time_str % 1 == 0 else time_str
         recovery_info = f" `預計 {display_time} 小時後回滿`"
 
-    # 製作血量條 (10格)
+    # 製作血量條
     bar_length = 10
     filled_blocks = max(0, min(bar_length, int((hp / max_hp) * bar_length)))
     hp_bar = "❤️" * filled_blocks + "🤍" * (bar_length - filled_blocks)
     
-    # 冒險圖示
+    # 冒險圖示與物資
     max_adv = 5
     adv_icons = "🟥" * adv_count + "🟩" * (max_adv - adv_count)
     coins = user_data.get("coins", 0)
     inventory = user_data.get("inventory", {})
 
-    # --- 4. 建立 Embed ---
+    # --- 5. 建立 Embed 顯示 ---
     embed = discord.Embed(
         title=f"🎒 {username} 的背包",
         color=discord.Color.blue()
@@ -1895,11 +1918,9 @@ async def handle_bag(message, user_id, user_data, ref):
     embed.add_field(name="📊 目前狀態", value=status_value, inline=False)
     embed.add_field(name="⚔️ 今日冒險次數", value=f"({adv_count}/{max_adv})\n{adv_icons}", inline=False)
 
-    if not inventory:
-        inv_text = "目前儲藏室空空如也..."
-    else:
-        items = [f"• {name}: `{count}` 個" for name, count in inventory.items() if count > 0]
-        inv_text = "\n".join(items) if items else "目前儲藏室空空如也..."
+    # 過濾庫存清單
+    items = [f"• {name}: `{count}` 個" for name, count in inventory.items() if count > 0]
+    inv_text = "\n".join(items) if items else "目前儲藏室空空如也..."
     
     embed.add_field(name="📦 儲藏物資", value=inv_text, inline=False)
     embed.set_footer(text="💡 使用 !吃 [蘿蔔名稱] 來回復體力\n💡 購買商店 Buff 後會直接顯示在狀態欄中")
